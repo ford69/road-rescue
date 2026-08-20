@@ -17,7 +17,11 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci --include=dev
+        env:
+          # Prevent production NODE_ENV from omitting vite and other build tools.
+          NODE_ENV: development
       - run: npm run check
 
   backend:
@@ -38,7 +42,10 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: development
       - name: Configure environment
         run: cp .env.example .env
       - run: npm run check
