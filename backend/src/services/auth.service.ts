@@ -1,0 +1,336 @@
+import type { Response } from 'express';
+import { env } from '../config/env.js';
+import {
+  comparePassword,
+  compareToken,
+  createRandomToken,
+  createTokenPair,
+  hashPassword,
+  hashSha256,
+  hashToken,
+  verifyRefreshToken,
+} from '../auth/tokens.js';
+import { customerRepository } from '../repositories/customer.repository.js';
+import { mechanicRepository } from '../repositories/mechanic.repository.js';
+import { notificationRepository } from '../repositories/misc.repository.js';
+import { userRepository } from '../repositories/user.repository.js';
+import type { Role } from '../types/index.js';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from '../utils/errors.js';
+import type {
+  createAdminSchema,
+  loginSchema,
+  registerCustomerSchema,
+  registerMechanicSchema,
+  resetPasswordSchema,
+} from '../validators/auth.validators.js';
+import type { z } from 'zod';
+import { getPublicUploadPath } from '../uploads/storage.js';
+
+type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
+type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
+type LoginInput = z.infer<typeof loginSchema>;
+type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+type CreateAdminInput = z.infer<typeof createAdminSchema>;
+
+function sanitizeUser(user: {
+  _id: { toString(): string };
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: Role;
+  avatar?: string;
+  status: string;
+  emailVerified: boolean;
+  lastLogin?: Date;
+  createdAt: Date;
+}) {
+  return {
+    id: user._id.toString(),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    avatar: user.avatar ?? null,
+    status: user.status,
+    emailVerified: user.emailVerified,
+    lastLogin: user.lastLogin ?? null,
+    createdAt: user.createdAt,
+  };
+}
+
+function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+  const common = {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: 'lax' as const,
+    path: '/',
+  };
+  res.cookie('accessToken', accessToken, { ...common, maxAge: 15 * 60 * 1000 });
+  res.cookie('refreshToken', refreshToken, { ...common, maxAge: 7 * 24 * 60 * 60 * 1000 });
+}
+
+function clearAuthCookies(res: Response): void {
+  res.clearCookie('accessToken', { path: '/' });
+  res.clearCookie('refreshToken', { path: '/' });
+}
+
+export const authService = {
+  async registerCustomer(input: RegisterCustomerInput, res: Response) {
+    await ensureUniqueIdentity(input.email, input.phone);
+    const password = await hashPassword(input.password);
+    const emailToken = createRandomToken();
+
+    const user = await userRepository.create({
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email.toLowerCase(),
+      phone: input.phone,
+      password,
+      role: 'customer',
+      status: 'active',
+      emailVerified: false,
+      emailVerificationToken: hashSha256(emailToken),
+    });
+
+    await customerRepository.create({ userId: user._id, emergencyContacts: [] });
+    await notificationRepository.create({
+      title: 'Welcome to Road Rescue Ghana',
+      body: 'Your customer account is ready. Request roadside help anytime across Ghana.',
+      recipient: user._id,
+      type: 'success',
+    });
+
+    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+    user.refreshTokenHash = await hashToken(tokens.refreshToken);
+    await user.save();
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    return {
+      user: sanitizeUser(user),
+      tokens,
+      emailVerificationToken: env.NODE_ENV === 'production' ? undefined : emailToken,
+    };
+  },
+
+  async registerMechanic(
+    input: RegisterMechanicInput,
+    selfie: Express.Multer.File | undefined,
+    res: Response,
+  ) {
+    if (!selfie) {
+      throw new ValidationError('A clear selfie photo is required');
+    }
+    await ensureUniqueIdentity(input.email, input.phone);
+    const existingCard = await mechanicRepository.findByGhanaCardNumber(input.ghanaCardNumber);
+    if (existingCard) {
+      throw new ConflictError('A mechanic account already uses this Ghana Card');
+    }
+    const password = await hashPassword(input.password);
+    const emailToken = createRandomToken();
+    const selfiePath = getPublicUploadPath(selfie.filename);
+
+    const user = await userRepository.create({
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email.toLowerCase(),
+      phone: input.phone,
+      password,
+      role: 'mechanic',
+      avatar: selfiePath,
+      status: 'pending',
+      emailVerified: false,
+      emailVerificationToken: hashSha256(emailToken),
+    });
+
+    await mechanicRepository.create({
+      userId: user._id,
+      garageName: input.garageName,
+      ghanaCardNumber: input.ghanaCardNumber,
+      experience: input.experience,
+      location: { city: input.city, address: input.address },
+      latitude: input.latitude,
+      longitude: input.longitude,
+      specialties: input.specialties,
+      availability: false,
+      verificationStatus: 'pending',
+      truck: input.truck,
+      documents: [selfiePath],
+    });
+
+    await notificationRepository.create({
+      title: 'Mechanic application received',
+      body: 'Your Road Rescue Ghana mechanic profile is pending verification.',
+      recipient: user._id,
+      type: 'info',
+    });
+
+    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+    user.refreshTokenHash = await hashToken(tokens.refreshToken);
+    await user.save();
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    return {
+      user: sanitizeUser(user),
+      tokens,
+      emailVerificationToken: env.NODE_ENV === 'production' ? undefined : emailToken,
+    };
+  },
+
+  async createAdmin(input: CreateAdminInput, actorRole: Role) {
+    if (actorRole !== 'admin') {
+      throw new ForbiddenError('Only administrators can create admin accounts');
+    }
+    await ensureUniqueIdentity(input.email, input.phone);
+    const password = await hashPassword(input.password);
+    const user = await userRepository.create({
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email.toLowerCase(),
+      phone: input.phone,
+      password,
+      role: 'admin',
+      status: 'active',
+      emailVerified: true,
+    });
+    return sanitizeUser(user);
+  },
+
+  async login(input: LoginInput, res: Response) {
+    const user = await userRepository.findByEmailWithSecrets(input.email);
+    if (!user) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+    const valid = await comparePassword(input.password, user.password);
+    if (!valid) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+    if (user.status === 'suspended') {
+      throw new ForbiddenError('Account suspended. Contact Road Rescue support.');
+    }
+
+    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+    user.refreshTokenHash = await hashToken(tokens.refreshToken);
+    user.lastLogin = new Date();
+    await user.save();
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    return { user: sanitizeUser(user), tokens };
+  },
+
+  async logout(userId: string | undefined, res: Response) {
+    if (userId) {
+      const user = await userRepository.findByIdWithSecrets(userId);
+      if (user) {
+        user.refreshTokenHash = undefined;
+        await user.save();
+      }
+    }
+    clearAuthCookies(res);
+    return { success: true };
+  },
+
+  async refresh(refreshToken: string | undefined, res: Response) {
+    if (!refreshToken) {
+      throw new UnauthorizedError('Refresh token required');
+    }
+
+    let payload;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    const user = await userRepository.findByIdWithSecrets(payload.sub);
+    if (!user?.refreshTokenHash) {
+      throw new UnauthorizedError('Session expired');
+    }
+
+    const matches = await compareToken(refreshToken, user.refreshTokenHash);
+    if (!matches) {
+      throw new UnauthorizedError('Session expired');
+    }
+
+    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+    user.refreshTokenHash = await hashToken(tokens.refreshToken);
+    await user.save();
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    return { user: sanitizeUser(user), tokens };
+  },
+
+  async forgotPassword(email: string) {
+    const user = await userRepository.findByEmailWithSecrets(email);
+    // Always succeed to avoid account enumeration.
+    if (!user) {
+      return { message: 'If that email exists, a reset link has been sent.' };
+    }
+    const token = createRandomToken();
+    user.passwordResetToken = hashSha256(token);
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+    return {
+      message: 'If that email exists, a reset link has been sent.',
+      resetToken: env.NODE_ENV === 'production' ? undefined : token,
+    };
+  },
+
+  async resetPassword(input: ResetPasswordInput) {
+    const user = await userRepository.findByPasswordResetToken(hashSha256(input.token));
+    if (!user) {
+      throw new ValidationError('Invalid or expired reset token');
+    }
+    user.password = await hashPassword(input.password);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.refreshTokenHash = undefined;
+    await user.save();
+    return { message: 'Password updated successfully' };
+  },
+
+  async verifyEmail(token: string) {
+    const user = await userRepository.findByEmailVerificationToken(hashSha256(token));
+    if (!user) {
+      throw new ValidationError('Invalid verification token');
+    }
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    await user.save();
+    return { message: 'Email verified successfully', user: sanitizeUser(user) };
+  },
+
+  async me(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const profile =
+      user.role === 'customer'
+        ? await customerRepository.findByUserId(userId)
+        : user.role === 'mechanic'
+          ? await mechanicRepository.findByUserId(userId)
+          : null;
+
+    return { user: sanitizeUser(user), profile };
+  },
+};
+
+async function ensureUniqueIdentity(email: string, phone: string): Promise<void> {
+  const existingEmail = await userRepository.findByEmail(email);
+  if (existingEmail) {
+    throw new ConflictError('An account with this email already exists');
+  }
+  const existingPhone = await userRepository.findByPhone(phone);
+  if (existingPhone) {
+    throw new ConflictError('An account with this phone number already exists');
+  }
+}
