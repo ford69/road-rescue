@@ -118,7 +118,7 @@ export const paymentService = {
     return {
       authorizationUrl: initialized.authorizationUrl,
       reference: initialized.reference,
-      callbackUrl: env.PAYSTACK_CALLBACK_URL ?? `${env.CLIENT_ORIGIN}/customer/history`,
+      callbackUrl: env.PAYSTACK_CALLBACK_URL ?? `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
     };
   },
 

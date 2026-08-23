@@ -31,7 +31,7 @@ async function canTrackRequest(user: JwtPayload, requestId: string): Promise<boo
 export function initSockets(httpServer: HttpServer): void {
   io = new Server(httpServer, {
     cors: {
-      origin: env.CLIENT_ORIGIN,
+      origin: env.CLIENT_ORIGINS,
       credentials: true,
     },
   });

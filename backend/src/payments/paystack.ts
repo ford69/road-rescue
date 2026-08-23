@@ -51,7 +51,7 @@ export async function initializePaystackPayment(input: {
       reference: input.reference,
       channels: ['card', 'mobile_money'],
       callback_url:
-        env.PAYSTACK_CALLBACK_URL ?? `${env.CLIENT_ORIGIN}/customer/history`,
+        env.PAYSTACK_CALLBACK_URL ?? `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
       metadata: { requestId: input.requestId },
     }),
   });

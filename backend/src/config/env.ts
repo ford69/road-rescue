@@ -1,5 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { z } from 'zod';
+import { parseClientOrigins } from './cors.js';
 
 loadEnv();
 
@@ -33,4 +34,10 @@ if (!parsed.success) {
   throw new Error('Invalid environment configuration');
 }
 
-export const env = parsed.data;
+const clientOrigins = parseClientOrigins(parsed.data.CLIENT_ORIGIN);
+
+export const env = {
+  ...parsed.data,
+  CLIENT_ORIGINS: clientOrigins,
+  PRIMARY_CLIENT_ORIGIN: clientOrigins[0],
+};
