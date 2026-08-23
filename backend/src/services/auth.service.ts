@@ -129,10 +129,7 @@ export const authService = {
       throw new ValidationError('A clear selfie photo is required');
     }
     await ensureUniqueIdentity(input.email, input.phone);
-    const existingCard = await mechanicRepository.findByGhanaCardNumber(input.ghanaCardNumber);
-    if (existingCard) {
-      throw new ConflictError('A mechanic account already uses this Ghana Card');
-    }
+    await resolveGhanaCardConflict(input.ghanaCardNumber, input.email);
     const password = await hashPassword(input.password);
     const emailToken = createRandomToken();
     const selfiePath = getPublicUploadPath(selfie.filename);
@@ -150,20 +147,28 @@ export const authService = {
       emailVerificationToken: hashSha256(emailToken),
     });
 
-    await mechanicRepository.create({
-      userId: user._id,
-      garageName: input.garageName,
-      ghanaCardNumber: input.ghanaCardNumber,
-      experience: input.experience,
-      location: { city: input.city, address: input.address },
-      latitude: input.latitude,
-      longitude: input.longitude,
-      specialties: input.specialties,
-      availability: false,
-      verificationStatus: 'pending',
-      truck: input.truck,
-      documents: [selfiePath],
-    });
+    try {
+      await mechanicRepository.create({
+        userId: user._id,
+        garageName: input.garageName,
+        ghanaCardNumber: input.ghanaCardNumber,
+        experience: input.experience,
+        location: { city: input.city, address: input.address },
+        latitude: input.latitude,
+        longitude: input.longitude,
+        specialties: input.specialties,
+        availability: false,
+        verificationStatus: 'pending',
+        truck: input.truck,
+        documents: [selfiePath],
+      });
+    } catch (error) {
+      await userRepository.deleteById(user._id.toString());
+      if (isDuplicateGhanaCardError(error)) {
+        throw new ConflictError('A mechanic account already uses this Ghana Card');
+      }
+      throw error;
+    }
 
     await notificationRepository.create({
       title: 'Mechanic application received',
@@ -333,4 +338,41 @@ async function ensureUniqueIdentity(email: string, phone: string): Promise<void>
   if (existingPhone) {
     throw new ConflictError('An account with this phone number already exists');
   }
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  return `${local.slice(0, 1)}***@${domain}`;
+}
+
+function isDuplicateGhanaCardError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: number }).code === 11000 &&
+    'keyPattern' in error &&
+    typeof (error as { keyPattern?: Record<string, unknown> }).keyPattern === 'object' &&
+    Boolean((error as { keyPattern?: Record<string, unknown> }).keyPattern?.ghanaCardNumber)
+  );
+}
+
+async function resolveGhanaCardConflict(ghanaCardNumber: string, email: string): Promise<void> {
+  const existing = await mechanicRepository.findByGhanaCardNumber(ghanaCardNumber);
+  if (!existing) return;
+
+  const linkedUser = await userRepository.findById(existing.userId.toString());
+  if (!linkedUser) {
+    await mechanicRepository.deleteById(existing._id.toString());
+    return;
+  }
+
+  if (linkedUser.email.toLowerCase() === email.toLowerCase()) {
+    throw new ConflictError('An account with this email already exists. Please sign in instead.');
+  }
+
+  throw new ConflictError(
+    `This Ghana Card is already linked to another account (${maskEmail(linkedUser.email)}). Sign in with that email or contact support.`,
+  );
 }

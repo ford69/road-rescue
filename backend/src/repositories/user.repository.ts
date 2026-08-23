@@ -48,4 +48,8 @@ export const userRepository = {
   countByRole(role: Role) {
     return User.countDocuments({ role });
   },
+
+  deleteById(id: string) {
+    return User.deleteOne({ _id: id });
+  },
 };

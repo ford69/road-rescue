@@ -17,6 +17,10 @@ export const mechanicRepository = {
     return Mechanic.findOne({ ghanaCardNumber });
   },
 
+  deleteById(id: string) {
+    return Mechanic.deleteOne({ _id: id });
+  },
+
   findAvailable() {
     return Mechanic.find({ availability: true, verificationStatus: 'verified' })
       .populate('userId', 'firstName lastName phone avatar')
