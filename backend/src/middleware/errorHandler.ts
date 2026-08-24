@@ -5,7 +5,22 @@ import { logger } from '../config/logger.js';
 import { ApiError } from '../utils/errors.js';
 import multer from 'multer';
 
-export function notFoundHandler(_req: Request, _res: Response, next: NextFunction): void {
+function isApiPath(req: Request): boolean {
+  return req.path === '/api' || req.path.startsWith('/api/');
+}
+
+export function notFoundHandler(req: Request, res: Response, next: NextFunction): void {
+  // Internet scanners hit random paths on public API hosts. Return 404 without
+  // a stack trace so PM2 logs stay useful for real app traffic.
+  if (!isApiPath(req)) {
+    res.status(404).json({
+      success: false,
+      message: 'Route not found',
+      requestId: req.requestId,
+    });
+    return;
+  }
+
   next(new ApiError(404, 'Route not found'));
 }
 
@@ -61,6 +76,7 @@ export function errorHandler(
   }
 
   if (err instanceof ApiError) {
+    const isClientError = err.isOperational && err.statusCode < 500;
     const errorMetadata = {
       ...requestContext,
       statusCode: err.statusCode,
@@ -68,11 +84,13 @@ export function errorHandler(
       errorMessage: err.message,
       isOperational: err.isOperational,
       details: err.details,
-      stack: err.stack,
+      ...(isClientError ? {} : { stack: err.stack }),
     };
 
     if (!err.isOperational || err.statusCode >= 500) {
       logger.error('API operational error', errorMetadata);
+    } else if (err.statusCode === 404) {
+      logger.info('API route not found', errorMetadata);
     } else {
       logger.warn('API request error', errorMetadata);
     }

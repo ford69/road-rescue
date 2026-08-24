@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import path from 'node:path';
+import { createCorsOptions } from './config/cors.js';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -26,13 +27,18 @@ export function createApp() {
     next();
   });
   app.use(requestLogger);
-  app.use(helmet());
+  const corsConfig = createCorsOptions(env.CLIENT_ORIGINS);
+  app.use(cors(corsConfig));
+  app.options('*', cors(corsConfig));
   app.use(
-    cors({
-      origin: env.CLIENT_ORIGINS,
-      credentials: true,
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
+
+  app.get('/favicon.ico', (_req, res) => {
+    res.status(204).end();
+  });
   app.use(
     rateLimit({
       windowMs: env.RATE_LIMIT_WINDOW_MS,

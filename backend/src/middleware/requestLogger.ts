@@ -42,7 +42,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   req.requestId = req.get('x-request-id')?.trim() || randomUUID();
   res.setHeader('x-request-id', req.requestId);
 
-  if (!req.originalUrl.startsWith('/api')) {
+  if (!req.originalUrl.startsWith('/api') || req.method === 'OPTIONS') {
     next();
     return;
   }
