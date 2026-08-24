@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import App from './App.tsx';
 import {
+  AdminLoginScreen,
   ForgotPasswordScreen,
   LoginScreen,
   RegisterScreen,
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <Routes>
               <Route path="/auth/login" element={<LoginScreen />} />
+              <Route path="/auth/admin" element={<AdminLoginScreen />} />
               <Route path="/auth/register" element={<RegisterScreen />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordScreen />} />
               <Route path="/auth/reset-password" element={<ResetPasswordScreen />} />

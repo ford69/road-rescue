@@ -40,6 +40,12 @@ router.post(
 );
 
 router.post('/login', guestOnly, validateBody(loginSchema), asyncHandler(authController.login));
+router.post(
+  '/admin/login',
+  guestOnly,
+  validateBody(loginSchema),
+  asyncHandler(authController.loginAdmin),
+);
 router.post('/logout', authenticate, asyncHandler(authController.logout));
 router.post('/refresh', asyncHandler(authController.refresh));
 router.post(

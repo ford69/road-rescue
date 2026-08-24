@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import path from 'node:path';
-import { createCorsOptions } from './config/cors.js';
+import { corsHeadersMiddleware, createCorsOptions } from './config/cors.js';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -27,9 +27,10 @@ export function createApp() {
     next();
   });
   app.use(requestLogger);
-  const corsConfig = createCorsOptions(env.CLIENT_ORIGINS);
-  app.use(cors(corsConfig));
-  app.options('*', cors(corsConfig));
+  // Explicit CORS headers first so successful responses (including multipart
+  // POSTs that skip preflight) always expose Access-Control-Allow-Origin.
+  app.use(corsHeadersMiddleware(env.CLIENT_ORIGINS));
+  app.use(cors(createCorsOptions(env.CLIENT_ORIGINS)));
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },

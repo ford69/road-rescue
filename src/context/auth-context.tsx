@@ -9,6 +9,7 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<ApiUser>;
+  loginAdmin: (email: string, password: string) => Promise<ApiUser>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   setUser: (user: ApiUser | null) => void;
@@ -52,6 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data.user;
   };
 
+  const loginAdmin = async (email: string, password: string) => {
+    const data = await authApi.loginAdmin(email, password);
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = async () => {
     await authApi.logout();
     setUser(null);
@@ -62,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     isAuthenticated: Boolean(user),
     login,
+    loginAdmin,
     logout,
     refreshMe,
     setUser,

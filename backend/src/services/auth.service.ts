@@ -69,10 +69,12 @@ function sanitizeUser(user: {
 }
 
 function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+  // Frontend (roadrescue4u.com) and API (api.roadrescue4u.com) are cross-site.
+  // SameSite=None is required for the browser to accept/send cookies on fetch.
   const common = {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    sameSite: 'lax' as const,
+    sameSite: (env.COOKIE_SECURE ? 'none' : 'lax') as 'none' | 'lax',
     path: '/',
   };
   res.cookie('accessToken', accessToken, { ...common, maxAge: 15 * 60 * 1000 });
@@ -80,8 +82,14 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
 }
 
 function clearAuthCookies(res: Response): void {
-  res.clearCookie('accessToken', { path: '/' });
-  res.clearCookie('refreshToken', { path: '/' });
+  const common = {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: (env.COOKIE_SECURE ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/',
+  };
+  res.clearCookie('accessToken', common);
+  res.clearCookie('refreshToken', common);
 }
 
 export const authService = {
@@ -218,6 +226,14 @@ export const authService = {
   },
 
   async login(input: LoginInput, res: Response) {
+    return this.completeLogin(input, res);
+  },
+
+  async loginAdmin(input: LoginInput, res: Response) {
+    return this.completeLogin(input, res, 'admin');
+  },
+
+  async completeLogin(input: LoginInput, res: Response, requiredRole?: Role) {
     const user = await userRepository.findByEmailWithSecrets(input.email);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password');
@@ -228,6 +244,10 @@ export const authService = {
     }
     if (user.status === 'suspended') {
       throw new ForbiddenError('Account suspended. Contact Road Rescue support.');
+    }
+    if (requiredRole && user.role !== requiredRole) {
+      // Same message as bad credentials — do not reveal account role.
+      throw new UnauthorizedError('Invalid email or password');
     }
 
     const tokens = createTokenPair(user._id.toString(), user.role, user.email);

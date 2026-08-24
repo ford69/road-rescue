@@ -74,6 +74,15 @@ export const authApi = {
     return data;
   },
 
+  async loginAdmin(email: string, password: string) {
+    const data = await apiRequest<AuthResult>('/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
+    return data;
+  },
+
   async logout() {
     try {
       await apiRequest<{ success: boolean }>('/auth/logout', { method: 'POST' });

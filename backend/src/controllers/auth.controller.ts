@@ -25,6 +25,11 @@ export const authController = {
     return sendSuccess(res, data, 'Logged in');
   },
 
+  loginAdmin: async (req: Request, res: Response) => {
+    const data = await authService.loginAdmin(req.body, res);
+    return sendSuccess(res, data, 'Logged in');
+  },
+
   logout: async (req: Request, res: Response) => {
     const data = await authService.logout(req.user?.id, res);
     return sendSuccess(res, data, 'Logged out');

@@ -103,6 +103,62 @@ export function LoginScreen() {
   );
 }
 
+export function AdminLoginScreen() {
+  const { loginAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = React.useState(false);
+  const form = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setSubmitting(true);
+    try {
+      const user = await loginAdmin(values.email, values.password);
+      toast({
+        type: 'success',
+        title: 'Admin access granted',
+        description: `Welcome, ${user.firstName}`,
+      });
+      navigate('/admin/home', { replace: true });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Admin sign-in failed',
+        description: error instanceof ApiClientError ? error.message : 'Unable to sign in',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  });
+
+  return (
+    <AuthShell
+      title="Admin sign in"
+      subtitle="Restricted access for Road Rescue Ghana administrators"
+    >
+      <form className="space-y-4" onSubmit={onSubmit}>
+        <Field label="Admin email" error={form.formState.errors.email?.message}>
+          <Input type="email" placeholder="admin@roadrescue.gh" autoComplete="username" {...form.register('email')} />
+        </Field>
+        <Field label="Password" error={form.formState.errors.password?.message}>
+          <PasswordInput
+            placeholder="••••••••"
+            autoComplete="current-password"
+            error={Boolean(form.formState.errors.password)}
+            {...form.register('password')}
+          />
+        </Field>
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? 'Signing in…' : 'Sign in as admin'}
+        </Button>
+      </form>
+    </AuthShell>
+  );
+}
+
 const registerSchema = z
   .object({
     role: z.enum(['customer', 'mechanic']),

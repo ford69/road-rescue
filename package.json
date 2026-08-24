@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:api": "npm --prefix backend run dev",
     "seed": "npm --prefix backend run seed",
+    "admin:create": "npm --prefix backend run admin:create --",
     "build": "vite build",
     "check": "npm run typecheck && npm run lint && npm run build",
     "check:all": "npm run check && npm --prefix backend run check",
