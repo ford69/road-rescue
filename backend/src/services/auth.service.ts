@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import {
   comparePassword,
   compareToken,
@@ -11,6 +12,7 @@ import {
   verifyRefreshToken,
 } from '../auth/tokens.js';
 import { customerRepository } from '../repositories/customer.repository.js';
+import type { IMechanic } from '../models/Mechanic.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
 import { notificationRepository } from '../repositories/misc.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -165,7 +167,14 @@ export const authService = {
     } catch (error) {
       await userRepository.deleteById(user._id.toString());
       if (isDuplicateGhanaCardError(error)) {
-        throw new ConflictError('A mechanic account already uses this Ghana Card');
+        try {
+          await handleGhanaCardConflict(input.ghanaCardNumber, input.email);
+        } catch (conflict) {
+          throw conflict;
+        }
+        throw new ConflictError(
+          'Registration was interrupted by a stale mechanic record. Please submit the form again.',
+        );
       }
       throw error;
     }
@@ -361,10 +370,24 @@ function isDuplicateGhanaCardError(error: unknown): boolean {
 async function resolveGhanaCardConflict(ghanaCardNumber: string, email: string): Promise<void> {
   const existing = await mechanicRepository.findByGhanaCardNumber(ghanaCardNumber);
   if (!existing) return;
+  await handleGhanaCardConflict(ghanaCardNumber, email, existing);
+}
 
-  const linkedUser = await userRepository.findById(existing.userId.toString());
+async function handleGhanaCardConflict(
+  ghanaCardNumber: string,
+  email: string,
+  existing?: IMechanic | null,
+): Promise<void> {
+  const mechanic = existing ?? (await mechanicRepository.findByGhanaCardNumber(ghanaCardNumber));
+  if (!mechanic) return;
+
+  const linkedUser = await userRepository.findById(mechanic.userId.toString());
   if (!linkedUser) {
-    await mechanicRepository.deleteById(existing._id.toString());
+    await mechanicRepository.deleteById(mechanic._id.toString());
+    logger.warn('Removed orphan mechanic record blocking registration', {
+      mechanicId: mechanic._id.toString(),
+      ghanaCardPrefix: ghanaCardNumber.slice(0, 7),
+    });
     return;
   }
 
