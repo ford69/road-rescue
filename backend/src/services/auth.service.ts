@@ -33,6 +33,7 @@ import type {
 } from '../validators/auth.validators.js';
 import type { z } from 'zod';
 import { getPublicUploadPath } from '../uploads/storage.js';
+import { emailService } from '../email/index.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -118,6 +119,19 @@ export const authService = {
       type: 'success',
     });
 
+    void emailService
+      .sendVerificationEmail({
+        email: user.email,
+        firstName: user.firstName,
+        token: emailToken,
+      })
+      .catch((error: unknown) => {
+        logger.error('Customer verification email failed', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
     const tokens = createTokenPair(user._id.toString(), user.role, user.email);
     user.refreshTokenHash = await hashToken(tokens.refreshToken);
     await user.save();
@@ -192,6 +206,24 @@ export const authService = {
       body: 'Your Road Rescue Ghana mechanic profile is pending verification.',
       recipient: user._id,
       type: 'info',
+    });
+
+    void Promise.all([
+      emailService.sendVerificationEmail({
+        email: user.email,
+        firstName: user.firstName,
+        token: emailToken,
+      }),
+      emailService.sendMechanicApplicationReceivedEmail({
+        email: user.email,
+        firstName: user.firstName,
+        garageName: input.garageName,
+      }),
+    ]).catch((error: unknown) => {
+      logger.error('Mechanic registration email flow failed', {
+        email: user.email,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 
     const tokens = createTokenPair(user._id.toString(), user.role, user.email);
@@ -311,6 +343,20 @@ export const authService = {
     user.passwordResetToken = hashSha256(token);
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
+
+    void emailService
+      .sendPasswordResetEmail({
+        email: user.email,
+        firstName: user.firstName,
+        token,
+      })
+      .catch((error: unknown) => {
+        logger.error('Password reset email failed', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
     return {
       message: 'If that email exists, a reset link has been sent.',
       resetToken: env.NODE_ENV === 'production' ? undefined : token,
@@ -338,6 +384,22 @@ export const authService = {
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     await user.save();
+
+    if (user.role === 'customer' || user.role === 'mechanic') {
+      void emailService
+        .sendWelcomeEmail({
+          email: user.email,
+          firstName: user.firstName,
+          role: user.role,
+        })
+        .catch((error: unknown) => {
+          logger.error('Welcome email failed', {
+            email: user.email,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    }
+
     return { message: 'Email verified successfully', user: sanitizeUser(user) };
   },
 

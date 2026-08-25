@@ -75,7 +75,7 @@ export const authApi = {
   },
 
   async loginAdmin(email: string, password: string) {
-    const data = await apiRequest<AuthResult>('/auth/admin/login', {
+    const data = await apiRequest<AuthResult>('/auth/login/admin', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });

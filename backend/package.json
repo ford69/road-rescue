@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/seed/seed.ts",
     "admin:create": "tsx src/scripts/create-admin.ts",
+    "email:test": "tsx src/scripts/send-test-email.ts",
     "cleanup:demo": "tsx src/scripts/remove-demo-activity.ts",
     "cleanup:orphan-mechanics": "tsx src/scripts/cleanup-orphan-mechanics.ts",
     "db:info": "tsx src/scripts/db-info.ts",

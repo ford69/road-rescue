@@ -4,6 +4,7 @@ import { authenticate, authorize, guestOnly } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { upload } from '../uploads/storage.js';
+import { ApiError } from '../utils/errors.js';
 import {
   createAdminSchema,
   forgotPasswordSchema,
@@ -15,6 +16,21 @@ import {
 } from '../validators/auth.validators.js';
 
 const router = Router();
+
+// Public auth endpoints first — never require a bearer token.
+router.post('/login', guestOnly, validateBody(loginSchema), asyncHandler(authController.login));
+router.post(
+  '/admin/login',
+  guestOnly,
+  validateBody(loginSchema),
+  asyncHandler(authController.loginAdmin),
+);
+router.post(
+  '/login/admin',
+  guestOnly,
+  validateBody(loginSchema),
+  asyncHandler(authController.loginAdmin),
+);
 
 router.post(
   '/register/customer',
@@ -39,13 +55,6 @@ router.post(
   asyncHandler(authController.createAdmin),
 );
 
-router.post('/login', guestOnly, validateBody(loginSchema), asyncHandler(authController.login));
-router.post(
-  '/admin/login',
-  guestOnly,
-  validateBody(loginSchema),
-  asyncHandler(authController.loginAdmin),
-);
 router.post('/logout', authenticate, asyncHandler(authController.logout));
 router.post('/refresh', asyncHandler(authController.refresh));
 router.post(
@@ -64,5 +73,11 @@ router.post(
   asyncHandler(authController.verifyEmail),
 );
 router.get('/me', authenticate, asyncHandler(authController.me));
+
+// Keep unmatched /api/auth/* requests from falling through to the
+// authenticated /api router (which would return a confusing 401).
+router.use((_req, _res, next) => {
+  next(new ApiError(404, 'Auth route not found'));
+});
 
 export default router;

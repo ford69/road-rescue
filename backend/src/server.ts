@@ -20,6 +20,8 @@ async function bootstrap(): Promise<void> {
     logger.info(`Road Rescue Ghana API listening on port ${env.PORT}`, {
       clientOrigins: env.CLIENT_ORIGINS,
       cookieSecure: env.COOKIE_SECURE,
+      brevoConfigured: Boolean(env.BREVO_API_KEY),
+      brevoSender: env.BREVO_SENDER_EMAIL,
     });
   });
   initSockets(server);
