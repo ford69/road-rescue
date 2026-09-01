@@ -13,6 +13,9 @@ async function bootstrap(): Promise<void> {
       clientOrigins: env.CLIENT_ORIGINS,
     });
   }
+  if (env.NODE_ENV === 'production' && !env.BREVO_API_KEY) {
+    logger.warn('BREVO_API_KEY is not set — transactional emails will not be sent');
+  }
 
   await connectDatabase();
   const app = createApp();

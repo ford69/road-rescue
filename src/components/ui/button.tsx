@@ -14,27 +14,27 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'icon';
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-primary-foreground shadow-soft hover:bg-primary-700 active:scale-[0.98]',
+    'bg-primary text-primary-foreground shadow-soft hover:bg-primary-600 active:scale-[0.99]',
   secondary:
-    'bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]',
+    'bg-brand-black text-white hover:bg-brand-black/90 active:scale-[0.99]',
   outline:
-    'border border-border bg-card text-foreground hover:bg-accent active:scale-[0.98]',
+    'border border-border bg-card text-foreground hover:bg-muted active:scale-[0.99]',
   ghost:
-    'text-foreground hover:bg-accent active:scale-[0.98]',
+    'text-foreground hover:bg-muted active:scale-[0.99]',
   critical:
-    'bg-critical text-critical-foreground shadow-soft hover:bg-critical-600 active:scale-[0.98]',
+    'bg-critical text-critical-foreground shadow-soft hover:bg-critical-600 active:scale-[0.99]',
   success:
-    'bg-success text-success-foreground shadow-soft hover:bg-success-600 active:scale-[0.98]',
+    'bg-success text-success-foreground shadow-soft hover:bg-success-600 active:scale-[0.99]',
   subtle:
-    'bg-accent text-foreground hover:bg-accent/80 active:scale-[0.98]',
+    'bg-muted text-foreground hover:bg-muted/80 active:scale-[0.99]',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3.5 text-sm gap-1.5 rounded-lg',
-  md: 'h-11 px-5 text-sm gap-2 rounded-xl',
-  lg: 'h-12 px-6 text-base gap-2 rounded-xl',
-  xl: 'h-14 px-8 text-base gap-2.5 rounded-2xl',
-  icon: 'h-11 w-11 rounded-xl',
+  sm: 'h-9 px-3.5 text-sm gap-1.5 rounded-md',
+  md: 'h-11 px-5 text-sm gap-2 rounded-md',
+  lg: 'h-12 px-6 text-base gap-2 rounded-md',
+  xl: 'h-14 px-8 text-base gap-2.5 rounded-md',
+  icon: 'h-11 w-11 rounded-md',
 };
 
 export interface ButtonProps

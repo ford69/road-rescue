@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils';
 import type { Role } from '@/api/types';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar } from '@/components/ui/avatar';
+import { useAuth } from '@/context/auth-context';
+import { getUserInitials, resolveMediaUrl } from '@/lib/user-display';
 
 export interface NavItem {
   id: string;
@@ -242,6 +244,11 @@ export function TopBar({
   notificationCount: number;
   onOpenNotifications: () => void;
 }) {
+  const { user } = useAuth();
+  const initials = getUserInitials(user);
+  const avatarSrc = resolveMediaUrl(user?.avatar);
+  const fullName = user ? `${user.firstName} ${user.lastName}` : 'Road Rescue user';
+
   return (
     <header className="sticky top-0 z-30 glass border-b border-border safe-top">
       <div className="flex h-16 items-center gap-3 px-4">
@@ -301,7 +308,9 @@ export function TopBar({
 
         {/* User avatar */}
         <Avatar
-          fallback="JD"
+          src={avatarSrc}
+          alt={fullName}
+          fallback={initials}
           size="md"
           className="hidden sm:flex ring-2 ring-border"
         />
@@ -324,7 +333,11 @@ export function MobileMenu({
   onNavigate: (id: string) => void;
   active: string;
 }) {
+  const { user } = useAuth();
   const items = getNavItems(role);
+  const initials = getUserInitials(user);
+  const avatarSrc = resolveMediaUrl(user?.avatar);
+  const fullName = user ? `${user.firstName} ${user.lastName}` : 'Road Rescue user';
 
   return (
     <div
@@ -369,14 +382,20 @@ export function MobileMenu({
         {/* User card */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <Avatar fallback="JD" size="lg" ring />
+            <Avatar
+              src={avatarSrc}
+              alt={fullName}
+              fallback={initials}
+              size="lg"
+              ring
+            />
             <div className="min-w-0">
-              <p className="font-semibold truncate">Jordan Davis</p>
+              <p className="font-semibold truncate">{fullName}</p>
               <p className="text-sm text-muted-foreground truncate">
                 {role === 'customer'
-                  ? 'Premium Member'
+                  ? 'Customer'
                   : role === 'mechanic'
-                    ? 'Top Rated'
+                    ? 'Provider'
                     : 'Administrator'}
               </p>
             </div>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Road Rescue">
+  <!-- Maskable: same brand mark with safe padding -->
+  <rect width="512" height="512" fill="#111111"/>
+  <g fill="none" stroke="#FFD100" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" transform="translate(256 256)">
+    <circle r="120"/>
+    <circle r="50"/>
+    <path d="M0 -120 v38 M0 82 v38 M-120 0 h38 M82 0 h38"/>
+    <path d="M-85 -85 l27 27 M58 58 l27 27 M85 -85 l-27 27 M-58 58 l-27 27"/>
+  </g>
+</svg>

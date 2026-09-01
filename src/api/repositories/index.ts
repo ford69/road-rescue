@@ -4,11 +4,18 @@ import type {
   ChatMessageDto,
   LiveLocationDto,
   MechanicDto,
+  MechanicEarningsDto,
   NotificationDto,
   PaymentDto,
   PaymentInitializationDto,
+  ProviderPaymentDto,
+  ProviderPayoutInfoDto,
   RescueRequestDto,
   ServiceTypeDto,
+  SubscriptionPlanDto,
+  SubscriptionPlanSlug,
+  SubscriptionSummaryDto,
+  SubscriptionUpgradeDto,
   VehicleDto,
 } from '../types';
 
@@ -99,12 +106,13 @@ export const mechanicsApi = {
     });
   },
   earnings() {
-    return apiRequest<{
-      totalEarnings: number;
-      completedJobs: number;
-      rating: number;
-      jobs: RescueRequestDto[];
-    }>('/mechanics/me/earnings');
+    return apiRequest<MechanicEarningsDto>('/mechanics/me/earnings');
+  },
+  payments() {
+    return apiRequest<ProviderPaymentDto[]>('/mechanics/me/payments');
+  },
+  payoutInfo() {
+    return apiRequest<ProviderPayoutInfoDto>('/mechanics/me/payout-info');
   },
 };
 
@@ -137,6 +145,24 @@ export const chatApi = {
       method: 'POST',
       body: JSON.stringify({ body }),
     });
+  },
+};
+
+export const subscriptionsApi = {
+  listPlans() {
+    return apiRequest<SubscriptionPlanDto[]>('/subscriptions/plans');
+  },
+  current() {
+    return apiRequest<SubscriptionSummaryDto>('/subscriptions/me');
+  },
+  initializeUpgrade(planSlug: SubscriptionPlanSlug) {
+    return apiRequest<SubscriptionUpgradeDto>('/subscriptions/upgrade', {
+      method: 'POST',
+      body: JSON.stringify({ planSlug }),
+    });
+  },
+  downgradeToFree() {
+    return apiRequest<SubscriptionSummaryDto>('/subscriptions/downgrade', { method: 'POST' });
   },
 };
 

@@ -62,6 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await authApi.logout();
     setUser(null);
+    // Tokens are cleared in authApi.logout → tokenStore.clear().
+    try {
+      localStorage.removeItem('rr_active_rescue');
+    } catch {
+      // ignore
+    }
   };
 
   const value: AuthContextValue = {

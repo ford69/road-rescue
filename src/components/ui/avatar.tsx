@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { resolveMediaUrl } from '@/lib/user-display';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -29,7 +30,12 @@ export function Avatar({
   ...props
 }: AvatarProps) {
   const [imgError, setImgError] = React.useState(false);
-  const showImg = src && !imgError;
+  const resolvedSrc = resolveMediaUrl(src);
+  const showImg = resolvedSrc && !imgError;
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [resolvedSrc]);
 
   return (
     <div
@@ -43,7 +49,7 @@ export function Avatar({
     >
       {showImg ? (
         <img
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           className="h-full w-full object-cover"
           onError={() => setImgError(true)}

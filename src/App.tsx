@@ -152,7 +152,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       profile: role === 'admin' ? 'Settings' : 'Profile',
       request: 'Request Assistance',
       tracking: 'Live Tracking',
-      earnings: 'Earnings',
+      earnings: 'Payments & Earnings',
       users: 'User Management',
       mechanics: 'Mechanics',
       payments: 'Payments',
@@ -214,9 +214,9 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
 
         <main
           className={cn(
-            'mx-auto w-full max-w-5xl px-4 py-4',
+            'mx-auto w-full max-w-5xl px-4 py-4 pb-nav',
             isRequestFlow ? 'pt-4' : 'pt-4',
-            'lg:px-6 lg:py-6',
+            'lg:px-6 lg:py-6 lg:pb-6',
           )}
         >
           {role === 'customer' && screen === 'home' && (

@@ -28,7 +28,11 @@ async function dispatchEmail(input: {
   tags: string[];
 }): Promise<SendEmailResult> {
   if (!isBrevoConfigured()) {
-    logger.info('Email skipped — Brevo not configured', {
+    const log =
+      env.NODE_ENV === 'production'
+        ? logger.warn.bind(logger)
+        : logger.info.bind(logger);
+    log('Email skipped — Brevo not configured', {
       template: input.key,
       to: input.to.email,
       previewSubject: input.subject,

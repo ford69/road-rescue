@@ -24,6 +24,14 @@ import { useToast } from '@/components/ui/toast';
 import type { RequestStatus, RescueRequestDto } from '@/api/types';
 import { nextJobAction, canCancelJob } from '@/lib/job-status';
 import { RequestChat } from '@/components/request-chat';
+import { setActiveRescueFlag } from '@/pwa/active-rescue';
+import {
+  clearWatch,
+  geolocationErrorMessage,
+  watchPosition,
+  type GeolocationRequestError,
+} from '@/lib/geolocation';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 const ACTIVE = new Set(['accepted', 'enroute', 'arrived', 'inprogress']);
 
@@ -40,6 +48,7 @@ function vehicleLabel(job: RescueRequestDto): string {
 
 export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
   const { toast } = useToast();
+  const { isOffline } = useNetworkStatus();
   const { data: requests, loading, reload } = useRequests({ pollMs: 8000 });
   const [sheetExpanded, setSheetExpanded] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -58,14 +67,21 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
   const activeStatus = active?.status;
 
   React.useEffect(() => {
-    if (!activeId || !activeStatus || !ACTIVE.has(activeStatus) || !navigator.geolocation) return;
-    const watchId = navigator.geolocation.watchPosition(
+    setActiveRescueFlag(Boolean(activeId && activeStatus && ACTIVE.has(activeStatus)));
+    return () => setActiveRescueFlag(false);
+  }, [activeId, activeStatus]);
+
+  React.useEffect(() => {
+    if (!activeId || !activeStatus || !ACTIVE.has(activeStatus)) return;
+
+    const watchId = watchPosition(
       (position) => {
         const next = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
         setCurrentLocation(next);
+        if (isOffline) return;
         const now = Date.now();
         if (now - lastSentAt.current < 5000) return;
         lastSentAt.current = now;
@@ -78,19 +94,17 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
           })
           .catch(() => undefined);
       },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          toast({
-            type: 'error',
-            title: 'Location permission required',
-            description: 'Allow location access so the customer can track your arrival.',
-          });
-        }
+      (error: GeolocationRequestError) => {
+        toast({
+          type: 'error',
+          title: 'Location unavailable',
+          description: geolocationErrorMessage(error.reason),
+        });
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },
     );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [activeId, activeStatus, toast]);
+
+    return () => clearWatch(watchId);
+  }, [activeId, activeStatus, isOffline, toast]);
 
   const advance = async (status: RequestStatus) => {
     if (!active) return;

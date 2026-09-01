@@ -66,6 +66,13 @@
     --critical-500: 0 84% 60%;
     --critical-600: 0 72% 51%;
     --critical-700: 0 74% 42%;
+
+    /* Marketing brand palette */
+    --brand-blue: 210 68% 17%;
+    --brand-blue-light: 210 64% 28%;
+    --brand-black: 0 0% 4%;
+    --brand-navy: 210 65% 12%;
+    --brand-red: 348 74% 44%;
   }
 
   .dark {
@@ -121,6 +128,11 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overscroll-behavior-y: none;
+    min-height: 100dvh;
+  }
+
+  #root {
+    min-height: 100dvh;
   }
 
   :focus-visible {
@@ -201,6 +213,57 @@
   }
   .safe-top {
     padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .pb-nav {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Marketing landing page */
+  .hero-overlay-base {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--brand-black) / 0.55);
+  }
+
+  .hero-overlay-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      hsl(var(--brand-black) / 0.92) 0%,
+      hsl(var(--brand-blue) / 0.78) 42%,
+      hsl(var(--brand-blue) / 0.35) 72%,
+      hsl(var(--brand-black) / 0.25) 100%
+    );
+  }
+
+  .hero-overlay-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 80% 70% at 50% 50%,
+      transparent 30%,
+      hsl(var(--brand-black) / 0.65) 100%
+    );
+  }
+
+  .hero-overlay-noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .marketing-card {
+    @apply rounded-2xl border border-border/80 bg-card shadow-card;
+  }
+
+  .marketing-card-dark {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm;
   }
 }
 

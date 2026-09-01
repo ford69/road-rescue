@@ -9,6 +9,31 @@ export type ServiceType =
   | 'accident'
   | 'other';
 
+export type PaymentStatus =
+  | 'pending'
+  | 'authorized'
+  | 'paid'
+  | 'failed'
+  | 'refunded'
+  | 'cancelled';
+
+export type SettlementStatus = 'pending' | 'processing' | 'settled' | 'failed';
+
+export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
+
+export type SubscriptionStatus =
+  | 'active'
+  | 'trialing'
+  | 'past_due'
+  | 'cancelled'
+  | 'incomplete';
+
+export type SubscriptionFeature =
+  | 'priority_matching'
+  | 'member_discount'
+  | 'premium_support'
+  | 'higher_member_discount';
+
 export type RequestStatus =
   | 'requested'
   | 'searching'
@@ -126,13 +151,94 @@ export interface PaymentDto {
   mechanic?: string;
   request: string;
   amount: number;
+  grossAmount?: number;
+  platformFee?: number;
+  providerAmount?: number;
   currency: 'GHS';
+  paymentProvider?: string;
   paymentMethod: 'paystack' | 'cash' | 'mobile_money' | 'card';
   transactionReference?: string;
   channel?: string;
   paidAt?: string;
-  status: 'pending' | 'paid' | 'failed' | 'refunded';
+  status: PaymentStatus;
+  settlementStatus?: SettlementStatus;
+  settledAt?: string;
   createdAt: string;
+}
+
+export interface ProviderPaymentDto {
+  id: string;
+  customerId: string;
+  providerId?: string;
+  serviceRequestId: string;
+  paymentProvider: string;
+  paymentReference?: string;
+  grossAmount: number;
+  platformFee: number;
+  providerAmount: number;
+  currency: 'GHS';
+  paymentStatus: PaymentStatus;
+  settlementStatus: SettlementStatus;
+  paymentMethod: string;
+  channel?: string;
+  paidAt?: string;
+  settledAt?: string;
+  createdAt: string;
+}
+
+export interface ProviderPayoutInfoDto {
+  configured: boolean;
+  provider: string;
+  subaccountCode?: string;
+  managementUrl?: string;
+  message: string;
+}
+
+export interface MechanicEarningsDto {
+  totalEarnings: number;
+  pendingPayments: number;
+  settledPayments: number;
+  completedJobs: number;
+  rating: number;
+  jobs: RescueRequestDto[];
+  recentPayments: ProviderPaymentDto[];
+  payoutInfo: ProviderPayoutInfoDto;
+  disclaimer: string;
+}
+
+export interface SubscriptionPlanDto {
+  _id: string;
+  slug: SubscriptionPlanSlug;
+  name: string;
+  description: string;
+  monthlyPriceGhs: number;
+  features: SubscriptionFeature[];
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface SubscriptionDto {
+  _id: string;
+  planSlug: SubscriptionPlanSlug;
+  status: SubscriptionStatus;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  cancelAtPeriodEnd?: boolean;
+}
+
+export interface SubscriptionSummaryDto {
+  subscription: SubscriptionDto | null;
+  plan: SubscriptionPlanDto | null;
+  entitlements: SubscriptionFeature[];
+  memberDiscountPercent: number;
+}
+
+export interface SubscriptionUpgradeDto {
+  plan: SubscriptionPlanDto;
+  checkoutConfigured: boolean;
+  message: string;
+  callbackUrl: string;
+  customerEmail: string;
 }
 
 export interface PaymentInitializationDto {

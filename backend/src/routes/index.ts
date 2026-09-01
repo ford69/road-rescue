@@ -11,6 +11,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { paymentController } from '../controllers/payment.controller.js';
+import { subscriptionController } from '../controllers/subscription.controller.js';
 import { chatController } from '../controllers/chat.controller.js';
 import {
   createRequestSchema,
@@ -29,6 +30,7 @@ router.get('/health', (_req, res) => {
 });
 
 router.get('/service-types', asyncHandler(catalogController.serviceTypes));
+router.get('/subscriptions/plans', asyncHandler(subscriptionController.listPlans));
 
 router.use(authenticate);
 
@@ -74,6 +76,32 @@ router.get(
   '/payments/verify/:reference',
   authorize('customer'),
   asyncHandler(paymentController.verify),
+);
+router.get(
+  '/mechanics/me/payments',
+  authorize('mechanic'),
+  asyncHandler(paymentController.mechanicPayments),
+);
+router.get(
+  '/mechanics/me/payout-info',
+  authorize('mechanic'),
+  asyncHandler(paymentController.mechanicPayoutInfo),
+);
+
+router.get(
+  '/subscriptions/me',
+  authorize('customer'),
+  asyncHandler(subscriptionController.current),
+);
+router.post(
+  '/subscriptions/upgrade',
+  authorize('customer'),
+  asyncHandler(subscriptionController.initializeUpgrade),
+);
+router.post(
+  '/subscriptions/downgrade',
+  authorize('customer'),
+  asyncHandler(subscriptionController.downgradeToFree),
 );
 
 router.patch(

@@ -8,6 +8,8 @@ export * from './Assignment.js';
 export * from './LiveLocation.js';
 export * from './Notification.js';
 export * from './Payment.js';
+export * from './SubscriptionPlan.js';
+export * from './Subscription.js';
 export * from './Rating.js';
 export * from './SupportTicket.js';
 export * from './ChatMessage.js';

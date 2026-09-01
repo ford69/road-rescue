@@ -37,23 +37,41 @@ export async function initializePaystackPayment(input: {
   amountGhs: number;
   reference: string;
   requestId: string;
+  providerSubaccountCode?: string;
+  platformFeePercent: number;
 }): Promise<{ authorizationUrl: string; accessCode: string; reference: string }> {
+  const body: Record<string, unknown> = {
+    email: input.email,
+    amount: Math.round(input.amountGhs * 100),
+    currency: 'GHS',
+    reference: input.reference,
+    channels: ['card', 'mobile_money'],
+    callback_url:
+      env.PAYSTACK_CALLBACK_URL ?? `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
+    metadata: { requestId: input.requestId },
+  };
+
+  if (input.providerSubaccountCode) {
+    const providerShare = Math.max(0, 100 - input.platformFeePercent);
+    body.split = {
+      type: 'percentage',
+      bearer_type: 'account',
+      subaccounts: [
+        {
+          subaccount: input.providerSubaccountCode,
+          share: providerShare,
+        },
+      ],
+    };
+  }
+
   const data = await paystackRequest<{
     authorization_url: string;
     access_code: string;
     reference: string;
   }>('/transaction/initialize', {
     method: 'POST',
-    body: JSON.stringify({
-      email: input.email,
-      amount: Math.round(input.amountGhs * 100),
-      currency: 'GHS',
-      reference: input.reference,
-      channels: ['card', 'mobile_money'],
-      callback_url:
-        env.PAYSTACK_CALLBACK_URL ?? `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
-      metadata: { requestId: input.requestId },
-    }),
+    body: JSON.stringify(body),
   });
   return {
     authorizationUrl: data.authorization_url,

@@ -39,6 +39,9 @@ const envSchema = z.object({
   SEED_ADMIN_PHONE: z.string().default('+233241000001'),
   PAYSTACK_SECRET_KEY: z.string().default(''),
   PAYSTACK_CALLBACK_URL: z.string().url().optional(),
+  PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).default(15),
+  SUBSCRIPTION_BASIC_PRICE_GHS: z.coerce.number().min(0).default(49),
+  SUBSCRIPTION_PREMIUM_PRICE_GHS: z.coerce.number().min(0).default(99),
 
   // Brevo transactional email
   BREVO_API_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),

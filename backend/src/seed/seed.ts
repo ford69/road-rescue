@@ -2,6 +2,7 @@ import { connectDatabase, disconnectDatabase } from '../database/connection.js';
 import { hashPassword } from '../auth/tokens.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
+import { seedSubscriptionPlans } from '../services/subscription.service.js';
 import {
   Customer,
   ChatMessage,
@@ -68,6 +69,7 @@ const serviceTypes = [
 
 async function seed(): Promise<void> {
   await connectDatabase();
+  await seedSubscriptionPlans();
 
   await Promise.all([
     User.deleteMany({}),

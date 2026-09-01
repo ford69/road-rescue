@@ -12,7 +12,6 @@ import {
   Check,
   X,
   Navigation2,
-  TrendingUp,
   Power,
   Briefcase,
   ShieldCheck,
@@ -23,7 +22,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/status-chip';
-import { CircularProgress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/empty-state';
 import { Input } from '@/components/ui/input';
 import { formatGhs } from '@/lib/currency';
@@ -158,7 +156,7 @@ export function MechanicHome({
         title: action?.successTitle ?? 'Status updated',
         description:
           status === 'completed'
-            ? `${formatGhs(job.quotedPrice)} added to your earnings.`
+            ? 'Payment recorded for this service.'
             : action?.successDescription,
       });
     } catch (err) {
@@ -484,12 +482,7 @@ export function MechanicHome({
 
 export function MechanicEarnings() {
   const { data: requests, loading: requestsLoading, error } = useRequests();
-  const [earnings, setEarnings] = React.useState<{
-    totalEarnings: number;
-    completedJobs: number;
-    rating: number;
-    jobs: RescueRequestDto[];
-  } | null>(null);
+  const [earnings, setEarnings] = React.useState<Awaited<ReturnType<typeof mechanicsApi.earnings>> | null>(null);
   const [earningsLoading, setEarningsLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<'all' | 'completed' | 'cancelled'>('all');
   const [search, setSearch] = React.useState('');
@@ -505,12 +498,10 @@ export function MechanicEarnings() {
   }, []);
 
   if (requestsLoading || earningsLoading) {
-    return <p className="text-sm text-muted-foreground py-8 text-center">Loading job history…</p>;
+    return <p className="text-sm text-muted-foreground py-8 text-center">Loading payments & earnings…</p>;
   }
 
-  const total = earnings?.totalEarnings ?? 0;
-  const goal = 400;
-  const goalPct = Math.min(100, Math.round((total / goal) * 100) || 0);
+  const payoutInfo = earnings?.payoutInfo;
   const jobs = requests.filter((job) => {
     if (!['completed', 'cancelled'].includes(job.status)) return false;
     if (filter !== 'all' && job.status !== filter) return false;
@@ -525,28 +516,91 @@ export function MechanicEarnings() {
   return (
     <div className="space-y-4 pb-4">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-foreground to-foreground/80 text-background dark:from-zinc-800 dark:to-zinc-900">
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-background/60 dark:text-zinc-400">Total Earnings</p>
-              <p className="font-display text-3xl font-bold mt-1">{formatGhs(total)}</p>
-              <p className="text-sm text-background/60 dark:text-zinc-400 mt-1">
-                {earnings?.completedJobs ?? 0} jobs completed · ⭐ {earnings?.rating.toFixed(1) ?? '—'}
-              </p>
-            </div>
-            <CircularProgress value={goalPct} size={72} strokeWidth={6} color="primary">
-              <span className="text-sm font-bold text-primary">{goalPct}%</span>
-            </CircularProgress>
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-sm text-background/60 dark:text-zinc-400">Payments & Earnings</p>
+            <p className="font-display text-3xl font-bold mt-1">{formatGhs(earnings?.totalEarnings ?? 0)}</p>
+            <p className="text-sm text-background/60 dark:text-zinc-400 mt-1">
+              {earnings?.completedJobs ?? 0} completed services · ⭐ {earnings?.rating.toFixed(1) ?? '—'}
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-background/60 dark:text-zinc-400">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <span>Daily goal: {formatGhs(goal)}</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-background/10 p-3">
+              <p className="text-xs text-background/60 dark:text-zinc-400">Pending settlement</p>
+              <p className="font-semibold mt-1">{formatGhs(earnings?.pendingPayments ?? 0)}</p>
+            </div>
+            <div className="rounded-xl bg-background/10 p-3">
+              <p className="text-xs text-background/60 dark:text-zinc-400">Settled payments</p>
+              <p className="font-semibold mt-1">{formatGhs(earnings?.settledPayments ?? 0)}</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="border-border bg-accent/30">
+        <div className="p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">{earnings?.disclaimer}</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-sm">Payment account</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{payoutInfo?.message}</p>
+            </div>
+            {payoutInfo?.configured && payoutInfo.managementUrl ? (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => window.open(payoutInfo.managementUrl, '_blank', 'noopener,noreferrer')}
+              >
+                Manage payouts
+              </Button>
+            ) : (
+              <Button variant="outline" size="md" disabled>
+                Payment account
+              </Button>
+            )}
           </div>
         </div>
       </Card>
 
       <div>
-        <h3 className="font-display text-base font-bold mb-3 px-1">Job History</h3>
+        <h3 className="font-display text-base font-bold mb-3 px-1">Recent payments</h3>
+        {(earnings?.recentPayments.length ?? 0) === 0 ? (
+          <EmptyState
+            icon={<DollarSign className="h-10 w-10" />}
+            title="No payments yet"
+            description="Completed service payments will appear here with payment and settlement status."
+          />
+        ) : (
+          <div className="space-y-2">
+            {earnings?.recentPayments.map((payment) => (
+              <Card key={payment.id}>
+                <div className="p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">Service payment</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString('en-GH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline">Payment: {formatPaymentStatus(payment.paymentStatus)}</Badge>
+                      <Badge variant="outline">
+                        Settlement: {formatSettlementStatus(payment.settlementStatus)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="font-bold text-success shrink-0">{formatGhs(payment.providerAmount)}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-display text-base font-bold mb-3 px-1">Job history</h3>
         <div className="mb-3 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -648,18 +702,14 @@ export function MechanicEarnings() {
           </div>
         )}
       </div>
-
-      <Card className="border-border bg-accent/40">
-        <div className="p-4 flex items-center justify-between">
-          <div>
-            <p className="font-semibold text-sm">Available for payout</p>
-            <p className="font-display text-2xl font-bold mt-1">{formatGhs(total)}</p>
-          </div>
-          <Button variant="primary" size="md" className="shadow-yellow-glow">
-            Cash Out
-          </Button>
-        </div>
-      </Card>
     </div>
   );
+}
+
+function formatPaymentStatus(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatSettlementStatus(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }

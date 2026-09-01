@@ -28,6 +28,7 @@ import { useToast } from '@/components/ui/toast';
 import type { RequestStatus } from '@/api/types';
 import { useRequestSocket } from '@/hooks/useRequestSocket';
 import { RequestChat } from '@/components/request-chat';
+import { setActiveRescueFlag } from '@/pwa/active-rescue';
 
 type TrackPhase = 'waiting' | 'enroute' | 'arrived' | 'inprogress' | 'completed';
 
@@ -83,6 +84,16 @@ export function LiveTracking({
   React.useEffect(() => {
     setLiveStatus(null);
   }, [active?._id]);
+
+  React.useEffect(() => {
+    const inFlight =
+      Boolean(active) &&
+      ['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress'].includes(
+        active!.status,
+      );
+    setActiveRescueFlag(inFlight);
+    return () => setActiveRescueFlag(false);
+  }, [active, active?.status]);
 
   React.useEffect(() => {
     if (!active?._id) return;

@@ -28,7 +28,8 @@ import { useToast } from '@/components/ui/toast';
 import { adminApi } from '@/api/repositories';
 import { formatGhs } from '@/lib/currency';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
-import type { AdminDashboardDto } from '@/api/types';
+import type { AdminDashboardDto, MechanicDto } from '@/api/types';
+import { MechanicVerificationSheet } from '@/components/admin/mechanic-verification-sheet';
 
 function PageHeader({
   title,
@@ -203,6 +204,33 @@ export function AdminMechanics() {
   const { toast } = useToast();
   const [filter, setFilter] = React.useState<'all' | 'online' | 'pending'>('all');
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [selectedMechanic, setSelectedMechanic] = React.useState<MechanicDto | null>(null);
+
+  const reviewMechanic = async (
+    mechanicId: string,
+    status: 'verified' | 'rejected',
+    reload: () => Promise<void>,
+  ) => {
+    setBusyId(mechanicId);
+    try {
+      await adminApi.verifyMechanic(mechanicId, status);
+      await reload();
+      setSelectedMechanic(null);
+      toast({
+        type: 'success',
+        title: status === 'verified' ? 'Mechanic approved' : 'Application rejected',
+      });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Update failed',
+        description: error instanceof Error ? error.message : 'Try again',
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <AdminState>
       {(data, reload) => {
@@ -234,7 +262,11 @@ export function AdminMechanics() {
                 const name = mechanicDisplayName(mechanic);
                 const verification = mechanic.verificationStatus ?? 'pending';
                 return (
-                  <Card key={mechanic._id}>
+                  <Card
+                    key={mechanic._id}
+                    interactive={verification === 'pending'}
+                    onClick={() => verification === 'pending' && setSelectedMechanic(mechanic)}
+                  >
                     <div className="space-y-3 p-4">
                       <div className="flex items-start gap-3">
                         <Avatar
@@ -269,57 +301,7 @@ export function AdminMechanics() {
                         </p>
                       )}
                       {verification === 'pending' && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={busyId === mechanic._id}
-                            onClick={() => {
-                              setBusyId(mechanic._id);
-                              void adminApi
-                                .verifyMechanic(mechanic._id, 'rejected')
-                                .then(async () => {
-                                  await reload();
-                                  toast({ type: 'success', title: 'Application rejected' });
-                                })
-                                .catch((error) =>
-                                  toast({
-                                    type: 'error',
-                                    title: 'Update failed',
-                                    description:
-                                      error instanceof Error ? error.message : 'Try again',
-                                  }),
-                                )
-                                .finally(() => setBusyId(null));
-                            }}
-                          >
-                            Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            disabled={busyId === mechanic._id}
-                            onClick={() => {
-                              setBusyId(mechanic._id);
-                              void adminApi
-                                .verifyMechanic(mechanic._id, 'verified')
-                                .then(async () => {
-                                  await reload();
-                                  toast({ type: 'success', title: 'Mechanic approved' });
-                                })
-                                .catch((error) =>
-                                  toast({
-                                    type: 'error',
-                                    title: 'Update failed',
-                                    description:
-                                      error instanceof Error ? error.message : 'Try again',
-                                  }),
-                                )
-                                .finally(() => setBusyId(null));
-                            }}
-                          >
-                            Approve
-                          </Button>
-                        </div>
+                        <p className="text-xs font-semibold text-brand-blue">Tap to review details</p>
                       )}
                       <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
                         <span className="flex items-center gap-1">
@@ -335,6 +317,18 @@ export function AdminMechanics() {
                 );
               })}
             </div>
+            <MechanicVerificationSheet
+              mechanic={selectedMechanic}
+              open={Boolean(selectedMechanic)}
+              onClose={() => setSelectedMechanic(null)}
+              busy={Boolean(selectedMechanic && busyId === selectedMechanic._id)}
+              onApprove={() =>
+                selectedMechanic && void reviewMechanic(selectedMechanic._id, 'verified', reload)
+              }
+              onReject={() =>
+                selectedMechanic && void reviewMechanic(selectedMechanic._id, 'rejected', reload)
+              }
+            />
           </div>
         );
       }}

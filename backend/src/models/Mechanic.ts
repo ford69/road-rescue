@@ -18,7 +18,10 @@ export interface IMechanic extends Document {
   rating: number;
   reviewCount: number;
   completedJobs: number;
+  /** Legacy aggregate — prefer payment records for financial reporting. */
   earnings: number;
+  paystackSubaccountCode?: string;
+  payoutAccountConfigured: boolean;
   verificationStatus: VerificationStatus;
   documents: string[];
   truck?: string;
@@ -49,6 +52,8 @@ const mechanicSchema = new Schema<IMechanic>(
     reviewCount: { type: Number, default: 0 },
     completedJobs: { type: Number, default: 0 },
     earnings: { type: Number, default: 0 },
+    paystackSubaccountCode: { type: String },
+    payoutAccountConfigured: { type: Boolean, default: false },
     verificationStatus: {
       type: String,
       enum: ['unverified', 'pending', 'verified', 'rejected'],

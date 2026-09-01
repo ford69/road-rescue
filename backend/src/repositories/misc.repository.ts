@@ -54,6 +54,10 @@ export const paymentRepository = {
     return Payment.findOne({ transactionReference: reference });
   },
 
+  findByMechanic(mechanicId: string) {
+    return Payment.find({ mechanic: mechanicId }).sort({ createdAt: -1 });
+  },
+
   findAll() {
     return Payment.find().sort({ createdAt: -1 }).limit(100);
   },

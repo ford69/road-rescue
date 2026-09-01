@@ -35,7 +35,7 @@ export function nextJobAction(status: RequestStatus): JobNextAction | null {
         status: 'completed',
         label: 'Complete Job',
         successTitle: 'Job completed',
-        successDescription: 'Earnings have been updated.',
+        successDescription: 'Payment will be recorded once confirmed by our payment provider.',
       };
     default:
       return null;

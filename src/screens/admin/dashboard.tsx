@@ -31,6 +31,8 @@ import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/
 import { useAdminDashboard } from '@/hooks/useApi';
 import { adminApi } from '@/api/repositories';
 import { useToast } from '@/components/ui/toast';
+import { MechanicVerificationSheet } from '@/components/admin/mechanic-verification-sheet';
+import type { MechanicDto } from '@/api/types';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -46,6 +48,7 @@ export function AdminDashboard() {
   const { toast } = useToast();
   const { data, loading, error, reload } = useAdminDashboard();
   const [reviewingId, setReviewingId] = React.useState<string | null>(null);
+  const [selectedMechanic, setSelectedMechanic] = React.useState<MechanicDto | null>(null);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground py-8 text-center">Loading dashboard…</p>;
@@ -74,6 +77,7 @@ export function AdminDashboard() {
     try {
       await adminApi.verifyMechanic(mechanicId, status);
       await reload();
+      setSelectedMechanic(null);
       toast({
         type: 'success',
         title: status === 'verified' ? 'Mechanic approved' : 'Application rejected',
@@ -299,7 +303,12 @@ export function AdminDashboard() {
               {pendingMechanics.slice(0, 6).map((mechanic) => {
                 const name = mechanicDisplayName(mechanic);
                 return (
-                  <div key={mechanic._id} className="rounded-xl border border-border p-4">
+                  <button
+                    key={mechanic._id}
+                    type="button"
+                    onClick={() => setSelectedMechanic(mechanic)}
+                    className="rounded-xl border border-border p-4 text-left transition-colors hover:border-brand-blue hover:bg-muted/40"
+                  >
                     <div className="flex items-start gap-3">
                       <Avatar
                         src={mechanic.userId?.avatar}
@@ -327,30 +336,23 @@ export function AdminDashboard() {
                         </Badge>
                       ))}
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={reviewingId === mechanic._id}
-                        onClick={() => void reviewMechanic(mechanic._id, 'rejected')}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={reviewingId === mechanic._id}
-                        onClick={() => void reviewMechanic(mechanic._id, 'verified')}
-                      >
-                        {reviewingId === mechanic._id ? 'Reviewing…' : 'Approve'}
-                      </Button>
-                    </div>
-                  </div>
+                    <p className="mt-3 text-xs font-semibold text-brand-blue">Tap to review details</p>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </Card>
+
+      <MechanicVerificationSheet
+        mechanic={selectedMechanic}
+        open={Boolean(selectedMechanic)}
+        onClose={() => setSelectedMechanic(null)}
+        busy={Boolean(selectedMechanic && reviewingId === selectedMechanic._id)}
+        onApprove={() => selectedMechanic && void reviewMechanic(selectedMechanic._id, 'verified')}
+        onReject={() => selectedMechanic && void reviewMechanic(selectedMechanic._id, 'rejected')}
+      />
 
       <Card>
         <div className="p-5">
@@ -360,7 +362,7 @@ export function AdminDashboard() {
               const name = mechanicDisplayName(m);
               return (
                 <div key={m._id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-                  <Avatar fallback={mechanicInitials(name)} size="md" />
+                  <Avatar src={m.userId?.avatar} fallback={mechanicInitials(name)} size="md" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{name}</p>
                     <p className="text-xs text-muted-foreground truncate">

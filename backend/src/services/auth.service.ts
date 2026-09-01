@@ -34,6 +34,7 @@ import type {
 import type { z } from 'zod';
 import { getPublicUploadPath } from '../uploads/storage.js';
 import { emailService } from '../email/index.js';
+import { subscriptionService } from './subscription.service.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -112,6 +113,7 @@ export const authService = {
     });
 
     await customerRepository.create({ userId: user._id, emergencyContacts: [] });
+    await subscriptionService.ensureFreePlanForCustomer(user._id.toString());
     await notificationRepository.create({
       title: 'Welcome to Road Rescue Ghana',
       body: 'Your customer account is ready. Request roadside help anytime across Ghana.',
@@ -344,18 +346,18 @@ export const authService = {
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
-    void emailService
-      .sendPasswordResetEmail({
-        email: user.email,
-        firstName: user.firstName,
-        token,
-      })
-      .catch((error: unknown) => {
-        logger.error('Password reset email failed', {
-          email: user.email,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
+    const emailResult = await emailService.sendPasswordResetEmail({
+      email: user.email,
+      firstName: user.firstName,
+      token,
+    });
+    logger.info('Password reset email attempt finished', {
+      email: user.email,
+      sent: emailResult.sent,
+      skipped: emailResult.skipped,
+      reason: emailResult.reason,
+      messageId: emailResult.messageId,
+    });
 
     return {
       message: 'If that email exists, a reset link has been sent.',

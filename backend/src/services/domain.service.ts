@@ -22,6 +22,8 @@ import type {
 } from '../validators/auth.validators.js';
 import type { z } from 'zod';
 import { emitToRequest } from '../sockets/index.js';
+import { paymentService } from './payment.service.js';
+import { entitlementService } from './entitlement.service.js';
 
 type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 type CreateRequestInput = z.infer<typeof createRequestSchema>;
@@ -81,6 +83,10 @@ export const requestService = {
     const service = await serviceTypeRepository.findBySlug(input.serviceType);
     if (!service) throw new NotFoundError('Service type not found');
 
+    const entitlements = await entitlementService.getCustomerEntitlements(userId);
+    const discountPercent = entitlementService.getMemberDiscountPercent(entitlements.planSlug);
+    const quotedPrice = Math.round(service.estimatedPrice * (1 - discountPercent / 100) * 100) / 100;
+
     const request = await requestRepository.create({
       customer: customer._id,
       vehicle: vehicle._id,
@@ -101,17 +107,22 @@ export const requestService = {
       description: input.description,
       images: [],
       status: 'requested',
-      quotedPrice: service.estimatedPrice,
+      quotedPrice,
       paymentStatus: 'pending',
     });
 
     await paymentRepository.create({
       customer: customer._id,
       request: request._id,
-      amount: service.estimatedPrice,
+      grossAmount: quotedPrice,
+      amount: quotedPrice,
+      platformFee: 0,
+      providerAmount: quotedPrice,
       currency: 'GHS',
+      paymentProvider: 'paystack',
       paymentMethod: 'mobile_money',
       status: 'pending',
+      settlementStatus: 'pending',
     });
 
     await notificationRepository.create({
@@ -245,7 +256,6 @@ export const requestService = {
       const mechanic = await mechanicRepository.findById(refId(request.mechanic));
       if (mechanic) {
         mechanic.completedJobs += 1;
-        mechanic.earnings += request.quotedPrice;
         await mechanic.save();
       }
     }
@@ -397,14 +407,34 @@ export const mechanicService = {
   async earnings(userId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
     if (!mechanic) throw new NotFoundError('Mechanic profile not found');
-    const completed = await requestRepository.findByMechanic(mechanic._id.toString(), [
-      'completed',
+    const [completed, payments] = await Promise.all([
+      requestRepository.findByMechanic(mechanic._id.toString(), ['completed']),
+      paymentRepository.findByMechanic(mechanic._id.toString()),
     ]);
+
+    const paidPayments = payments.filter((payment) => payment.status === 'paid');
+    const totalEarnings = paidPayments.reduce(
+      (sum, payment) => sum + (payment.providerAmount ?? payment.amount),
+      0,
+    );
+    const pendingPayments = paidPayments
+      .filter((payment) => payment.settlementStatus !== 'settled')
+      .reduce((sum, payment) => sum + (payment.providerAmount ?? payment.amount), 0);
+    const settledPayments = paidPayments
+      .filter((payment) => payment.settlementStatus === 'settled')
+      .reduce((sum, payment) => sum + (payment.providerAmount ?? payment.amount), 0);
+
     return {
-      totalEarnings: mechanic.earnings,
+      totalEarnings,
+      pendingPayments,
+      settledPayments,
       completedJobs: mechanic.completedJobs,
       rating: mechanic.rating,
       jobs: completed,
+      recentPayments: paidPayments.slice(0, 20).map((payment) => paymentService.serializePayment(payment)),
+      payoutInfo: await paymentService.getMechanicPayoutInfo(userId),
+      disclaimer:
+        'Your payments are processed through our payment provider. Road Rescue does not hold your funds. Settlement timing depends on Paystack and your configured payout method.',
     };
   },
 };

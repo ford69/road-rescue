@@ -7,10 +7,12 @@ import { Camera, Check, Eye, EyeOff, LifeBuoy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/context/auth-context';
 import { authApi } from '@/api/auth';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
+import type { ApiUser } from '@/api/types';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -38,32 +40,12 @@ function isValidPassword(password: string): boolean {
 type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginScreen() {
-  const { login } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [search] = useSearchParams();
-  const [submitting, setSubmitting] = React.useState(false);
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  });
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setSubmitting(true);
-    try {
-      const user = await login(values.email, values.password);
-      toast({ type: 'success', title: 'Welcome back', description: `Signed in as ${user.firstName}` });
-      navigate(search.get('next') || `/${user.role}/home`, { replace: true });
-    } catch (error) {
-      toast({
-        type: 'error',
-        title: 'Login failed',
-        description: error instanceof ApiClientError ? error.message : 'Unable to sign in',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  });
+  const handleSuccess = (user: ApiUser) => {
+    navigate(search.get('next') || `/${user.role}/home`, { replace: true });
+  };
 
   return (
     <AuthShell
@@ -78,27 +60,7 @@ export function LoginScreen() {
         </p>
       }
     >
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <Field label="Email" error={form.formState.errors.email?.message}>
-          <Input type="email" placeholder="ama.serwaa@example.com" {...form.register('email')} />
-        </Field>
-        <Field label="Password" error={form.formState.errors.password?.message}>
-          <PasswordInput
-            placeholder="••••••••"
-            autoComplete="current-password"
-            error={Boolean(form.formState.errors.password)}
-            {...form.register('password')}
-          />
-        </Field>
-        <div className="flex justify-end">
-          <Link className="text-sm font-medium text-primary" to="/auth/forgot-password">
-            Forgot password?
-          </Link>
-        </div>
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </Button>
-      </form>
+      <LoginForm onSuccess={handleSuccess} showRegisterLink={false} />
     </AuthShell>
   );
 }
