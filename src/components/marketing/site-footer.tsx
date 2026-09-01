@@ -3,7 +3,7 @@ import { Logo } from '@/components/brand/logo';
 
 export function SiteFooter() {
   return (
-    <footer id="contact" className="border-t-4 border-brand-blue bg-brand-black text-white">
+    <footer id="contact" className="border-t-4 border-primary bg-brand-black text-white">
       <div className="mx-auto max-w-7xl px-4 py-14 lg:px-8 lg:py-16">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="space-y-5 lg:col-span-5">
@@ -13,7 +13,11 @@ export function SiteFooter() {
               across Ghana. Professional service, clear communication, when you need us most.
             </p>
             <p className="text-sm font-semibold text-white">
-              <a href="mailto:support@roadrescue4u.com" className="hover:text-brand-blue-light">
+              <a href="tel:+233000000000" className="text-primary transition-colors hover:text-primary-400">
+                +233 000 000 000
+              </a>
+              <span className="mx-2 text-white/30">·</span>
+              <a href="mailto:support@roadrescue4u.com" className="text-primary transition-colors hover:text-primary-400">
                 support@roadrescue4u.com
               </a>
             </p>
@@ -50,7 +54,7 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-8 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Road Rescue Ghana. All rights reserved.</p>
-          <p className="font-semibold text-brand-blue-light">24/7 Emergency Roadside Assistance</p>
+          <p className="font-semibold text-primary">24/7 Emergency Roadside Assistance</p>
         </div>
       </div>
     </footer>

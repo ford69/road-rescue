@@ -11,7 +11,7 @@
     --foreground: 0 0% 9%;
 
     --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 42%;
+    --muted-foreground: 0 0% 35%;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 9%;
@@ -69,7 +69,8 @@
 
     /* Marketing brand palette */
     --brand-blue: 210 68% 17%;
-    --brand-blue-light: 210 64% 28%;
+    --brand-blue-light: 210 55% 62%;
+    --brand-blue-text: 210 55% 14%;
     --brand-black: 0 0% 4%;
     --brand-navy: 210 65% 12%;
     --brand-red: 348 74% 44%;
@@ -119,11 +120,13 @@
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    scroll-padding-top: 7.5rem;
   }
 
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -264,6 +267,10 @@
 
   .marketing-card-dark {
     @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm;
+  }
+
+  .landing-section-anchor {
+    scroll-margin-top: 7.5rem;
   }
 }
 

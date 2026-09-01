@@ -7,6 +7,7 @@ export default {
       colors: {
         'brand-blue': 'hsl(var(--brand-blue))',
         'brand-blue-light': 'hsl(var(--brand-blue-light))',
+        'brand-blue-text': 'hsl(var(--brand-blue-text))',
         'brand-black': 'hsl(var(--brand-black))',
         'brand-navy': 'hsl(var(--brand-navy))',
         'brand-red': 'hsl(var(--brand-red))',
@@ -75,8 +76,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Poppins', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xs: '0.25rem',

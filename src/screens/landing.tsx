@@ -10,6 +10,7 @@ import {
   Fuel,
   KeyRound,
   MapPin,
+  Phone,
   Shield,
   Sparkles,
   Truck,
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { SiteNav } from '@/components/marketing/site-nav';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { useAuth } from '@/context/auth-context';
-import { BRAND_ASSETS } from '@/lib/brand';
+import { BRAND_ASSETS, MARKETING_IMAGES, SERVICE_IMAGES } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 const services = [
@@ -32,6 +33,7 @@ const services = [
     accent: 'from-brand-blue/20 to-brand-blue/5',
     layout: 'sm:col-span-2 lg:col-span-2 lg:row-span-2',
     featured: true,
+    image: SERVICE_IMAGES.towing,
   },
   {
     icon: CircleDot,
@@ -39,6 +41,7 @@ const services = [
     description: 'Tyre change or puncture repair on-site.',
     accent: 'from-primary/25 to-primary/5',
     layout: 'lg:col-span-1',
+    image: SERVICE_IMAGES.flatTyre,
   },
   {
     icon: BatteryCharging,
@@ -46,6 +49,7 @@ const services = [
     description: 'Jump-starts and battery assistance.',
     accent: 'from-success/20 to-success/5',
     layout: 'lg:col-span-1',
+    image: SERVICE_IMAGES.battery,
   },
   {
     icon: KeyRound,
@@ -53,6 +57,7 @@ const services = [
     description: 'Help when keys are locked inside.',
     accent: 'from-brand-navy/25 to-brand-navy/5',
     layout: 'lg:col-span-1',
+    image: SERVICE_IMAGES.lockout,
   },
   {
     icon: Fuel,
@@ -60,6 +65,7 @@ const services = [
     description: 'Emergency fuel when you run out.',
     accent: 'from-warning/25 to-warning/5',
     layout: 'lg:col-span-1',
+    image: SERVICE_IMAGES.fuelDelivery,
   },
   {
     icon: AlertTriangle,
@@ -67,6 +73,7 @@ const services = [
     description: 'Rapid roadside response after incidents.',
     accent: 'from-critical/15 to-critical/5',
     layout: 'sm:col-span-2 lg:col-span-2',
+    image: SERVICE_IMAGES.accidentSupport,
   },
 ];
 
@@ -74,19 +81,19 @@ const steps = [
   {
     step: '01',
     title: 'Request help',
-    description: 'Share your location and what went wrong — takes under a minute.',
+    description: 'Open the app, share your location, and pick the service you need.',
     icon: Zap,
   },
   {
     step: '02',
     title: 'Get matched',
-    description: 'A verified mechanic accepts your job and heads your way.',
+    description: 'A nearby verified mechanic accepts your job and drives to you.',
     icon: Users,
   },
   {
     step: '03',
     title: 'Track & resolve',
-    description: 'Follow live updates, pay securely, and get back on the road.',
+    description: 'Follow live updates on the map until your rescue is complete.',
     icon: MapPin,
   },
 ];
@@ -97,7 +104,7 @@ const plans = [
     price: 'GHS 0',
     period: '/month',
     detail: 'Core app access and standard matching.',
-    features: ['Request roadside help', 'Live job tracking', 'Secure payments'],
+    features: ['Request roadside help', 'Live job tracking', 'In-app support'],
     highlighted: false,
   },
   {
@@ -122,24 +129,35 @@ const trustPoints = [
   {
     icon: Shield,
     title: 'Verified providers',
-    description: 'Mechanics go through verification before accepting jobs.',
+    description: 'Every mechanic is checked before they can accept your job.',
+    image: SERVICE_IMAGES.lockout,
   },
   {
     icon: MapPin,
     title: 'Live tracking',
-    description: 'Customers can follow their rescue in real time.',
+    description: 'See exactly where help is and when it will arrive.',
+    image: SERVICE_IMAGES.accidentSupport,
   },
   {
     icon: Wrench,
     title: 'Professional support',
-    description: 'Help is available when you need it on the road.',
+    description: 'Our team is available if you need help during a rescue.',
+    image: SERVICE_IMAGES.battery,
   },
+];
+
+const galleryImages = [
+  { ...SERVICE_IMAGES.accidentSupport, label: 'Accident support', span: 'lg:col-span-2 lg:row-span-2' },
+  { ...SERVICE_IMAGES.towing, label: 'Heavy recovery', span: 'lg:col-span-1' },
+  { ...SERVICE_IMAGES.battery, label: 'Battery assistance', span: 'lg:col-span-1' },
+  { ...SERVICE_IMAGES.lockout, label: 'Lockout help', span: 'lg:col-span-2' },
+  { ...SERVICE_IMAGES.flatTyre, label: 'Flat tyre repair', span: 'lg:col-span-2' },
 ];
 
 const heroStats = [
   { value: '24/7', label: 'Always on call' },
   { value: '6+', label: 'Service types' },
-  { value: '100%', label: 'Verified payouts' },
+  { value: '100%', label: 'Verified mechanics' },
 ];
 
 export function LandingPage() {
@@ -151,6 +169,8 @@ export function LandingPage() {
       navigate(`/${user.role}/home`, { replace: true });
     }
   }, [isAuthenticated, loading, navigate, user]);
+
+  const goToLogin = () => navigate('/auth/login');
 
   const requestHelp = () => {
     if (isAuthenticated && user?.role === 'customer') {
@@ -170,13 +190,19 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+      >
+        Skip to main content
+      </a>
       <SiteNav onRequestHelp={requestHelp} />
 
-      <main>
+      <main id="main-content">
         {/* Hero */}
         <section
           id="home"
-          className="relative flex min-h-[100svh] items-center overflow-hidden"
+          className="landing-section-anchor relative flex min-h-[100svh] items-center overflow-hidden"
         >
           <img
             src={BRAND_ASSETS.heroImage}
@@ -192,73 +218,94 @@ export function LandingPage() {
           <div className="hero-overlay-vignette" aria-hidden="true" />
           <div className="hero-overlay-noise" aria-hidden="true" />
 
-          <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 pt-36 lg:px-8 lg:pb-24 lg:pt-44">
-            <div className="grid items-end gap-12 lg:grid-cols-12 lg:gap-8">
-              <div className="lg:col-span-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white/90 backdrop-blur-sm">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  Ghana&apos;s trusted roadside network
-                </div>
-                <h1 className="mt-6 font-display text-4xl font-bold leading-[1.08] text-white sm:text-5xl lg:text-6xl xl:text-7xl">
-                  Need help
-                  <span className="block text-primary">on the road?</span>
-                </h1>
-                <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/80 sm:text-xl">
-                  Get reliable roadside assistance from verified mechanics — fast dispatch,
-                  live tracking, and secure payments when you need it most.
-                </p>
-                <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="min-h-12 gap-2 bg-primary text-primary-foreground shadow-[0_8px_32px_-8px_rgba(255,204,0,0.6)] hover:bg-primary-600"
-                    onClick={requestHelp}
-                  >
-                    Request Roadside Assistance
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="min-h-12 border-white/40 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15 hover:text-white"
-                    onClick={() => navigate('/auth/register')}
-                  >
-                    Get Started
-                  </Button>
-                </div>
-                <p className="mt-6 text-sm text-white/60">
-                  Already registered?{' '}
-                  <button
-                    type="button"
-                    className="font-semibold text-white underline underline-offset-4 transition-colors hover:text-primary"
-                    onClick={() => navigate('/auth/login')}
-                  >
-                    Login
-                  </button>
-                </p>
+          <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-20 pt-36 lg:px-8 lg:pb-28 lg:pt-44">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white/90 backdrop-blur-sm">
+                <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                Ghana&apos;s trusted roadside network
               </div>
+              <h1 className="mt-6 font-display text-4xl font-bold leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+                Stranded on the road?
+                <span className="block text-primary">Help is one tap away.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white sm:text-xl">
+                Request a verified mechanic in under a minute. Track them live
+                and get moving again — available 24/7 across Ghana.
+              </p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="min-h-[3.25rem] gap-2 bg-primary text-primary-foreground shadow-[0_8px_32px_-8px_rgba(255,204,0,0.6)] hover:bg-primary-600"
+                  onClick={requestHelp}
+                >
+                  Get help now
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="min-h-[3.25rem] border-white/40 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15 hover:text-white"
+                  onClick={() => navigate('/auth/register')}
+                >
+                  Create free account
+                </Button>
+                <a
+                  href="tel:+233000000000"
+                  className="inline-flex min-h-[3.25rem] items-center justify-center gap-2 rounded-md border border-white/30 px-6 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:ml-1"
+                >
+                  <Phone className="h-4 w-4" aria-hidden="true" />
+                  Call emergency line
+                </a>
+              </div>
+              <p className="mt-6 text-sm text-white/70">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-white underline underline-offset-4 transition-colors hover:text-primary"
+                  onClick={() => navigate('/auth/login')}
+                >
+                  Sign in
+                </button>
+              </p>
 
-              <div className="lg:col-span-5">
-                <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                  {heroStats.map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="rounded-2xl border border-white/15 bg-white/10 p-4 text-center backdrop-blur-md sm:p-5"
-                    >
-                      <p className="font-display text-2xl font-bold text-white sm:text-3xl">
-                        {stat.value}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/65 sm:text-xs">
-                        {stat.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-10 grid grid-cols-3 gap-3 sm:max-w-lg sm:gap-4">
+                {heroStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl border border-white/15 bg-white/10 px-3 py-4 text-center backdrop-blur-md sm:px-4 sm:py-5"
+                  >
+                    <p className="font-display text-xl font-bold text-white sm:text-2xl">
+                      {stat.value}
+                    </p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-white/90 sm:text-xs">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+        </section>
+
+        {/* Full-bleed image strip */}
+        <section className="relative h-56 overflow-hidden sm:h-72 lg:h-80" aria-label="Road Rescue in action">
+          <MarketingPhoto
+            src={MARKETING_IMAGES.onTheGround.src}
+            position={MARKETING_IMAGES.onTheGround.position}
+            overlay="blue"
+            className="h-full w-full"
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-4">
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary">On the ground</p>
+              <p className="mt-2 font-display text-2xl font-bold text-white sm:text-4xl">
+                Real help. Real mechanics. Right when you need it.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Services — bento grid */}
@@ -279,9 +326,14 @@ export function LandingPage() {
                 accent={service.accent}
                 className={service.layout}
                 featured={service.featured}
+                image={service.image}
+                onSelect={goToLogin}
               />
             ))}
           </div>
+          <p className="mt-6 text-center text-sm font-medium text-foreground/80">
+            Tap any service to sign in and request help.
+          </p>
         </Section>
 
         {/* How it works — horizontal steps */}
@@ -289,38 +341,87 @@ export function LandingPage() {
           id="how-it-works"
           eyebrow="Simple process"
           title="Help in three steps"
-          description="Membership plans offer discounts and priority matching. Roadside services are paid per request."
+          description="No complicated forms. Request help, get matched, and track your rescue — most jobs start in minutes."
         >
-          <div className="grid gap-5 lg:grid-cols-3">
-            {steps.map((item, index) => (
-              <div key={item.step} className="relative">
-                {index < steps.length - 1 && (
-                  <div
-                    className="absolute left-[calc(50%+2rem)] top-12 hidden h-px w-[calc(100%-4rem)] bg-gradient-to-r from-brand-blue/40 to-transparent lg:block"
-                    aria-hidden="true"
-                  />
-                )}
-                <div className="marketing-card group h-full p-6 lg:p-7">
-                  <div className="flex items-center justify-between">
-                    <span className="font-display text-4xl font-bold text-brand-blue/15">
-                      {item.step}
-                    </span>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-blue text-white shadow-soft transition-transform group-hover:scale-105">
+          <div className="grid items-stretch gap-8 lg:grid-cols-12 lg:gap-10">
+            <div className="relative lg:col-span-5">
+              <MarketingPhoto
+                src={MARKETING_IMAGES.accraRoadNight.src}
+                position={MARKETING_IMAGES.accraRoadNight.position}
+                overlay="dark"
+                className="h-full min-h-[320px] rounded-3xl border border-border shadow-elevated lg:min-h-[480px]"
+              />
+            </div>
+
+            <div className="grid gap-5 lg:col-span-7">
+              {steps.map((item, index) => (
+                <div key={item.step} className="relative">
+                  {index < steps.length - 1 && (
+                    <div
+                      className="absolute left-6 top-16 hidden h-[calc(100%-2rem)] w-px bg-gradient-to-b from-brand-blue/40 to-transparent lg:block"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <div className="marketing-card group flex gap-5 p-5 lg:p-6">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-soft transition-transform group-hover:scale-105">
                       <item.icon className="h-5 w-5" />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-display text-sm font-bold text-primary-700">
+                        Step {item.step}
+                      </span>
+                      <h3 className="mt-1 font-display text-xl font-bold text-foreground">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-foreground/75">
+                        {item.description}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="mt-6 font-display text-xl font-bold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
             {plans.map((plan) => (
-              <PlanCard key={plan.name} {...plan} />
+              <PlanCard
+                key={plan.name}
+                {...plan}
+                onChoose={() => navigate('/auth/register')}
+              />
+            ))}
+          </div>
+          <p className="mt-6 text-center text-sm font-medium text-foreground/80">
+            Membership is optional — you can still request roadside help on the free plan.
+          </p>
+        </Section>
+
+        {/* Gallery */}
+        <Section
+          id="gallery"
+          eyebrow="In action"
+          title="Rescue moments"
+          description="Professional roadside support — day or night, across Ghana."
+          variant="muted"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[180px]">
+            {galleryImages.map((item) => (
+              <div
+                key={item.label}
+                className={cn(
+                  'group relative overflow-hidden rounded-2xl border border-border shadow-card',
+                  item.span,
+                )}
+              >
+                <MarketingPhoto
+                  src={item.src}
+                  position={item.position}
+                  overlay="dark"
+                  className="h-full min-h-[160px] w-full transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-brand-black/90 to-transparent p-4 pt-12">
+                  <p className="font-display text-sm font-bold text-white">{item.label}</p>
+                </div>
+              </div>
             ))}
           </div>
         </Section>
@@ -330,8 +431,16 @@ export function LandingPage() {
           id="about"
           eyebrow="For mechanics"
           title="Grow your rescue business"
-          description="Earn from completed rescues with transparent payment records and Paystack settlement."
+          description="Connect with drivers who need help. Accept jobs on your schedule and build your reputation with every rescue."
           variant="dark"
+          background={
+            <MarketingPhoto
+              src={SERVICE_IMAGES.towing.src}
+              position={SERVICE_IMAGES.towing.position}
+              overlay="blue"
+              className="pointer-events-none absolute inset-0 opacity-50"
+            />
+          }
         >
           <div className="grid gap-5 lg:grid-cols-5">
             <div className="marketing-card-dark lg:col-span-3 p-8 lg:p-10">
@@ -339,19 +448,19 @@ export function LandingPage() {
                 <Users className="h-7 w-7" />
               </div>
               <h3 className="mt-6 font-display text-2xl font-bold text-white">
-                Payments & earnings
+                More jobs, less hassle
               </h3>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/70">
-                View total earnings, payment status, and settlement status. Road Rescue records
-                transactions — it does not hold a provider wallet balance.
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/85">
+                Road Rescue helps verified mechanics find customers faster. Focus on the rescue —
+                we handle matching, notifications, and job coordination in the app.
               </p>
               <ul className="mt-6 space-y-3">
                 {[
-                  'Transparent per-job payment records',
-                  'Paystack settlement directly to you',
-                  'No custodial wallet on our platform',
+                  'Receive nearby job requests in real time',
+                  'Build your profile with ratings and completed jobs',
+                  'Work when it suits your schedule',
                 ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/80">
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/90">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     {item}
                   </li>
@@ -362,17 +471,16 @@ export function LandingPage() {
             <div className="flex flex-col gap-5 lg:col-span-2">
               <div className="marketing-card-dark flex-1 p-6">
                 <MapPin className="h-6 w-6 text-primary" />
-                <h3 className="mt-4 font-display text-lg font-bold text-white">Manage payouts</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  When your Paystack payment account is configured, manage payouts through the
-                  payment provider directly.
+                <h3 className="mt-4 font-display text-lg font-bold text-white">Local coverage</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/85">
+                  Get matched with customers near you and navigate straight to the breakdown location.
                 </p>
               </div>
               <div className="marketing-card-dark flex-1 p-6">
                 <Clock className="h-6 w-6 text-primary" />
                 <h3 className="mt-4 font-display text-lg font-bold text-white">Flexible schedule</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  Accept jobs when you&apos;re available and build your reputation with every rescue.
+                <p className="mt-2 text-sm leading-relaxed text-white/85">
+                  Go online when you are available and accept only the jobs that work for you.
                 </p>
               </div>
               <Button
@@ -387,33 +495,41 @@ export function LandingPage() {
           </div>
         </Section>
 
-        {/* Payments */}
+        {/* Why Road Rescue */}
         <Section
           id="payments"
-          eyebrow="Secure transactions"
-          title="Payments you can trust"
-          description="Customer payments and provider settlements are separate from membership subscriptions."
+          eyebrow="Why choose us"
+          title="Built for drivers and mechanics"
+          description="Road Rescue connects people who need help with professionals who can deliver it — simply and reliably."
         >
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              {
-                title: 'Webhook verified',
-                text: 'Customer service payments are verified through Paystack webhooks — never from the browser alone.',
-              },
-              {
-                title: 'No custodial wallet',
-                text: 'Provider amounts are recorded as entitlements from each transaction, not as a Road Rescue wallet.',
-              },
-              {
-                title: 'Separate billing',
-                text: 'Membership subscriptions (Free, Basic, Premium) are billed separately from per-service payments.',
-              },
-            ].map((item) => (
-              <div key={item.title} className="marketing-card border-t-4 border-t-primary p-6">
-                <h3 className="font-display text-lg font-bold">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.text}</p>
-              </div>
-            ))}
+          <div className="grid items-stretch gap-8 lg:grid-cols-2">
+            <MarketingPhoto
+              src={MARKETING_IMAGES.onTheGround.src}
+              position={MARKETING_IMAGES.onTheGround.position}
+              overlay="dark"
+              className="min-h-[260px] rounded-3xl border border-border shadow-elevated lg:min-h-full"
+            />
+            <div className="grid gap-4">
+              {[
+                {
+                  title: 'Fast matching',
+                  text: 'Share your location and get connected to a verified mechanic without long phone calls.',
+                },
+                {
+                  title: 'Live tracking',
+                  text: 'See when help is on the way and follow progress from request to completion.',
+                },
+                {
+                  title: 'Membership perks',
+                  text: 'Optional plans add priority matching and support — roadside help is always available on Free.',
+                },
+              ].map((item) => (
+                <div key={item.title} className="marketing-card border-l-4 border-l-primary p-6">
+                  <h3 className="font-display text-lg font-bold text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground/75">{item.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </Section>
 
@@ -422,7 +538,7 @@ export function LandingPage() {
           id="safety"
           eyebrow="Peace of mind"
           title="Safety & trust"
-          description="Verified providers, live tracking, and secure payments."
+          description="Verified providers, live tracking, and responsive support when you need it."
           variant="muted"
         >
           <div className="grid gap-5 md:grid-cols-3">
@@ -431,20 +547,25 @@ export function LandingPage() {
                 key={point.title}
                 className="marketing-card group overflow-hidden p-0"
               >
-                <div
-                  className={cn(
-                    'h-1.5 w-full',
-                    index === 0 && 'bg-brand-blue',
-                    index === 1 && 'bg-primary',
-                    index === 2 && 'bg-success',
-                  )}
+                <MarketingPhoto
+                  src={point.image.src}
+                  position={point.image.position}
+                  overlay="blue"
+                  className="h-44 w-full transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="p-6">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue transition-colors group-hover:bg-brand-blue group-hover:text-white">
+                  <div
+                    className={cn(
+                      'flex h-11 w-11 items-center justify-center rounded-xl transition-colors',
+                      index === 0 && 'bg-primary/15 text-primary-700 group-hover:bg-primary group-hover:text-primary-foreground',
+                      index === 1 && 'bg-primary/15 text-primary-700 group-hover:bg-primary group-hover:text-primary-foreground',
+                      index === 2 && 'bg-primary/15 text-primary-700 group-hover:bg-primary group-hover:text-primary-foreground',
+                    )}
+                  >
                     <point.icon className="h-5 w-5" />
                   </div>
                   <h3 className="mt-4 font-display text-lg font-bold">{point.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-2 text-sm leading-relaxed text-foreground/75">
                     {point.description}
                   </p>
                 </div>
@@ -458,10 +579,16 @@ export function LandingPage() {
           id="support"
           eyebrow="We're here"
           title="Help & support"
-          description="Questions about a rescue, payment, or your account?"
+          description="Questions about a rescue or your account? We are here to help."
           className="pb-20"
         >
-          <div className="relative overflow-hidden rounded-3xl border border-brand-blue/20 bg-gradient-to-br from-brand-blue via-brand-navy to-brand-black p-8 sm:p-10">
+          <div className="relative overflow-hidden rounded-3xl border border-brand-blue/20 p-8 sm:p-10">
+            <MarketingPhoto
+              src={SERVICE_IMAGES.accidentSupport.src}
+              position={SERVICE_IMAGES.accidentSupport.position}
+              overlay="blue"
+              className="absolute inset-0"
+            />
             <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/20 blur-3xl" aria-hidden="true" />
             <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" aria-hidden="true" />
             <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
@@ -491,6 +618,20 @@ export function LandingPage() {
         </Section>
       </main>
 
+      {/* Mobile sticky help bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-3 shadow-elevated backdrop-blur-md safe-bottom lg:hidden">
+        <div className="mx-auto flex max-w-lg gap-2">
+          <Button variant="outline" className="flex-1 min-h-11" onClick={() => navigate('/auth/login')}>
+            Sign in
+          </Button>
+          <Button variant="primary" className="flex-[2] min-h-11" onClick={requestHelp}>
+            Get help now
+          </Button>
+        </div>
+      </div>
+
+      <div className="h-20 lg:hidden" aria-hidden="true" />
+
       <SiteFooter />
     </div>
   );
@@ -504,6 +645,7 @@ function Section({
   children,
   variant = 'default',
   className,
+  background,
 }: {
   id: string;
   eyebrow?: string;
@@ -512,24 +654,26 @@ function Section({
   children: React.ReactNode;
   variant?: 'default' | 'muted' | 'dark';
   className?: string;
+  background?: React.ReactNode;
 }) {
   return (
     <section
       id={id}
       className={cn(
-        'border-b border-border',
+        'landing-section-anchor relative border-b border-border overflow-hidden',
         variant === 'muted' && 'bg-muted/40',
         variant === 'dark' && 'bg-brand-black text-white',
         className,
       )}
     >
-      <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8 lg:py-20">
+      {background}
+      <div className="relative mx-auto max-w-7xl px-4 py-16 lg:px-8 lg:py-20">
         <div className="mb-10 max-w-2xl">
           {eyebrow && (
             <p
               className={cn(
-                'text-xs font-bold uppercase tracking-[0.2em]',
-                variant === 'dark' ? 'text-primary' : 'text-brand-blue',
+                'text-xs font-bold uppercase tracking-[0.12em]',
+                variant === 'dark' ? 'text-primary' : 'text-primary-700',
               )}
             >
               {eyebrow}
@@ -546,7 +690,7 @@ function Section({
           <p
             className={cn(
               'mt-3 text-base leading-relaxed',
-              variant === 'dark' ? 'text-white/65' : 'text-muted-foreground',
+              variant === 'dark' ? 'text-white/85' : 'text-foreground/75',
             )}
           >
             {description}
@@ -558,6 +702,44 @@ function Section({
   );
 }
 
+function MarketingPhoto({
+  src,
+  position = 'center',
+  alt = '',
+  className,
+  overlay = 'dark',
+}: {
+  src: string;
+  position?: string;
+  alt?: string;
+  className?: string;
+  overlay?: 'dark' | 'light' | 'blue' | 'none';
+}) {
+  return (
+    <div className={cn('relative overflow-hidden', className)}>
+      <img
+        src={src}
+        alt={alt}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ objectPosition: position }}
+        loading="lazy"
+        decoding="async"
+      />
+      {overlay !== 'none' && (
+        <div
+          className={cn(
+            'absolute inset-0',
+            overlay === 'dark' && 'bg-brand-black/50',
+            overlay === 'light' && 'bg-white/25',
+            overlay === 'blue' && 'bg-brand-blue/55',
+          )}
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  );
+}
+
 function ServiceCard({
   icon: Icon,
   title,
@@ -565,6 +747,8 @@ function ServiceCard({
   accent,
   className,
   featured,
+  image,
+  onSelect,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -572,50 +756,79 @@ function ServiceCard({
   accent: string;
   className?: string;
   featured?: boolean;
+  image?: { src: string; position: string };
+  onSelect?: () => void;
 }) {
+  const Component = onSelect ? 'button' : 'div';
+
   return (
-    <div
+    <Component
+      type={onSelect ? 'button' : undefined}
+      onClick={onSelect}
       className={cn(
-        'marketing-card group relative overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated',
-        featured && 'flex flex-col justify-between p-8 lg:min-h-[280px]',
+        'marketing-card group relative w-full overflow-hidden text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue',
+        featured && 'flex flex-col justify-end p-0 lg:min-h-[300px]',
+        !featured && image && 'p-0',
+        onSelect && 'cursor-pointer',
         className,
       )}
+      aria-label={onSelect ? `Request ${title} assistance` : undefined}
     >
+      {image && (
+        <MarketingPhoto
+          src={image.src}
+          position={image.position}
+          overlay={featured ? 'blue' : 'dark'}
+          className={cn(
+            'absolute inset-0 transition-transform duration-500 group-hover:scale-105',
+            featured ? 'opacity-90' : 'opacity-100',
+          )}
+        />
+      )}
       <div
         className={cn(
-          'pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60 transition-opacity group-hover:opacity-100',
+          'pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60 transition-opacity group-hover:opacity-80',
           accent,
+          image && 'from-brand-black/80 via-brand-black/50 to-transparent opacity-100',
         )}
         aria-hidden="true"
       />
-      <div className="relative">
+      <div className={cn('relative', (featured || image) && 'p-6 lg:p-8', image && !featured && 'mt-24')}>
         <div
           className={cn(
-            'flex items-center justify-center rounded-2xl bg-white shadow-soft',
+            'flex items-center justify-center rounded-2xl shadow-soft',
+            featured || image ? 'bg-white/95' : 'bg-white',
             featured ? 'h-14 w-14' : 'h-11 w-11',
           )}
         >
-          <Icon className={cn('text-brand-blue', featured ? 'h-7 w-7' : 'h-5 w-5')} />
+          <Icon className={cn('text-primary-700', featured ? 'h-7 w-7' : 'h-5 w-5')} />
         </div>
-        <h3 className={cn('mt-5 font-display font-bold', featured ? 'text-2xl' : 'text-lg')}>
+        <h3
+          className={cn(
+            'mt-5 font-display font-bold',
+            featured || image ? 'text-white' : '',
+            featured ? 'text-2xl' : 'text-lg',
+          )}
+        >
           {title}
         </h3>
         <p
           className={cn(
-            'mt-2 leading-relaxed text-muted-foreground',
+            'mt-2 leading-relaxed',
+            featured || image ? 'text-white/95' : 'text-muted-foreground',
             featured ? 'max-w-md text-base' : 'text-sm',
           )}
         >
           {description}
         </p>
         {featured && (
-          <p className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-blue">
-            Most requested service
+          <p className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+            Tap to request help
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </p>
         )}
       </div>
-    </div>
+    </Component>
   );
 }
 
@@ -626,6 +839,7 @@ function PlanCard({
   detail,
   features,
   highlighted,
+  onChoose,
 }: {
   name: string;
   price: string;
@@ -633,33 +847,43 @@ function PlanCard({
   detail: string;
   features: string[];
   highlighted: boolean;
+  onChoose?: () => void;
 }) {
   return (
     <div
       className={cn(
         'marketing-card relative flex h-full flex-col p-6 lg:p-7',
-        highlighted && 'border-brand-blue shadow-elevated ring-2 ring-brand-blue/20 lg:-mt-2 lg:mb-2',
+        highlighted && 'border-primary shadow-elevated ring-2 ring-primary/25 lg:-mt-2 lg:mb-2',
       )}
     >
       {highlighted && (
-        <span className="absolute -top-3 left-6 rounded-full bg-brand-blue px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+        <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
           Popular
         </span>
       )}
-      <p className="text-sm font-semibold uppercase tracking-wide text-brand-blue">{name}</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">{name}</p>
       <p className="mt-2 font-display text-3xl font-bold">
         {price}
-        <span className="text-base font-medium text-muted-foreground">{period}</span>
+        <span className="text-base font-medium text-foreground/70">{period}</span>
       </p>
-      <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
+      <p className="mt-2 text-sm text-foreground/75">{detail}</p>
       <ul className="mt-6 flex-1 space-y-2.5">
         {features.map((feature) => (
           <li key={feature} className="flex items-center gap-2 text-sm">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
             {feature}
           </li>
         ))}
       </ul>
+      {onChoose && (
+        <Button
+          variant={highlighted ? 'primary' : 'outline'}
+          className="mt-6 w-full min-h-11"
+          onClick={onChoose}
+        >
+          {name === 'Free' ? 'Start for free' : `Choose ${name}`}
+        </Button>
+      )}
     </div>
   );
 }
