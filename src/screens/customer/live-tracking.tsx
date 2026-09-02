@@ -255,76 +255,79 @@ export function LiveTracking({
   };
 
   return (
-    <div className="fixed inset-0 z-40 lg:absolute lg:inset-0 lg:z-0 bg-background">
-      <MapView
-        className="h-full w-full"
-        showRoute={phase === 'enroute' && Boolean(liveLocation)}
-        routePath={
-          phase === 'enroute' && liveLocation
-            ? [
-                {
-                  latitude: liveLocation.latitude,
-                  longitude: liveLocation.longitude,
-                },
-                {
-                  latitude: active.pickupLocation.latitude,
-                  longitude: active.pickupLocation.longitude,
-                },
-              ]
-            : undefined
-        }
-        markers={[
-          {
-            id: 'user',
-            latitude: active.pickupLocation.latitude,
-            longitude: active.pickupLocation.longitude,
-            type: 'user',
-            label: 'Pickup',
-          },
-          ...(liveLocation
-            ? [
-                {
-                  id: 'mech',
-                  latitude: liveLocation.latitude,
-                  longitude: liveLocation.longitude,
-                  type: 'mechanic' as const,
-                  label: name.split(' ')[0],
-                },
-              ]
-            : mechanic
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background">
+      <div className="relative min-h-0 flex-1">
+        <MapView
+          className="absolute inset-0 h-full w-full"
+          showRoute={phase === 'enroute' && Boolean(liveLocation)}
+          routePath={
+            phase === 'enroute' && liveLocation
+              ? [
+                  {
+                    latitude: liveLocation.latitude,
+                    longitude: liveLocation.longitude,
+                  },
+                  {
+                    latitude: active.pickupLocation.latitude,
+                    longitude: active.pickupLocation.longitude,
+                  },
+                ]
+              : undefined
+          }
+          markers={[
+            {
+              id: 'user',
+              latitude: active.pickupLocation.latitude,
+              longitude: active.pickupLocation.longitude,
+              type: 'user',
+              label: 'Pickup',
+            },
+            ...(liveLocation
               ? [
                   {
                     id: 'mech',
-                    latitude: mechanic.latitude,
-                    longitude: mechanic.longitude,
+                    latitude: liveLocation.latitude,
+                    longitude: liveLocation.longitude,
                     type: 'mechanic' as const,
                     label: name.split(' ')[0],
                   },
                 ]
-            : []),
-        ]}
-      >
-        <MapFloatingCard className="top-4 left-4 right-4">
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              Back
-            </Button>
-            <div className="text-center">
-              <p className="font-semibold text-sm">{serviceLabel}</p>
-              <p className="text-xs text-muted-foreground">
-                {active.pickupLocation.address}, {active.pickupLocation.city} ·{' '}
-                {connected ? 'Live' : 'Connecting…'}
-              </p>
+              : mechanic
+                ? [
+                    {
+                      id: 'mech',
+                      latitude: mechanic.latitude,
+                      longitude: mechanic.longitude,
+                      type: 'mechanic' as const,
+                      label: name.split(' ')[0],
+                    },
+                  ]
+                : []),
+          ]}
+        >
+          <MapFloatingCard className="top-4 left-4 right-4" position="top">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-2 py-1.5 shadow-elevated backdrop-blur-sm">
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                Back
+              </Button>
+              <div className="text-center">
+                <p className="font-semibold text-sm">{serviceLabel}</p>
+                <p className="text-xs text-muted-foreground">
+                  {active.pickupLocation.address}, {active.pickupLocation.city} ·{' '}
+                  {connected ? 'Live' : 'Connecting…'}
+                </p>
+              </div>
+              <StatusChip status={displayStatus} />
             </div>
-            <StatusChip status={displayStatus} />
-          </div>
-        </MapFloatingCard>
-      </MapView>
+          </MapFloatingCard>
+        </MapView>
+      </div>
 
       <div
         className={cn(
-          'absolute bottom-0 left-0 right-0 z-[600] rounded-t-3xl border border-border bg-card shadow-elevated transition-all',
-          sheetExpanded ? 'max-h-[75vh] overflow-y-auto' : 'h-auto',
+          'relative z-10 shrink-0 overflow-y-auto rounded-t-3xl border border-border bg-card shadow-elevated transition-all',
+          'max-h-[55dvh] landscape:max-h-[42dvh]',
+          sheetExpanded ? 'max-h-[70dvh] landscape:max-h-[50dvh]' : '',
         )}
       >
         <button

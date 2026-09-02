@@ -19,6 +19,17 @@ import type {
   VehicleDto,
 } from '../types';
 
+export type SupportTicketCategory = 'complaint' | 'billing' | 'account' | 'rescue' | 'other';
+
+export interface SupportTicketDto {
+  id: string;
+  subject: string;
+  description: string;
+  category: SupportTicketCategory;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  createdAt: string;
+}
+
 export const catalogApi = {
   serviceTypes() {
     return apiRequest<ServiceTypeDto[]>('/service-types');
@@ -174,6 +185,19 @@ export const adminApi = {
     return apiRequest<MechanicDto>(`/admin/mechanics/${id}/verification`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  },
+};
+
+export const supportApi = {
+  createTicket(input: {
+    subject: string;
+    description: string;
+    category?: SupportTicketCategory;
+  }) {
+    return apiRequest<SupportTicketDto>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(input),
     });
   },
 };

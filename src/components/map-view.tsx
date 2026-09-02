@@ -76,6 +76,44 @@ function FitMarkers({ markers }: { markers: MapMarker[] }) {
   return null;
 }
 
+/** Keeps Leaflet tiles sized correctly across rotate / resize / flex layouts. */
+function InvalidateSizeOnResize() {
+  const map = useMap();
+
+  React.useEffect(() => {
+    const container = map.getContainer();
+    let frame = 0;
+
+    const invalidate = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false });
+      });
+    };
+
+    invalidate();
+    const timeouts = [50, 200, 500].map((ms) => window.setTimeout(invalidate, ms));
+
+    const observer = new ResizeObserver(invalidate);
+    observer.observe(container);
+
+    window.addEventListener('resize', invalidate);
+    window.addEventListener('orientationchange', invalidate);
+    document.addEventListener('visibilitychange', invalidate);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      timeouts.forEach((id) => window.clearTimeout(id));
+      observer.disconnect();
+      window.removeEventListener('resize', invalidate);
+      window.removeEventListener('orientationchange', invalidate);
+      document.removeEventListener('visibilitychange', invalidate);
+    };
+  }, [map]);
+
+  return null;
+}
+
 export function MapView({
   markers = [],
   showRoute = false,
@@ -94,17 +132,19 @@ export function MapView({
   const [tilesUnavailable, setTilesUnavailable] = React.useState(false);
 
   return (
-    <div className={cn('relative isolate overflow-hidden bg-muted', className)}>
+    <div className={cn('relative isolate min-h-[12rem] overflow-hidden bg-muted', className)}>
       <MapContainer
         center={[5.6037, -0.187]}
         zoom={12}
-        className="relative z-0 h-full w-full"
+        className="absolute inset-0 z-0 h-full w-full"
+        style={{ minHeight: '100%', height: '100%', width: '100%' }}
         zoomControl={interactive}
         dragging={interactive}
         scrollWheelZoom={interactive}
         doubleClickZoom={interactive}
       >
         <ResilientTileLayer onAllProvidersFailed={() => setTilesUnavailable(true)} />
+        <InvalidateSizeOnResize />
         <FitMarkers markers={markers} />
         {markers.map((marker) => (
           <Marker

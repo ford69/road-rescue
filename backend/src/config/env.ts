@@ -49,6 +49,7 @@ const envSchema = z.object({
   BREVO_SENDER_EMAIL: z.string().email().default('noreply@roadrescue4u.com'),
   BREVO_SENDER_NAME: z.string().min(1).default('Road Rescue Ghana'),
   BREVO_REPLY_TO_EMAIL: optionalEmail,
+  SUPPORT_EMAIL: optionalEmail,
   // Optional Brevo dashboard template IDs (leave empty to use built-in HTML)
   BREVO_TEMPLATE_VERIFY_EMAIL: optionalTemplateId,
   BREVO_TEMPLATE_RESET_PASSWORD: optionalTemplateId,

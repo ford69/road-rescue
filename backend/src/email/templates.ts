@@ -4,7 +4,8 @@ export type EmailTemplateKey =
   | 'verify_email'
   | 'reset_password'
   | 'welcome'
-  | 'mechanic_pending';
+  | 'mechanic_pending'
+  | 'support_complaint';
 
 export interface EmailLinkParams {
   firstName: string;
@@ -199,6 +200,63 @@ export function buildMechanicPendingContent(input: { firstName: string; garageNa
     params: {
       FIRSTNAME: input.firstName,
       GARAGE_NAME: input.garageName,
+    },
+  };
+}
+
+export function buildSupportComplaintContent(input: {
+  ticketId: string;
+  category: string;
+  subject: string;
+  description: string;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  userRole: string;
+}): {
+  subject: string;
+  htmlContent: string;
+  textContent: string;
+  params: Record<string, string>;
+} {
+  const subject = `[Support] ${input.category}: ${input.subject}`;
+  const htmlContent = layout(
+    subject,
+    `<p style="margin:0 0 12px;font-size:16px;font-weight:700;">New support message</p>
+     <p style="margin:0 0 8px;font-size:14px;"><strong>Ticket:</strong> ${escapeHtml(input.ticketId)}</p>
+     <p style="margin:0 0 8px;font-size:14px;"><strong>Category:</strong> ${escapeHtml(input.category)}</p>
+     <p style="margin:0 0 8px;font-size:14px;"><strong>From:</strong> ${escapeHtml(input.userName)} (${escapeHtml(input.userEmail)})</p>
+     <p style="margin:0 0 8px;font-size:14px;"><strong>Phone:</strong> ${escapeHtml(input.userPhone || '—')}</p>
+     <p style="margin:0 0 8px;font-size:14px;"><strong>Role:</strong> ${escapeHtml(input.userRole)}</p>
+     <p style="margin:16px 0 8px;font-size:14px;font-weight:700;">Subject</p>
+     <p style="margin:0 0 12px;font-size:15px;">${escapeHtml(input.subject)}</p>
+     <p style="margin:0 0 8px;font-size:14px;font-weight:700;">Message</p>
+     <p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(input.description)}</p>`,
+  );
+  const textContent = `New support message
+Ticket: ${input.ticketId}
+Category: ${input.category}
+From: ${input.userName} <${input.userEmail}>
+Phone: ${input.userPhone || '—'}
+Role: ${input.userRole}
+
+Subject: ${input.subject}
+
+${input.description}
+`;
+  return {
+    subject,
+    htmlContent,
+    textContent,
+    params: {
+      TICKET_ID: input.ticketId,
+      CATEGORY: input.category,
+      SUBJECT: input.subject,
+      DESCRIPTION: input.description,
+      USER_NAME: input.userName,
+      USER_EMAIL: input.userEmail,
+      USER_PHONE: input.userPhone,
+      USER_ROLE: input.userRole,
     },
   };
 }

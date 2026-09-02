@@ -264,7 +264,7 @@ export function AdminDashboard() {
             <h3 className="font-display text-base font-bold mb-1">Live Map</h3>
             <p className="text-sm text-muted-foreground mb-3">Active technicians across Accra</p>
             <MapView
-              className="h-64 rounded-xl border border-border"
+              className="h-64 min-h-[16rem] w-full rounded-xl border border-border landscape:h-[40dvh] landscape:min-h-[12rem]"
               markers={mechanics.slice(0, 4).map((m) => ({
                 id: m._id,
                 latitude: m.latitude,

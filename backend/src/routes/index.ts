@@ -13,9 +13,11 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { paymentController } from '../controllers/payment.controller.js';
 import { subscriptionController } from '../controllers/subscription.controller.js';
 import { chatController } from '../controllers/chat.controller.js';
+import { supportController } from '../controllers/support.controller.js';
 import {
   createRequestSchema,
   createVehicleSchema,
+  createSupportTicketSchema,
   updateAvailabilitySchema,
   updateLocationSchema,
   updateRequestStatusSchema,
@@ -121,6 +123,12 @@ router.get('/mechanics/me/earnings', authorize('mechanic'), asyncHandler(mechani
 
 router.get('/notifications', asyncHandler(notificationController.list));
 router.post('/notifications/read-all', asyncHandler(notificationController.markAllRead));
+
+router.post(
+  '/support/tickets',
+  validateBody(createSupportTicketSchema),
+  asyncHandler(supportController.create),
+);
 
 router.get('/admin/dashboard', authorize('admin'), asyncHandler(adminController.dashboard));
 router.patch(

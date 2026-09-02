@@ -112,3 +112,9 @@ export const updateLocationSchema = z.object({
   speed: z.coerce.number().min(0).optional(),
   requestId: z.string().optional(),
 });
+
+export const createSupportTicketSchema = z.object({
+  subject: z.string().trim().min(3).max(160),
+  description: z.string().trim().min(10).max(4000),
+  category: z.enum(['complaint', 'billing', 'account', 'rescue', 'other']).default('complaint'),
+});

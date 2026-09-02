@@ -219,84 +219,88 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-40 lg:absolute lg:inset-0 lg:z-0 bg-background">
-      <MapView
-        className="h-full w-full"
-        showRoute={
-          Boolean(currentLocation) &&
-          (active.status === 'accepted' || active.status === 'enroute')
-        }
-        routePath={
-          currentLocation &&
-          (active.status === 'accepted' || active.status === 'enroute')
-            ? [
-                currentLocation,
-                {
-                  latitude: active.pickupLocation.latitude,
-                  longitude: active.pickupLocation.longitude,
-                },
-              ]
-            : undefined
-        }
-        markers={[
-          ...(currentLocation
-            ? [{ id: 'mech', ...currentLocation, type: 'mechanic' as const, label: 'You' }]
-            : []),
-          {
-            id: 'customer',
-            latitude: active.pickupLocation.latitude,
-            longitude: active.pickupLocation.longitude,
-            type: 'user',
-            label: name.split(' ')[0],
-          },
-        ]}
-      >
-        <MapFloatingCard className="top-4 left-4 right-4">
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              Back
-            </Button>
-            <div className="text-center">
-              <p className="font-semibold text-sm">{serviceLabel}</p>
-              <p className="text-xs text-muted-foreground">{formatGhs(active.quotedPrice)}</p>
-            </div>
-            <StatusChip status={active.status} />
-          </div>
-        </MapFloatingCard>
-
-        <div
-          className={cn(
-            'pointer-events-auto absolute bottom-0 left-0 right-0 z-[600] transition-all duration-300',
-            sheetExpanded ? 'max-h-[70vh] overflow-y-auto' : 'max-h-40 overflow-hidden',
-          )}
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background">
+      <div className="relative min-h-0 flex-1">
+        <MapView
+          className="absolute inset-0 h-full w-full"
+          showRoute={
+            Boolean(currentLocation) &&
+            (active.status === 'accepted' || active.status === 'enroute')
+          }
+          routePath={
+            currentLocation &&
+            (active.status === 'accepted' || active.status === 'enroute')
+              ? [
+                  currentLocation,
+                  {
+                    latitude: active.pickupLocation.latitude,
+                    longitude: active.pickupLocation.longitude,
+                  },
+                ]
+              : undefined
+          }
+          markers={[
+            ...(currentLocation
+              ? [{ id: 'mech', ...currentLocation, type: 'mechanic' as const, label: 'You' }]
+              : []),
+            {
+              id: 'customer',
+              latitude: active.pickupLocation.latitude,
+              longitude: active.pickupLocation.longitude,
+              type: 'user',
+              label: name.split(' ')[0],
+            },
+          ]}
         >
-          <Card className="rounded-b-none rounded-t-3xl border-b-0 shadow-lg">
-            <button
-              type="button"
-              className="flex w-full items-center justify-center pt-3 pb-1"
-              onClick={() => setSheetExpanded((v) => !v)}
-            >
-              {sheetExpanded ? (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              )}
-            </button>
-
-            <div className="space-y-4 px-4 pb-6">
-              <div>
-                <p className="font-display text-lg font-bold">{name}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">{vehicleLabel(active)}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>
-                    {active.pickupLocation.address}, {active.pickupLocation.city}
-                  </span>
-                </p>
+          <MapFloatingCard className="top-4 left-4 right-4" position="top">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-2 py-1.5 shadow-elevated backdrop-blur-sm">
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                Back
+              </Button>
+              <div className="text-center">
+                <p className="font-semibold text-sm">{serviceLabel}</p>
+                <p className="text-xs text-muted-foreground">{formatGhs(active.quotedPrice)}</p>
               </div>
+              <StatusChip status={active.status} />
+            </div>
+          </MapFloatingCard>
+        </MapView>
+      </div>
 
-              {sheetExpanded && (
-                <>
+      <div
+        className={cn(
+          'relative z-10 shrink-0 overflow-y-auto rounded-t-3xl border border-border bg-card shadow-elevated transition-all',
+          'max-h-[55dvh] landscape:max-h-[42dvh]',
+          sheetExpanded ? 'max-h-[70dvh] landscape:max-h-[50dvh]' : 'max-h-44',
+        )}
+      >
+        <Card className="rounded-none border-0 shadow-none">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center pt-3 pb-1"
+            onClick={() => setSheetExpanded((v) => !v)}
+          >
+            {sheetExpanded ? (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            )}
+          </button>
+
+          <div className="space-y-4 px-4 pb-6">
+            <div>
+              <p className="font-display text-lg font-bold">{name}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{vehicleLabel(active)}</p>
+              <p className="mt-2 flex items-center gap-1.5 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span>
+                  {active.pickupLocation.address}, {active.pickupLocation.city}
+                </span>
+              </p>
+            </div>
+
+            {sheetExpanded && (
+              <>
                   <Timeline items={timelineItems} />
 
                   <div className="grid grid-cols-3 gap-2">
@@ -355,9 +359,8 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                 </Button>
               )}
             </div>
-          </Card>
-        </div>
-      </MapView>
+        </Card>
+      </div>
       <RequestChat
         requestId={active._id}
         recipientName={name}

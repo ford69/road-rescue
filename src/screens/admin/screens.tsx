@@ -89,7 +89,7 @@ export function AdminLiveJobs() {
 
           <Card className="overflow-hidden">
             <MapView
-              className="h-72 border-b border-border"
+              className="h-72 min-h-[16rem] w-full border-b border-border landscape:h-[42dvh] landscape:min-h-[12rem]"
               markers={data.mechanics
                 .filter((mechanic) => mechanic.availability)
                 .slice(0, 8)

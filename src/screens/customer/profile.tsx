@@ -44,7 +44,7 @@ const emptyVehicleForm = {
   engineType: 'petrol',
 };
 
-type ProfilePanel = 'personal' | 'service' | 'settings' | null;
+type ProfilePanel = 'personal' | 'service' | 'settings' | 'privacy' | null;
 
 export function Profile({
   onSignOut,
@@ -373,14 +373,12 @@ export function Profile({
               <SettingRow
                 icon={<HelpCircle className="h-5 w-5" />}
                 label="Help & support"
-                onClick={() =>
-                  toast({
-                    type: 'info',
-                    title: 'Help & support',
-                    description:
-                      'Email support@roadrescue4u.com or call our support line for assistance.',
-                  })
-                }
+                onClick={() => navigate('/mechanic/support')}
+              />
+              <SettingRow
+                icon={<Shield className="h-5 w-5" />}
+                label="Privacy & Security"
+                onClick={() => setActivePanel('privacy')}
               />
               <SettingRow
                 icon={<Settings className="h-5 w-5" />}
@@ -395,17 +393,15 @@ export function Profile({
                 label="Personal information"
                 onClick={() => setActivePanel('personal')}
               />
-              <SettingRow icon={<Shield className="h-5 w-5" />} label="Privacy & Security" />
+              <SettingRow
+                icon={<Shield className="h-5 w-5" />}
+                label="Privacy & Security"
+                onClick={() => setActivePanel('privacy')}
+              />
               <SettingRow
                 icon={<HelpCircle className="h-5 w-5" />}
                 label="Help & Support"
-                onClick={() =>
-                  toast({
-                    type: 'info',
-                    title: 'Help & support',
-                    description: 'Email support@roadrescue4u.com for roadside or billing assistance.',
-                  })
-                }
+                onClick={() => navigate('/customer/support')}
               />
               <SettingRow
                 icon={<Settings className="h-5 w-5" />}
@@ -434,7 +430,9 @@ export function Profile({
                 ? 'Personal information'
                 : activePanel === 'service'
                   ? 'Service information'
-                  : 'Settings'
+                  : activePanel === 'privacy'
+                    ? 'Privacy & Security'
+                    : 'Settings'
             }
             onClose={() => setActivePanel(null)}
           />
@@ -519,6 +517,45 @@ export function Profile({
                   </div>
                   <span className="text-sm font-semibold text-primary">Toggle</span>
                 </button>
+              </div>
+            )}
+
+            {activePanel === 'privacy' && (
+              <div className="space-y-4">
+                <InfoRow
+                  label="Email verification"
+                  value={user?.emailVerified ? 'Verified' : 'Not verified'}
+                />
+                <InfoRow label="Account status" value={user?.status} />
+                <InfoRow label="Signed in as" value={user?.email} />
+                <div className="rounded-xl border border-border px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Password
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Reset your password securely through the forgot password flow.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => {
+                      setActivePanel(null);
+                      navigate('/auth/forgot-password');
+                    }}
+                  >
+                    Change password
+                  </Button>
+                </div>
+                <div className="rounded-xl border border-border px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Data & privacy
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    Road Rescue uses your profile and location details only to match you with help
+                    and manage your account. For privacy questions, email support@roadrescue4u.com.
+                  </p>
+                </div>
               </div>
             )}
           </SheetBody>

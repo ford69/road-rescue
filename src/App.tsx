@@ -19,6 +19,7 @@ import { LiveTracking } from '@/screens/customer/live-tracking';
 import { ServiceHistory } from '@/screens/customer/service-history';
 import { Profile } from '@/screens/customer/profile';
 import { Notifications } from '@/screens/customer/notifications';
+import { HelpSupport } from '@/screens/help-support';
 import { MechanicHome, MechanicEarnings } from '@/screens/mechanic/home';
 import { MechanicActiveJob } from '@/screens/mechanic/active-job';
 import { AdminDashboard } from '@/screens/admin/dashboard';
@@ -40,6 +41,7 @@ type Screen =
   | 'request'
   | 'tracking'
   | 'earnings'
+  | 'support'
   | 'users'
   | 'mechanics'
   | 'payments'
@@ -56,6 +58,7 @@ const screens: Screen[] = [
   'request',
   'tracking',
   'earnings',
+  'support',
   'users',
   'mechanics',
   'payments',
@@ -153,6 +156,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       request: 'Request Assistance',
       tracking: 'Live Tracking',
       earnings: 'Payments & Earnings',
+      support: 'Help & Support',
       users: 'User Management',
       mechanics: 'Mechanics',
       payments: 'Payments',
@@ -162,9 +166,9 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
     return titles[screen] ?? 'Road Rescue';
   };
 
-  if (screen === 'tracking') {
+  if (screen === 'tracking' || (role === 'customer' && screen === 'track')) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="relative h-[100dvh] overflow-hidden bg-background">
         <LiveTracking
           onBack={handleTrackingBack}
           onViewHistory={() => navigate('/customer/history')}
@@ -175,7 +179,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
 
   if (role === 'mechanic' && screen === 'track') {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="relative h-[100dvh] overflow-hidden bg-background">
         <MechanicActiveJob onBack={() => navigate('/mechanic/home')} />
       </div>
     );
@@ -232,12 +236,6 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               onCancel={() => navigate('/customer/home')}
             />
           )}
-          {role === 'customer' && screen === 'track' && (
-            <LiveTracking
-              onBack={() => navigate('/customer/home')}
-              onViewHistory={() => navigate('/customer/history')}
-            />
-          )}
           {role === 'customer' && screen === 'history' && (
             <ServiceHistory onSelectRequest={(req) => {
               if (['requested', 'accepted', 'enroute', 'arrived', 'inprogress'].includes(req.status)) {
@@ -249,6 +247,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           )}
           {role === 'customer' && screen === 'alerts' && <Notifications />}
           {role === 'customer' && screen === 'profile' && <Profile onSignOut={onLogout} />}
+          {role === 'customer' && screen === 'support' && <HelpSupport />}
 
           {role === 'mechanic' && screen === 'home' && (
             <MechanicHome
@@ -261,6 +260,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           )}
           {role === 'mechanic' && screen === 'alerts' && <Notifications />}
           {role === 'mechanic' && screen === 'profile' && <Profile onSignOut={onLogout} />}
+          {role === 'mechanic' && screen === 'support' && <HelpSupport />}
 
           {role === 'admin' && screen === 'home' && <AdminDashboard />}
           {role === 'admin' && screen === 'track' && <AdminLiveJobs />}
@@ -272,6 +272,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
             <AdminSettings onSignOut={onLogout} />
           )}
           {role === 'admin' && screen === 'alerts' && <Notifications />}
+          {role === 'admin' && screen === 'support' && <HelpSupport />}
         </main>
       </div>
 

@@ -263,7 +263,7 @@ function LocationStep({
       </div>
 
       <MapView
-        className="h-56 rounded-2xl border border-border"
+        className="h-56 min-h-[14rem] w-full rounded-2xl border border-border sm:h-64 landscape:h-[38dvh] landscape:min-h-[12rem]"
         markers={[
           {
             id: 'user',

@@ -5,6 +5,7 @@ import {
   buildAuthActionUrl,
   buildMechanicPendingContent,
   buildResetPasswordContent,
+  buildSupportComplaintContent,
   buildVerifyEmailContent,
   buildWelcomeContent,
   getBrevoTemplateId,
@@ -176,6 +177,62 @@ export const emailService = {
     } catch (error) {
       logger.error('Failed to send mechanic application email', {
         email: input.email,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { sent: false, skipped: false, reason: 'send_failed' };
+    }
+  },
+
+  async sendSupportComplaintEmail(input: {
+    ticketId: string;
+    category: string;
+    subject: string;
+    description: string;
+    userName: string;
+    userEmail: string;
+    userPhone: string;
+    userRole: string;
+  }): Promise<SendEmailResult> {
+    const supportInbox =
+      env.SUPPORT_EMAIL ?? env.BREVO_REPLY_TO_EMAIL ?? 'support@roadrescue4u.com';
+    const content = buildSupportComplaintContent(input);
+
+    if (!isBrevoConfigured()) {
+      logger.info('Support complaint email skipped — Brevo not configured', {
+        ticketId: input.ticketId,
+        to: supportInbox,
+        from: input.userEmail,
+        subject: input.subject,
+      });
+      return { sent: false, skipped: true, reason: 'BREVO_API_KEY not set' };
+    }
+
+    try {
+      const templateId = getBrevoTemplateId('support_complaint');
+      const result = await sendBrevoEmail({
+        to: [{ email: supportInbox, name: 'Road Rescue Support' }],
+        replyTo: { email: input.userEmail, name: input.userName },
+        tags: ['support-complaint', input.category],
+        params: content.params,
+        ...(templateId
+          ? { templateId }
+          : {
+              subject: content.subject,
+              htmlContent: content.htmlContent,
+              textContent: content.textContent,
+            }),
+      });
+
+      logger.info('Support complaint email sent via Brevo', {
+        ticketId: input.ticketId,
+        to: supportInbox,
+        messageId: result.messageId,
+      });
+
+      return { sent: true, skipped: false, messageId: result.messageId };
+    } catch (error) {
+      logger.error('Failed to send support complaint email', {
+        ticketId: input.ticketId,
         error: error instanceof Error ? error.message : String(error),
       });
       return { sent: false, skipped: false, reason: 'send_failed' };
