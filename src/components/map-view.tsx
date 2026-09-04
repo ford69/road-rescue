@@ -64,9 +64,10 @@ function ResilientTileLayer({ onAllProvidersFailed }: { onAllProvidersFailed: ()
 function FitMarkers({ markers }: { markers: MapMarker[] }) {
   const map = useMap();
   React.useEffect(() => {
+    if (!markers?.length) return;
     if (markers.length === 1) {
       map.setView([markers[0].latitude, markers[0].longitude], 15);
-    } else if (markers.length > 1) {
+    } else {
       map.fitBounds(
         latLngBounds(markers.map((marker) => [marker.latitude, marker.longitude])),
         { padding: [48, 48], maxZoom: 15 },
@@ -130,6 +131,13 @@ export function MapView({
   interactive?: boolean;
 }) {
   const [tilesUnavailable, setTilesUnavailable] = React.useState(false);
+  const safeMarkers = React.useMemo(
+    () =>
+      (markers ?? []).filter(
+        (marker) => Number.isFinite(marker.latitude) && Number.isFinite(marker.longitude),
+      ),
+    [markers],
+  );
 
   return (
     <div className={cn('relative isolate min-h-[12rem] overflow-hidden bg-muted', className)}>
@@ -145,8 +153,8 @@ export function MapView({
       >
         <ResilientTileLayer onAllProvidersFailed={() => setTilesUnavailable(true)} />
         <InvalidateSizeOnResize />
-        <FitMarkers markers={markers} />
-        {markers.map((marker) => (
+        <FitMarkers markers={safeMarkers} />
+        {safeMarkers.map((marker) => (
           <Marker
             key={marker.id}
             position={[marker.latitude, marker.longitude]}

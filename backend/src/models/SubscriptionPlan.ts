@@ -36,6 +36,13 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
   { timestamps: true },
 );
 
+subscriptionPlanSchema.set('toJSON', {
+  transform(_doc, ret) {
+    ret.features = Array.isArray(ret.features) ? ret.features : [];
+    return ret;
+  },
+});
+
 export const SubscriptionPlan: Model<ISubscriptionPlan> =
   mongoose.models.SubscriptionPlan ??
   mongoose.model<ISubscriptionPlan>('SubscriptionPlan', subscriptionPlanSchema);

@@ -11,6 +11,7 @@ import type { MechanicPublicProfileDto, MechanicReviewDto } from '@/api/types';
 import { mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { resolveMediaUrl } from '@/lib/user-display';
 import { ApiClientError } from '@/api/client/http';
+import { ensureArray } from '@/lib/ensure-array';
 
 function timeAgo(value: string): string {
   const delta = Date.now() - new Date(value).getTime();
@@ -37,7 +38,7 @@ export function MechanicProfilePage() {
       .then(([nextProfile, nextReviews]) => {
         if (cancelled) return;
         setProfile(nextProfile);
-        setReviews(Array.isArray(nextReviews) ? nextReviews : []);
+        setReviews(ensureArray(nextReviews));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -117,10 +118,10 @@ export function MechanicProfilePage() {
       <Card className="p-5 space-y-3">
         <h2 className="font-display text-base font-bold">Services offered</h2>
         <div className="flex flex-wrap gap-2">
-          {(profile.specialties ?? []).length === 0 ? (
+          {ensureArray(profile.specialties).length === 0 ? (
             <p className="text-sm text-muted-foreground">No specialties listed yet.</p>
           ) : (
-            profile.specialties.map((slug) => (
+            ensureArray(profile.specialties).map((slug) => (
               <Badge key={slug} variant="outline">
                 {serviceTypeConfig[slug]?.label ?? slug}
               </Badge>

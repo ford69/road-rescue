@@ -8,6 +8,7 @@ import { subscriptionsApi } from '@/api/repositories';
 import type { SubscriptionPlanDto, SubscriptionPlanSlug, SubscriptionSummaryDto } from '@/api/types';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
+import { ensureArray } from '@/lib/ensure-array';
 
 const planIcons: Record<SubscriptionPlanSlug, React.ReactNode> = {
   free: <Star className="h-5 w-5" />,
@@ -41,7 +42,7 @@ export function SubscriptionPlanPicker() {
       subscriptionsApi.listPlans(),
       subscriptionsApi.current(),
     ]);
-    setPlans(planList);
+    setPlans(ensureArray(planList));
     setCurrent(summary);
   }, []);
 
@@ -152,7 +153,7 @@ export function SubscriptionPlanPicker() {
 
                 {Boolean(plan.features?.length) && (
                   <ul className="space-y-1.5">
-                    {plan.features.map((feature) => (
+                    {ensureArray(plan.features).map((feature) => (
                       <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Check className="h-4 w-4 text-success shrink-0" />
                         {featureLabels[feature] ?? feature.replace(/_/g, ' ')}

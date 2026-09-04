@@ -538,7 +538,35 @@ export const mechanicService = {
   },
 
   async listNearby(lat: number, lng: number) {
-    return mechanicRepository.findNearby(lat, lng);
+    const mechanics = await mechanicRepository.findNearby(lat, lng);
+    return mechanics.map((mechanic) => {
+      const user = mechanic.userId as unknown as {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        avatar?: string;
+      };
+      return {
+        _id: mechanic._id.toString(),
+        garageName: mechanic.garageName,
+        rating: mechanic.rating ?? 0,
+        reviewCount: mechanic.reviewCount ?? 0,
+        completedJobs: mechanic.completedJobs ?? 0,
+        availability: Boolean(mechanic.availability),
+        verificationStatus: mechanic.verificationStatus,
+        experience: mechanic.experience ?? 0,
+        specialties: Array.isArray(mechanic.specialties) ? mechanic.specialties : [],
+        location: mechanic.location ?? { city: '', address: '' },
+        latitude: mechanic.latitude,
+        longitude: mechanic.longitude,
+        userId: {
+          firstName: user?.firstName ?? '',
+          lastName: user?.lastName ?? '',
+          phone: user?.phone ?? '',
+          avatar: user?.avatar,
+        },
+      };
+    });
   },
 
   async getPublicProfile(mechanicId: string) {

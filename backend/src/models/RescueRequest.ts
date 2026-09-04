@@ -100,6 +100,13 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
   { timestamps: true },
 );
 
+rescueRequestSchema.set('toJSON', {
+  transform(_doc, ret) {
+    ret.images = Array.isArray(ret.images) ? ret.images : [];
+    return ret;
+  },
+});
+
 export const RescueRequest: Model<IRescueRequest> =
   mongoose.models.RescueRequest ??
   mongoose.model<IRescueRequest>('RescueRequest', rescueRequestSchema);

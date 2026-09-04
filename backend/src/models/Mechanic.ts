@@ -68,5 +68,13 @@ const mechanicSchema = new Schema<IMechanic>(
 mechanicSchema.index({ latitude: 1, longitude: 1 });
 mechanicSchema.index({ availability: 1, verificationStatus: 1 });
 
+mechanicSchema.set('toJSON', {
+  transform(_doc, ret) {
+    ret.specialties = Array.isArray(ret.specialties) ? ret.specialties : [];
+    ret.documents = Array.isArray(ret.documents) ? ret.documents : [];
+    return ret;
+  },
+});
+
 export const Mechanic: Model<IMechanic> =
   mongoose.models.Mechanic ?? mongoose.model<IMechanic>('Mechanic', mechanicSchema);

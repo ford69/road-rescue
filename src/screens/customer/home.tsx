@@ -26,6 +26,7 @@ import { DEFAULT_PICKUP_LOCATION } from '@/lib/locations';
 import { useNearbyMechanics, useRequests, useServiceTypes, useSubscription } from '@/hooks/useApi';
 import type { RescueRequestDto, ServiceType } from '@/api/types';
 import { useToast } from '@/components/ui/toast';
+import { ensureArray } from '@/lib/ensure-array';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -50,14 +51,17 @@ export function CustomerHome({
   onTrackRequest: (req: RescueRequestDto) => void;
   onOpenMechanic: (mechanicId: string) => void;
 }) {
-  const { data: requests, loading: requestsLoading, error: requestsError } = useRequests();
-  const { data: mechanics, loading: mechanicsLoading } = useNearbyMechanics(
+  const { data: requestList, loading: requestsLoading, error: requestsError } = useRequests();
+  const { data: mechanicList, loading: mechanicsLoading } = useNearbyMechanics(
     DEFAULT_PICKUP_LOCATION.latitude,
     DEFAULT_PICKUP_LOCATION.longitude,
   );
-  const { data: serviceTypes } = useServiceTypes();
+  const { data: serviceTypeList } = useServiceTypes();
   const { data: membership } = useSubscription();
   const { toast } = useToast();
+  const requests = ensureArray(requestList);
+  const mechanics = ensureArray(mechanicList);
+  const serviceTypes = ensureArray(serviceTypeList);
   const restricted = new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']);
 
   const requestService = (type?: ServiceType) => {
@@ -126,6 +130,7 @@ export function CustomerHome({
         <div className="grid grid-cols-4 gap-2">
           {primaryServices.map((type) => {
             const config = serviceTypeConfig[type];
+            if (!config) return null;
             const Icon = iconMap[config.icon] ?? Wrench;
             return (
               <button
@@ -148,6 +153,7 @@ export function CustomerHome({
           <div className="grid grid-cols-3 gap-2 mt-2">
             {secondaryServices.map((type) => {
               const config = serviceTypeConfig[type];
+              if (!config) return null;
               const Icon = iconMap[config.icon] ?? Wrench;
               return (
                 <button
@@ -236,7 +242,7 @@ export function CustomerHome({
                         <span>{m.completedJobs} jobs</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {(m.specialties ?? []).slice(0, 3).map((s) => (
+                        {ensureArray(m.specialties).slice(0, 3).map((s) => (
                           <Badge key={s} variant="subtle">
                             {serviceTypeConfig[s]?.label ?? s}
                           </Badge>
@@ -271,7 +277,7 @@ export function CustomerHome({
           <div className="space-y-2">
             {recent.map((req) => {
               const config = serviceTypeConfig[req.serviceType];
-              const Icon = iconMap[config.icon] ?? Wrench;
+              const Icon = iconMap[config?.icon ?? 'Wrench'] ?? Wrench;
               return (
                 <Card key={req._id} interactive onClick={() => onSelectRequest(req)}>
                   <div className="p-4 flex items-center gap-3">
@@ -280,11 +286,11 @@ export function CustomerHome({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{config.label}</p>
+                        <p className="font-semibold text-sm">{config?.label ?? req.serviceType}</p>
                         <StatusChip status={req.status} />
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                        {req.pickupLocation.address}, {req.pickupLocation.city}
+                        {req.pickupLocation?.address}, {req.pickupLocation?.city}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

@@ -33,6 +33,7 @@ import { useToast } from '@/components/ui/toast';
 import { SubscriptionPlanPicker } from '@/components/subscriptions/plan-picker';
 import type { MechanicDto, ProviderPayoutInfoDto } from '@/api/types';
 import { serviceTypeConfig } from '@/lib/service-config';
+import { ensureArray } from '@/lib/ensure-array';
 
 const emptyVehicleForm = {
   nickname: '',
@@ -484,10 +485,10 @@ export function Profile({
                         Specialties
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(mechanicProfile.specialties ?? []).length === 0 ? (
+                        {ensureArray(mechanicProfile.specialties).length === 0 ? (
                           <span className="text-sm text-muted-foreground">None listed</span>
                         ) : (
-                          mechanicProfile.specialties.map((slug) => (
+                          ensureArray(mechanicProfile.specialties).map((slug) => (
                             <Badge key={slug} variant="outline">
                               {serviceTypeConfig[slug]?.label ?? slug}
                             </Badge>
