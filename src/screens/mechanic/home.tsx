@@ -521,7 +521,7 @@ export function MechanicEarnings() {
             <p className="text-sm text-background/60 dark:text-zinc-400">Payments & Earnings</p>
             <p className="font-display text-3xl font-bold mt-1">{formatGhs(earnings?.totalEarnings ?? 0)}</p>
             <p className="text-sm text-background/60 dark:text-zinc-400 mt-1">
-              {earnings?.completedJobs ?? 0} completed services · ⭐ {earnings?.rating.toFixed(1) ?? '—'}
+              {earnings?.completedJobs ?? 0} completed services · ⭐ {earnings?.rating != null ? earnings.rating.toFixed(1) : '—'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -564,7 +564,7 @@ export function MechanicEarnings() {
 
       <div>
         <h3 className="font-display text-base font-bold mb-3 px-1">Recent payments</h3>
-        {(earnings?.recentPayments.length ?? 0) === 0 ? (
+        {(earnings?.recentPayments?.length ?? 0) === 0 ? (
           <EmptyState
             icon={<DollarSign className="h-10 w-10" />}
             title="No payments yet"
@@ -572,7 +572,7 @@ export function MechanicEarnings() {
           />
         ) : (
           <div className="space-y-2">
-            {earnings?.recentPayments.map((payment) => (
+            {earnings?.recentPayments?.map((payment) => (
               <Card key={payment.id}>
                 <div className="p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
