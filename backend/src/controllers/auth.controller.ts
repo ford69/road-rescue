@@ -6,12 +6,12 @@ import { UnauthorizedError } from '../utils/errors.js';
 export const authController = {
   registerCustomer: async (req: Request, res: Response) => {
     const data = await authService.registerCustomer(req.body, res);
-    return sendSuccess(res, data, 'Customer registered', 201);
+    return sendSuccess(res, data, 'Please verify your email address before continuing.', 201);
   },
 
   registerMechanic: async (req: Request, res: Response) => {
     const data = await authService.registerMechanic(req.body, req.file, res);
-    return sendSuccess(res, data, 'Mechanic registered', 201);
+    return sendSuccess(res, data, 'Please verify your email address before continuing.', 201);
   },
 
   createAdmin: async (req: Request, res: Response) => {
@@ -52,7 +52,12 @@ export const authController = {
   },
 
   verifyEmail: async (req: Request, res: Response) => {
-    const data = await authService.verifyEmail(req.body.token);
+    const data = await authService.verifyEmail(req.body.token, res);
+    return sendSuccess(res, data, data.message);
+  },
+
+  resendVerification: async (req: Request, res: Response) => {
+    const data = await authService.resendVerification(req.body.email);
     return sendSuccess(res, data, data.message);
   },
 

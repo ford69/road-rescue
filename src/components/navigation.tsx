@@ -16,6 +16,7 @@ import {
   Search,
   ShieldAlert,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/api/types';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -245,9 +246,36 @@ export function TopBar({
   onOpenNotifications: () => void;
 }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const initials = getUserInitials(user);
   const avatarSrc = resolveMediaUrl(user?.avatar);
   const fullName = user ? `${user.firstName} ${user.lastName}` : 'Road Rescue user';
+  const role = user?.role ?? 'customer';
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const goTo = (path: string) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
 
   return (
     <header className="sticky top-0 z-30 glass border-b border-border safe-top">
@@ -306,14 +334,56 @@ export function TopBar({
         {/* Theme toggle */}
         <ThemeToggle />
 
-        {/* User avatar */}
-        <Avatar
-          src={avatarSrc}
-          alt={fullName}
-          fallback={initials}
-          size="md"
-          className="hidden sm:flex ring-2 ring-border"
-        />
+        {/* User avatar menu */}
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Open account menu"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            <Avatar
+              src={avatarSrc}
+              alt={fullName}
+              fallback={initials}
+              size="md"
+              className="ring-2 ring-border"
+            />
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-elevated"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-accent"
+                onClick={() => goTo(`/${role}/profile`)}
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
+                Profile
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-accent"
+                onClick={() =>
+                  goTo(
+                    role === 'admin'
+                      ? `/${role}/settings`
+                      : `/${role}/profile?panel=settings`,
+                  )
+                }
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Settings
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

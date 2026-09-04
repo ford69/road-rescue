@@ -37,7 +37,6 @@ async function dispatchEmail(input: {
       template: input.key,
       to: input.to.email,
       previewSubject: input.subject,
-      previewParams: input.params,
     });
     return { sent: false, skipped: true, reason: 'BREVO_API_KEY not set' };
   }

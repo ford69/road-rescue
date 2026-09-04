@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetBody } from '@/components/ui/she
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, ServiceType } from '@/api/types';
+import { EMAIL_NOT_VERIFIED_EVENT } from '@/api/client/http';
 import { useAuth } from '@/context/auth-context';
 
 import { CustomerHome } from '@/screens/customer/home';
@@ -77,6 +78,18 @@ function isScreen(value: string | undefined): value is Screen {
 function ProtectedApp() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    const onUnverified = () => {
+      if (location.pathname.startsWith('/auth/verify-email') || location.pathname === '/verify-email') {
+        return;
+      }
+      navigate('/auth/verify-email', { replace: true });
+    };
+    window.addEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
+    return () => window.removeEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
+  }, [location.pathname, navigate]);
 
   if (loading) {
     return (
@@ -88,6 +101,10 @@ function ProtectedApp() {
 
   if (!isAuthenticated || !user) {
     return <Navigate to={`/auth/login?next=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+
+  if (!user.emailVerified) {
+    return <Navigate to="/auth/verify-email" replace />;
   }
 
   return <AppShell onLogout={() => void logout()} />;

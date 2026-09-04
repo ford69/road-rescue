@@ -12,7 +12,9 @@ export interface IUser extends Document {
   avatar?: string;
   status: UserStatus;
   emailVerified: boolean;
+  emailVerifiedAt?: Date | null;
   emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   refreshTokenHash?: string;
@@ -36,7 +38,9 @@ const userSchema = new Schema<IUser>(
       default: 'active',
     },
     emailVerified: { type: Boolean, default: false },
+    emailVerifiedAt: { type: Date, default: null },
     emailVerificationToken: { type: String, select: false },
+    emailVerificationExpires: { type: Date, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
     refreshTokenHash: { type: String, select: false },

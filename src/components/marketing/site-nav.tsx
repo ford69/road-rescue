@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Phone, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
     <header className="fixed inset-x-0 top-0 z-50 safe-top">
       {/* Utility strip — always glass */}
       <div className="border-b border-white/10 bg-brand-black/40 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 text-xs font-medium lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center px-4 py-2 text-xs font-medium lg:px-8">
           <p className="tracking-wide text-white/85">
             <span className="inline-flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
@@ -55,13 +55,6 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
               24/7 Emergency Roadside Assistance · Ghana
             </span>
           </p>
-          <a
-            href="tel:+233000000000"
-            className="hidden items-center gap-1.5 font-semibold text-white/90 transition-colors hover:text-primary sm:inline-flex"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            Call for help
-          </a>
         </div>
       </div>
 

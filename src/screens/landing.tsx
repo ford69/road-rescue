@@ -10,7 +10,6 @@ import {
   Fuel,
   KeyRound,
   MapPin,
-  Phone,
   Shield,
   Sparkles,
   Truck,
@@ -166,7 +165,7 @@ export function LandingPage() {
 
   React.useEffect(() => {
     if (!loading && isAuthenticated && user) {
-      navigate(`/${user.role}/home`, { replace: true });
+      navigate(user.emailVerified ? `/${user.role}/home` : '/auth/verify-email', { replace: true });
     }
   }, [isAuthenticated, loading, navigate, user]);
 
@@ -250,13 +249,6 @@ export function LandingPage() {
                 >
                   Create free account
                 </Button>
-                <a
-                  href="tel:+233000000000"
-                  className="inline-flex min-h-[3.25rem] items-center justify-center gap-2 rounded-md border border-white/30 px-6 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:ml-1"
-                >
-                  <Phone className="h-4 w-4" aria-hidden="true" />
-                  Call emergency line
-                </a>
               </div>
               <p className="mt-6 text-sm text-white/70">
                 Already have an account?{' '}

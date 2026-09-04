@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/auth-context';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { ApiUser } from '@/api/types';
+import { rememberPendingEmail } from '@/lib/auth-gate';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -27,6 +28,7 @@ export function LoginForm({
 }) {
   const { login } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = React.useState(false);
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -40,6 +42,11 @@ export function LoginForm({
       toast({ type: 'success', title: 'Welcome back', description: `Signed in as ${user.firstName}` });
       onSuccess?.(user);
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'EMAIL_NOT_VERIFIED') {
+        rememberPendingEmail(values.email);
+        navigate(`/auth/verify-email?email=${encodeURIComponent(values.email)}`, { replace: true });
+        return;
+      }
       toast({
         type: 'error',
         title: 'Login failed',

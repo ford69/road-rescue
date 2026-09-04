@@ -65,6 +65,10 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(10),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
+});
+
 export const createAdminSchema = registerCustomerSchema;
 
 export const createVehicleSchema = z.object({

@@ -55,6 +55,7 @@ export interface ApiUser {
   avatar: string | null;
   status: string;
   emailVerified: boolean;
+  emailVerifiedAt?: string | null;
   lastLogin: string | null;
   createdAt: string;
 }
@@ -68,6 +69,7 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
+  code?: string;
   details?: unknown;
 }
 

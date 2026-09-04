@@ -8,6 +8,12 @@ export interface AuthResult {
   emailVerificationToken?: string;
 }
 
+export interface RegisterResult {
+  requiresEmailVerification: boolean;
+  email?: string;
+  emailVerificationToken?: string;
+}
+
 export interface RegisterCustomerInput {
   firstName: string;
   lastName: string;
@@ -31,12 +37,10 @@ export interface RegisterMechanicInput extends RegisterCustomerInput {
 
 export const authApi = {
   async registerCustomer(input: RegisterCustomerInput) {
-    const data = await apiRequest<AuthResult>('/auth/register/customer', {
+    return apiRequest<RegisterResult>('/auth/register/customer', {
       method: 'POST',
       body: JSON.stringify(input),
     });
-    tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
-    return data;
   },
 
   async registerMechanic(input: RegisterMechanicInput) {
@@ -57,12 +61,10 @@ export const authApi = {
     input.specialties.forEach((specialty) => formData.append('specialties', specialty));
     if (input.truck) formData.append('truck', input.truck);
 
-    const data = await apiRequest<AuthResult>('/auth/register/mechanic', {
+    return apiRequest<RegisterResult>('/auth/register/mechanic', {
       method: 'POST',
       body: formData,
     });
-    tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
-    return data;
   },
 
   async login(email: string, password: string) {
@@ -109,10 +111,28 @@ export const authApi = {
     });
   },
 
-  verifyEmail(token: string) {
-    return apiRequest<{ message: string; user: ApiUser }>('/auth/verify-email', {
+  async verifyEmail(token: string) {
+    const data = await apiRequest<{
+      message: string;
+      user: ApiUser;
+      tokens?: AuthTokens;
+    }>('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
+    if (data.tokens) {
+      tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
+    }
+    return data;
+  },
+
+  resendVerification(email: string) {
+    return apiRequest<{ message: string; emailVerificationToken?: string }>(
+      '/auth/resend-verification',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      },
+    );
   },
 };

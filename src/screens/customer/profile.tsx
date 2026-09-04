@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Car,
   Star,
@@ -53,6 +53,7 @@ export function Profile({
   onSignOut?: () => void;
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -65,7 +66,9 @@ export function Profile({
   const [payoutInfo, setPayoutInfo] = React.useState<ProviderPayoutInfoDto | null>(null);
   const [mechanicProfile, setMechanicProfile] = React.useState<MechanicDto | null>(null);
   const [membershipLabel, setMembershipLabel] = React.useState('Member');
-  const [activePanel, setActivePanel] = React.useState<ProfilePanel>(null);
+  const [activePanel, setActivePanel] = React.useState<ProfilePanel>(
+    searchParams.get('panel') === 'settings' ? 'settings' : null,
+  );
   const fullName = user ? `${user.firstName} ${user.lastName}` : 'Road Rescue User';
   const initials = getUserInitials(user);
   const avatarSrc = resolveMediaUrl(user?.avatar);

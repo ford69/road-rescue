@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { verifyAccessToken } from '../auth/tokens.js';
+import { userRepository } from '../repositories/user.repository.js';
 import { env } from '../config/env.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
@@ -44,8 +45,22 @@ export function initSockets(httpServer: HttpServer): void {
       return;
     }
     try {
-      socket.data.user = verifyAccessToken(token);
-      next();
+      const payload = verifyAccessToken(token);
+      void userRepository
+        .findById(payload.sub)
+        .then((user) => {
+          if (!user) {
+            next(new Error('Authentication required'));
+            return;
+          }
+          if (!user.emailVerified) {
+            next(new Error('Please verify your email address before accessing Road Rescue.'));
+            return;
+          }
+          socket.data.user = payload;
+          next();
+        })
+        .catch(next);
     } catch {
       next(new Error('Invalid or expired access token'));
     }

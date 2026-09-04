@@ -8,6 +8,7 @@ import {
   vehicleController,
 } from '../controllers/domain.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { requireEmailVerification } from '../middleware/requireEmailVerification.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { paymentController } from '../controllers/payment.controller.js';
@@ -35,6 +36,7 @@ router.get('/service-types', asyncHandler(catalogController.serviceTypes));
 router.get('/subscriptions/plans', asyncHandler(subscriptionController.listPlans));
 
 router.use(authenticate);
+router.use(requireEmailVerification);
 
 router.get('/vehicles', authorize('customer'), asyncHandler(vehicleController.list));
 router.post(

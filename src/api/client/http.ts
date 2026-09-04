@@ -3,14 +3,18 @@ import { tokenStore } from '../utils/tokenStore';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+export const EMAIL_NOT_VERIFIED_EVENT = 'rr:email-not-verified';
+
 export class ApiClientError extends Error {
   status: number;
   details?: unknown;
+  code?: string;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, details?: unknown, code?: string) {
     super(message);
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -41,6 +45,12 @@ async function refreshAccessToken(): Promise<boolean> {
   );
   tokenStore.set(payload.data.tokens.accessToken, payload.data.tokens.refreshToken);
   return true;
+}
+
+function notifyEmailNotVerified(path: string): void {
+  if (path.startsWith('/auth/')) return;
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(EMAIL_NOT_VERIFIED_EVENT));
 }
 
 export async function apiRequest<T>(
@@ -77,7 +87,15 @@ export async function apiRequest<T>(
 
   const payload = await parseJson<T>(response);
   if (!response.ok || !payload.success) {
-    throw new ApiClientError(payload.message || 'Request failed', response.status, payload.details);
+    if (payload.code === 'EMAIL_NOT_VERIFIED') {
+      notifyEmailNotVerified(path);
+    }
+    throw new ApiClientError(
+      payload.message || 'Request failed',
+      response.status,
+      payload.details,
+      payload.code,
+    );
   }
 
   return payload.data;

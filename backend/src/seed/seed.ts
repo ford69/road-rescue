@@ -97,6 +97,7 @@ async function seed(): Promise<void> {
     role: 'admin',
     status: 'active',
     emailVerified: true,
+    emailVerifiedAt: new Date(),
   });
 
   const customerUsers = await User.insertMany([
@@ -109,6 +110,7 @@ async function seed(): Promise<void> {
       role: 'customer',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Efua',
@@ -119,6 +121,7 @@ async function seed(): Promise<void> {
       role: 'customer',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Daniel',
@@ -129,6 +132,7 @@ async function seed(): Promise<void> {
       role: 'customer',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   ]);
 
@@ -142,6 +146,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Kojo',
@@ -152,6 +157,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Richmond',
@@ -162,6 +168,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Michael',
@@ -172,6 +179,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Yaw',
@@ -182,6 +190,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     {
       firstName: 'Nana',
@@ -192,6 +201,7 @@ async function seed(): Promise<void> {
       role: 'mechanic',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   ]);
 

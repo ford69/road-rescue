@@ -93,17 +93,23 @@ export function buildVerifyEmailContent(input: EmailLinkParams): {
   params: Record<string, string>;
 } {
   const firstName = escapeHtml(input.firstName);
-  const subject = 'Verify your Road Rescue Ghana email';
+  const subject = 'Verify your email address';
   const htmlContent = layout(
     subject,
     `<p style="margin:0 0 12px;font-size:16px;">Hi ${firstName},</p>
      <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
-       Confirm your email to finish setting up your Road Rescue Ghana account.
+       Thanks for creating your Road Rescue account.
      </p>
-     ${ctaButton('Verify email', input.actionUrl)}
-     <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">This link expires when you request a new one.</p>`,
+     <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
+       Please verify your email address by clicking the button below.
+     </p>
+     ${ctaButton('Verify Email', input.actionUrl)}
+     <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">This link expires in 24 hours.</p>
+     <p style="margin:12px 0 0;font-size:13px;color:#6b7280;">
+       If you did not create this account, you can safely ignore this email.
+     </p>`,
   );
-  const textContent = `Hi ${input.firstName},\n\nVerify your email: ${input.actionUrl}\n\nRoad Rescue Ghana`;
+  const textContent = `Hi ${input.firstName},\n\nThanks for creating your Road Rescue account.\n\nVerify your email address: ${input.actionUrl}\n\nThis link expires in 24 hours.\n\nIf you did not create this account, you can safely ignore this email.\n\nRoad Rescue`;
   return {
     subject,
     htmlContent,

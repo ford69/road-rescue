@@ -13,6 +13,7 @@ import { authApi } from '@/api/auth';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { ApiUser } from '@/api/types';
+import { postAuthPath, rememberPendingEmail } from '@/lib/auth-gate';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -42,9 +43,16 @@ type LoginValues = z.infer<typeof loginSchema>;
 export function LoginScreen() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && user) {
+      navigate(postAuthPath(user, search.get('next')), { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate, search, user]);
 
   const handleSuccess = (user: ApiUser) => {
-    navigate(search.get('next') || `/${user.role}/home`, { replace: true });
+    navigate(postAuthPath(user, search.get('next')), { replace: true });
   };
 
   return (
@@ -84,8 +92,13 @@ export function AdminLoginScreen() {
         title: 'Admin access granted',
         description: `Welcome, ${user.firstName}`,
       });
-      navigate('/admin/home', { replace: true });
+      navigate(postAuthPath(user, '/admin/home'), { replace: true });
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'EMAIL_NOT_VERIFIED') {
+        rememberPendingEmail(values.email);
+        navigate(`/auth/verify-email?email=${encodeURIComponent(values.email)}`, { replace: true });
+        return;
+      }
       toast({
         type: 'error',
         title: 'Admin sign-in failed',
@@ -163,7 +176,6 @@ const mechanicSpecialties = [
 ] as const;
 
 export function RegisterScreen() {
-  const { setUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [submitting, setSubmitting] = React.useState(false);
@@ -220,7 +232,7 @@ export function RegisterScreen() {
       });
       return;
     }
-    setSubmitting(true);
+      setSubmitting(true);
     try {
       const result =
         values.role === 'customer'
@@ -248,9 +260,15 @@ export function RegisterScreen() {
               specialties,
               truck: values.truck || undefined,
             });
-      setUser(result.user);
-      toast({ type: 'success', title: 'Account created', description: 'Welcome to Road Rescue Ghana' });
-      navigate(`/${result.user.role}/home`, { replace: true });
+      rememberPendingEmail(result.email || values.email);
+      toast({
+        type: 'success',
+        title: 'Account created',
+        description: 'Please verify your email address before continuing.',
+      });
+      navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || values.email)}`, {
+        replace: true,
+      });
     } catch (error) {
       toast({
         type: 'error',
@@ -595,45 +613,6 @@ export function ResetPasswordScreen() {
         <PasswordRequirements password={password} />
         <Button type="submit" className="w-full" disabled={submitting || !isValidPassword(password)}>
           {submitting ? 'Updating…' : 'Update password'}
-        </Button>
-      </form>
-    </AuthShell>
-  );
-}
-
-export function VerifyEmailScreen() {
-  const [search] = useSearchParams();
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [token, setToken] = React.useState(search.get('token') ?? '');
-  const [submitting, setSubmitting] = React.useState(false);
-
-  const onSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitting(true);
-    try {
-      await authApi.verifyEmail(token);
-      toast({ type: 'success', title: 'Email verified' });
-      navigate('/auth/login');
-    } catch (error) {
-      toast({
-        type: 'error',
-        title: 'Verification failed',
-        description: error instanceof ApiClientError ? error.message : 'Invalid token',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <AuthShell title="Verify email" subtitle="Confirm your Road Rescue Ghana account">
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <Field label="Verification token">
-          <Input value={token} onChange={(e) => setToken(e.target.value)} required />
-        </Field>
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? 'Verifying…' : 'Verify email'}
         </Button>
       </form>
     </AuthShell>

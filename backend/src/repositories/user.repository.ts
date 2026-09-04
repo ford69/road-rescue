@@ -12,7 +12,7 @@ export const userRepository = {
 
   findByEmailWithSecrets(email: string) {
     return User.findOne({ email: email.toLowerCase() }).select(
-      '+password +refreshTokenHash +emailVerificationToken +passwordResetToken +passwordResetExpires',
+      '+password +refreshTokenHash +emailVerificationToken +emailVerificationExpires +passwordResetToken +passwordResetExpires',
     );
   },
 
@@ -22,7 +22,7 @@ export const userRepository = {
 
   findByIdWithSecrets(id: string) {
     return User.findById(id).select(
-      '+password +refreshTokenHash +emailVerificationToken +passwordResetToken +passwordResetExpires',
+      '+password +refreshTokenHash +emailVerificationToken +emailVerificationExpires +passwordResetToken +passwordResetExpires',
     );
   },
 
@@ -31,7 +31,9 @@ export const userRepository = {
   },
 
   findByEmailVerificationToken(tokenHash: string) {
-    return User.findOne({ emailVerificationToken: tokenHash }).select('+emailVerificationToken');
+    return User.findOne({ emailVerificationToken: tokenHash }).select(
+      '+emailVerificationToken +emailVerificationExpires',
+    );
   },
 
   findByPasswordResetToken(tokenHash: string) {

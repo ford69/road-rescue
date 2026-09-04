@@ -49,6 +49,7 @@ async function main(): Promise<void> {
     role: 'admin',
     status: 'active',
     emailVerified: true,
+    emailVerifiedAt: new Date(),
   });
 
   console.log(`Admin created: ${email}`);

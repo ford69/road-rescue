@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
 import { authenticate, authorize, guestOnly } from '../middleware/auth.js';
+import {
+  resendVerificationHourlyLimiter,
+  resendVerificationMinuteLimiter,
+  verifyEmailLimiter,
+} from '../middleware/authRateLimit.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { upload } from '../uploads/storage.js';
@@ -11,6 +16,7 @@ import {
   loginSchema,
   registerCustomerSchema,
   registerMechanicSchema,
+  resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
 } from '../validators/auth.validators.js';
@@ -69,8 +75,16 @@ router.post(
 );
 router.post(
   '/verify-email',
+  verifyEmailLimiter,
   validateBody(verifyEmailSchema),
   asyncHandler(authController.verifyEmail),
+);
+router.post(
+  '/resend-verification',
+  resendVerificationMinuteLimiter,
+  resendVerificationHourlyLimiter,
+  validateBody(resendVerificationSchema),
+  asyncHandler(authController.resendVerification),
 );
 router.get('/me', authenticate, asyncHandler(authController.me));
 

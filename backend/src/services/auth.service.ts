@@ -11,6 +11,7 @@ import {
   hashToken,
   verifyRefreshToken,
 } from '../auth/tokens.js';
+import { createEmailVerification, evaluateVerificationToken } from '../auth/email-verification.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import type { IMechanic } from '../models/Mechanic.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
@@ -23,6 +24,7 @@ import {
   NotFoundError,
   UnauthorizedError,
   ValidationError,
+  AuthErrorCode,
 } from '../utils/errors.js';
 import type {
   createAdminSchema,
@@ -52,6 +54,7 @@ function sanitizeUser(user: {
   avatar?: string;
   status: string;
   emailVerified: boolean;
+  emailVerifiedAt?: Date | null;
   lastLogin?: Date;
   createdAt: Date;
 }) {
@@ -65,6 +68,7 @@ function sanitizeUser(user: {
     avatar: user.avatar ?? null,
     status: user.status,
     emailVerified: user.emailVerified,
+    emailVerifiedAt: user.emailVerifiedAt ?? null,
     lastLogin: user.lastLogin ?? null,
     createdAt: user.createdAt,
   };
@@ -95,10 +99,10 @@ function clearAuthCookies(res: Response): void {
 }
 
 export const authService = {
-  async registerCustomer(input: RegisterCustomerInput, res: Response) {
+  async registerCustomer(input: RegisterCustomerInput, _res: Response) {
     await ensureUniqueIdentity(input.email, input.phone);
     const password = await hashPassword(input.password);
-    const emailToken = createRandomToken();
+    const verification = createEmailVerification();
 
     const user = await userRepository.create({
       firstName: input.firstName,
@@ -109,14 +113,16 @@ export const authService = {
       role: 'customer',
       status: 'active',
       emailVerified: false,
-      emailVerificationToken: hashSha256(emailToken),
+      emailVerifiedAt: null,
+      emailVerificationToken: verification.tokenHash,
+      emailVerificationExpires: verification.expiresAt,
     });
 
     await customerRepository.create({ userId: user._id, emergencyContacts: [] });
     await subscriptionService.ensureFreePlanForCustomer(user._id.toString());
     await notificationRepository.create({
       title: 'Welcome to Road Rescue Ghana',
-      body: 'Your customer account is ready. Request roadside help anytime across Ghana.',
+      body: 'Verify your email to start requesting roadside help across Ghana.',
       recipient: user._id,
       type: 'success',
     });
@@ -125,7 +131,7 @@ export const authService = {
       .sendVerificationEmail({
         email: user.email,
         firstName: user.firstName,
-        token: emailToken,
+        token: verification.token,
       })
       .catch((error: unknown) => {
         logger.error('Customer verification email failed', {
@@ -134,22 +140,13 @@ export const authService = {
         });
       });
 
-    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
-    user.refreshTokenHash = await hashToken(tokens.refreshToken);
-    await user.save();
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-
-    return {
-      user: sanitizeUser(user),
-      tokens,
-      emailVerificationToken: env.NODE_ENV === 'production' ? undefined : emailToken,
-    };
+    return registrationPendingResponse(user.email, verification.token);
   },
 
   async registerMechanic(
     input: RegisterMechanicInput,
     selfie: Express.Multer.File | undefined,
-    res: Response,
+    _res: Response,
   ) {
     if (!selfie) {
       throw new ValidationError('A clear selfie photo is required');
@@ -157,7 +154,7 @@ export const authService = {
     await ensureUniqueIdentity(input.email, input.phone);
     await resolveGhanaCardConflict(input.ghanaCardNumber, input.email);
     const password = await hashPassword(input.password);
-    const emailToken = createRandomToken();
+    const verification = createEmailVerification();
     const selfiePath = getPublicUploadPath(selfie.filename);
 
     const user = await userRepository.create({
@@ -170,7 +167,9 @@ export const authService = {
       avatar: selfiePath,
       status: 'pending',
       emailVerified: false,
-      emailVerificationToken: hashSha256(emailToken),
+      emailVerifiedAt: null,
+      emailVerificationToken: verification.tokenHash,
+      emailVerificationExpires: verification.expiresAt,
     });
 
     try {
@@ -214,7 +213,7 @@ export const authService = {
       emailService.sendVerificationEmail({
         email: user.email,
         firstName: user.firstName,
-        token: emailToken,
+        token: verification.token,
       }),
       emailService.sendMechanicApplicationReceivedEmail({
         email: user.email,
@@ -228,16 +227,7 @@ export const authService = {
       });
     });
 
-    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
-    user.refreshTokenHash = await hashToken(tokens.refreshToken);
-    await user.save();
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-
-    return {
-      user: sanitizeUser(user),
-      tokens,
-      emailVerificationToken: env.NODE_ENV === 'production' ? undefined : emailToken,
-    };
+    return registrationPendingResponse(user.email, verification.token);
   },
 
   async createAdmin(input: CreateAdminInput, actorRole: Role) {
@@ -255,6 +245,7 @@ export const authService = {
       role: 'admin',
       status: 'active',
       emailVerified: true,
+      emailVerifiedAt: new Date(),
     });
     return sanitizeUser(user);
   },
@@ -282,6 +273,12 @@ export const authService = {
     if (requiredRole && user.role !== requiredRole) {
       // Same message as bad credentials — do not reveal account role.
       throw new UnauthorizedError('Invalid email or password');
+    }
+    if (!user.emailVerified) {
+      throw new ForbiddenError(
+        'Please verify your email address before accessing Road Rescue.',
+        AuthErrorCode.EMAIL_NOT_VERIFIED,
+      );
     }
 
     const tokens = createTokenPair(user._id.toString(), user.role, user.email);
@@ -378,14 +375,44 @@ export const authService = {
     return { message: 'Password updated successfully' };
   },
 
-  async verifyEmail(token: string) {
+  async verifyEmail(token: string, res: Response) {
     const user = await userRepository.findByEmailVerificationToken(hashSha256(token));
     if (!user) {
-      throw new ValidationError('Invalid verification token');
+      throw new ValidationError(
+        'This verification link is invalid or has expired.',
+        undefined,
+        AuthErrorCode.VERIFICATION_TOKEN_INVALID,
+      );
     }
+
+    const tokenState = evaluateVerificationToken({
+      emailVerified: user.emailVerified,
+      expiresAt: user.emailVerificationExpires,
+    });
+    if (tokenState === 'already_verified') {
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save();
+      throw new ConflictError('Your email is already verified.', AuthErrorCode.EMAIL_ALREADY_VERIFIED);
+    }
+    if (tokenState === 'expired') {
+      throw new ValidationError(
+        'This verification link has expired.',
+        undefined,
+        AuthErrorCode.VERIFICATION_TOKEN_EXPIRED,
+      );
+    }
+
     user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
     user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+
+    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+    user.refreshTokenHash = await hashToken(tokens.refreshToken);
+    user.lastLogin = new Date();
     await user.save();
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
     if (user.role === 'customer' || user.role === 'mechanic') {
       void emailService
@@ -402,7 +429,40 @@ export const authService = {
         });
     }
 
-    return { message: 'Email verified successfully', user: sanitizeUser(user) };
+    return { message: 'Email verified successfully', user: sanitizeUser(user), tokens };
+  },
+
+  async resendVerification(email: string) {
+    const user = await userRepository.findByEmailWithSecrets(email);
+    if (!user) {
+      return { message: 'If that email exists, a verification link has been sent.' };
+    }
+    if (user.emailVerified) {
+      throw new ConflictError('Your email is already verified.', AuthErrorCode.EMAIL_ALREADY_VERIFIED);
+    }
+
+    const verification = createEmailVerification();
+    user.emailVerificationToken = verification.tokenHash;
+    user.emailVerificationExpires = verification.expiresAt;
+    await user.save();
+
+    void emailService
+      .sendVerificationEmail({
+        email: user.email,
+        firstName: user.firstName,
+        token: verification.token,
+      })
+      .catch((error: unknown) => {
+        logger.error('Resend verification email failed', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+    return {
+      message: 'If that email exists, a verification link has been sent.',
+      emailVerificationToken: env.NODE_ENV === 'production' ? undefined : verification.token,
+    };
   },
 
   async me(userId: string) {
@@ -431,6 +491,14 @@ async function ensureUniqueIdentity(email: string, phone: string): Promise<void>
   if (existingPhone) {
     throw new ConflictError('An account with this phone number already exists');
   }
+}
+
+function registrationPendingResponse(email: string, token: string) {
+  return {
+    requiresEmailVerification: true,
+    email,
+    emailVerificationToken: env.NODE_ENV === 'production' ? undefined : token,
+  };
 }
 
 function maskEmail(email: string): string {
