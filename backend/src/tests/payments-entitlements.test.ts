@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculatePaymentSplit } from '../payments/payment-provider.impl.js';
 import { entitlementService } from '../services/entitlement.service.js';
+import { isPaymentAvailable } from '../services/payment.service.js';
 
 describe('payment split', () => {
   it('calculates platform and provider amounts without holding a wallet balance', () => {
@@ -16,7 +17,12 @@ describe('payment split', () => {
 
 describe('subscription entitlements', () => {
   it('returns plan-specific features centrally', () => {
-    expect(entitlementService.getEntitlementsForPlan('free')).toEqual([]);
+    expect(entitlementService.getEntitlementsForPlan('free')).toEqual([
+      'mechanic_discovery',
+      'mechanic_profile',
+      'mechanic_reviews',
+      'service_upload',
+    ]);
     expect(entitlementService.getEntitlementsForPlan('basic')).toContain('member_discount');
     expect(entitlementService.getEntitlementsForPlan('premium')).toContain('premium_support');
   });
@@ -25,5 +31,13 @@ describe('subscription entitlements', () => {
     expect(entitlementService.getMemberDiscountPercent('free')).toBe(0);
     expect(entitlementService.getMemberDiscountPercent('basic')).toBe(8);
     expect(entitlementService.getMemberDiscountPercent('premium')).toBe(15);
+  });
+});
+
+describe('payment eligibility after confirmation', () => {
+  it('is only available after the customer confirms completion', () => {
+    expect(isPaymentAvailable('awaiting_confirmation')).toBe(false);
+    expect(isPaymentAvailable('issue_reported')).toBe(false);
+    expect(isPaymentAvailable('completed')).toBe(true);
   });
 });

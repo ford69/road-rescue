@@ -82,6 +82,7 @@ export const requestService = {
 
     const service = await serviceTypeRepository.findBySlug(input.serviceType);
     if (!service) throw new NotFoundError('Service type not found');
+    await entitlementService.assertServiceAllowed(userId, input.serviceType);
 
     const entitlements = await entitlementService.getCustomerEntitlements(userId);
     const discountPercent = entitlementService.getMemberDiscountPercent(entitlements.planSlug);
@@ -242,7 +243,6 @@ export const requestService = {
 
     const extras: Record<string, Date> = {};
     if (input.status === 'arrived') extras.arrivedAt = new Date();
-    if (input.status === 'completed') extras.completedAt = new Date();
     if (input.status === 'cancelled') extras.cancelledAt = new Date();
 
     await requestRepository.updateStatus(requestId, input.status as RequestStatus, extras);
@@ -251,14 +251,6 @@ export const requestService = {
       status: input.status,
       updatedAt: new Date().toISOString(),
     });
-
-    if (input.status === 'completed' && request.mechanic) {
-      const mechanic = await mechanicRepository.findById(refId(request.mechanic));
-      if (mechanic) {
-        mechanic.completedJobs += 1;
-        await mechanic.save();
-      }
-    }
 
     const customer = await customerRepository.findById(refId(request.customer));
     if (customer) {
@@ -280,7 +272,7 @@ export const requestService = {
         },
         completed: {
           title: 'Service completed',
-          body: `Your rescue is complete. Amount due: ₵${request.quotedPrice}.`,
+          body: 'The customer confirmed this service is complete.',
           type: 'success',
         },
         cancelled: {
@@ -299,6 +291,152 @@ export const requestService = {
         });
       }
     }
+
+    return requestRepository.findById(requestId);
+  },
+
+  async requestConfirmation(userId: string, requestId: string) {
+    const mechanic = await mechanicRepository.findByUserId(userId);
+    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (!request.mechanic || refId(request.mechanic) !== mechanic._id.toString()) {
+      throw new ForbiddenError('You are not assigned to this request');
+    }
+    if (request.status !== 'inprogress' && request.status !== 'issue_reported') {
+      throw new ValidationError('You can request confirmation only after the service is in progress');
+    }
+
+    await requestRepository.updateStatus(requestId, 'awaiting_confirmation', {
+      completionRequestedAt: new Date(),
+      completionRequestedBy: mechanic.userId,
+    });
+    emitToRequest(requestId, 'request:status', {
+      requestId,
+      status: 'awaiting_confirmation',
+      updatedAt: new Date().toISOString(),
+    });
+
+    const customer = await customerRepository.findById(refId(request.customer));
+    if (customer) {
+      await notificationRepository.create({
+        title: 'Service completion requested',
+        body: 'Your mechanic has requested confirmation that your service is complete. Please review and confirm.',
+        recipient: customer.userId,
+        type: 'info',
+        meta: { requestId },
+      });
+    }
+
+    return requestRepository.findById(requestId);
+  },
+
+  async confirmCompletion(userId: string, requestId: string) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (refId(request.customer) !== customer._id.toString()) {
+      throw new ForbiddenError('You do not own this request');
+    }
+    if (request.status !== 'awaiting_confirmation') {
+      throw new ValidationError('This service is not waiting for your confirmation');
+    }
+
+    await requestRepository.updateStatus(requestId, 'completed', {
+      completedAt: new Date(),
+      customerConfirmedAt: new Date(),
+      customerConfirmedBy: customer.userId,
+    });
+    emitToRequest(requestId, 'request:status', {
+      requestId,
+      status: 'completed',
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (request.mechanic) {
+      const mechanic = await mechanicRepository.findById(refId(request.mechanic));
+      if (mechanic) {
+        mechanic.completedJobs += 1;
+        await mechanic.save();
+        await notificationRepository.create({
+          title: 'Customer confirmed completion',
+          body: 'The customer confirmed that the service is complete.',
+          recipient: mechanic.userId,
+          type: 'success',
+          meta: { requestId },
+        });
+      }
+    }
+
+    await notificationRepository.create({
+      title: 'Service completed',
+      body: `Your rescue is complete. Amount due: ₵${request.quotedPrice}.`,
+      recipient: customer.userId,
+      type: 'success',
+      meta: { requestId },
+    });
+
+    return requestRepository.findById(requestId);
+  },
+
+  async reportIssue(userId: string, requestId: string, reason: string) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (refId(request.customer) !== customer._id.toString()) {
+      throw new ForbiddenError('You do not own this request');
+    }
+    if (request.status !== 'awaiting_confirmation' && request.status !== 'inprogress') {
+      throw new ValidationError('You can only report an issue on an active service');
+    }
+
+    await requestRepository.updateStatus(requestId, 'issue_reported', {
+      issueReportedAt: new Date(),
+      issueReportedBy: customer.userId,
+      issueReason: reason,
+    });
+    emitToRequest(requestId, 'request:status', {
+      requestId,
+      status: 'issue_reported',
+      updatedAt: new Date().toISOString(),
+    });
+
+    const { SupportTicket } = await import('../models/SupportTicket.js');
+    await SupportTicket.create({
+      user: customer.userId,
+      subject: 'Service issue reported',
+      description: `Request ${requestId}: ${reason}`,
+      category: 'rescue',
+      status: 'open',
+    });
+
+    if (request.mechanic) {
+      const mechanic = await mechanicRepository.findById(refId(request.mechanic));
+      if (mechanic) {
+        await notificationRepository.create({
+          title: 'Customer reported an issue',
+          body: 'The customer reported a problem with this service. Please follow up.',
+          recipient: mechanic.userId,
+          type: 'warning',
+          meta: { requestId },
+        });
+      }
+    }
+
+    const admins = await userRepository.findByRole('admin');
+    await Promise.all(
+      admins.map((admin) =>
+        notificationRepository.create({
+          title: 'Service issue reported',
+          body: 'A customer reported an issue that needs review.',
+          recipient: admin._id,
+          type: 'warning',
+          meta: { requestId },
+        }),
+      ),
+    );
 
     return requestRepository.findById(requestId);
   },
@@ -335,7 +473,6 @@ const mechanicTransitions: Record<string, string[]> = {
   accepted: ['enroute', 'cancelled'],
   enroute: ['arrived', 'cancelled'],
   arrived: ['inprogress'],
-  inprogress: ['completed'],
 };
 
 function assertMechanicTransition(current: string, next: string): void {
@@ -371,7 +508,7 @@ export const mechanicService = {
       ) {
         throw new ForbiddenError('You are not assigned to this request');
       }
-      if (!['accepted', 'enroute', 'arrived', 'inprogress'].includes(request.status)) {
+      if (!['accepted', 'enroute', 'arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported'].includes(request.status)) {
         throw new ValidationError('Location sharing is not active for this request');
       }
     }
@@ -402,6 +539,52 @@ export const mechanicService = {
 
   async listNearby(lat: number, lng: number) {
     return mechanicRepository.findNearby(lat, lng);
+  },
+
+  async getPublicProfile(mechanicId: string) {
+    const mechanic = await mechanicRepository
+      .findById(assertObjectId(mechanicId, 'mechanic id'))
+      .populate('userId', 'firstName lastName avatar');
+    if (!mechanic) throw new NotFoundError('Mechanic not found');
+    const user = mechanic.userId as unknown as {
+      firstName?: string;
+      lastName?: string;
+      avatar?: string;
+    };
+    return {
+      id: mechanic._id.toString(),
+      name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || mechanic.garageName,
+      garageName: mechanic.garageName,
+      avatar: user?.avatar ?? null,
+      verificationStatus: mechanic.verificationStatus,
+      experience: mechanic.experience,
+      specialties: mechanic.specialties,
+      city: mechanic.location?.city ?? '',
+      availability: mechanic.availability,
+      rating: mechanic.rating,
+      reviewCount: mechanic.reviewCount,
+      completedJobs: mechanic.completedJobs,
+    };
+  },
+
+  async listPublicReviews(mechanicId: string) {
+    const mechanic = await mechanicRepository.findById(assertObjectId(mechanicId, 'mechanic id'));
+    if (!mechanic) throw new NotFoundError('Mechanic not found');
+    const { ratingRepository } = await import('../repositories/rating.repository.js');
+    const ratings = await ratingRepository.findByMechanic(mechanic._id.toString());
+    return ratings.map((rating) => {
+      const customer = rating.customer as unknown as {
+        userId?: { firstName?: string; lastName?: string };
+      };
+      const firstName = customer?.userId?.firstName ?? 'Customer';
+      return {
+        id: rating._id.toString(),
+        stars: rating.stars,
+        review: rating.review ?? '',
+        customerName: firstName,
+        createdAt: rating.createdAt,
+      };
+    });
   },
 
   async earnings(userId: string) {

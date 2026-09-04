@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/empty-state';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useApi';
+import { useAuth } from '@/context/auth-context';
 import type { NotificationDto } from '@/api/types';
 
 const iconMap: Record<NotificationDto['type'], React.ReactNode> = {
@@ -30,8 +32,22 @@ function relativeTime(iso: string): string {
 }
 
 export function Notifications() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { data, loading, error, reload, markAllRead } = useNotifications();
   const unreadCount = data.filter((n) => !n.read).length;
+
+  const openNotification = (n: NotificationDto) => {
+    if (n.meta?.requestId || /confirm|completion|issue/i.test(`${n.title} ${n.body}`)) {
+      if (user?.role === 'mechanic') {
+        navigate('/mechanic/track');
+        return;
+      }
+      if (user?.role === 'customer') {
+        navigate('/customer/tracking');
+      }
+    }
+  };
 
   const onMarkAll = async () => {
     await markAllRead();
@@ -82,6 +98,7 @@ export function Notifications() {
               key={n._id}
               interactive
               className={cn(!n.read && 'border-primary-200 dark:border-primary-900/40')}
+              onClick={() => openNotification(n)}
             >
               <div className="p-4 flex items-start gap-3">
                 <div

@@ -6,12 +6,14 @@ import {
   requestsApi,
   vehiclesApi,
   catalogApi,
+  subscriptionsApi,
 } from '@/api/repositories';
 import type {
   MechanicDto,
   NotificationDto,
   RescueRequestDto,
   ServiceTypeDto,
+  SubscriptionSummaryDto,
   VehicleDto,
 } from '@/api/types';
 
@@ -220,4 +222,29 @@ export function useAvailableJobs(options?: { pollMs?: number; enabled?: boolean 
   }, [options?.enabled, options?.pollMs, reload]);
 
   return { data, loading, error, reload, accept: requestsApi.accept };
+}
+
+export function useSubscription() {
+  const [data, setData] = useState<SubscriptionSummaryDto | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void subscriptionsApi
+      .current()
+      .then((summary) => {
+        if (!cancelled) setData(summary);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { data, loading };
 }

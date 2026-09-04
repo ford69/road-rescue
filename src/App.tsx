@@ -14,6 +14,7 @@ import type { Role, ServiceType } from '@/api/types';
 import { EMAIL_NOT_VERIFIED_EVENT } from '@/api/client/http';
 import { useAuth } from '@/context/auth-context';
 
+import { MechanicProfilePage } from '@/screens/customer/mechanic-profile';
 import { CustomerHome } from '@/screens/customer/home';
 import { RequestFlow } from '@/screens/customer/request-flow';
 import { LiveTracking } from '@/screens/customer/live-tracking';
@@ -114,7 +115,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { role: roleParam, screen: screenParam } = useParams();
+  const { role: roleParam, screen: screenParam, id: idParam } = useParams();
   const role: Role = isRole(roleParam) ? roleParam : user?.role ?? 'customer';
   const screen: Screen = isScreen(screenParam) ? screenParam : 'home';
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -129,8 +130,12 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
     }
     if (user && roleParam !== user.role) {
       navigate(`/${user.role}/home`, { replace: true });
+      return;
     }
-  }, [navigate, roleParam, screenParam, user]);
+    if (roleParam === 'customer' && screenParam === 'mechanics' && !idParam) {
+      navigate('/customer/home', { replace: true });
+    }
+  }, [idParam, navigate, roleParam, screenParam, user]);
 
   const handleNavigate = (id: string) => {
     if (isScreen(id)) {
@@ -175,7 +180,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       earnings: 'Payments & Earnings',
       support: 'Help & Support',
       users: 'User Management',
-      mechanics: 'Mechanics',
+      mechanics: role === 'customer' ? 'Mechanic profile' : 'Mechanics',
       payments: 'Payments',
       reports: 'Reports',
       settings: 'Settings',
@@ -245,7 +250,11 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               onRequestHelp={handleRequestHelp}
               onSelectRequest={() => navigate('/customer/history')}
               onTrackRequest={() => navigate('/customer/tracking')}
+              onOpenMechanic={(id) => navigate(`/customer/mechanics/${id}`)}
             />
+          )}
+          {role === 'customer' && screen === 'mechanics' && idParam && (
+            <MechanicProfilePage />
           )}
           {role === 'customer' && screen === 'request' && (
             <RequestFlow
@@ -255,7 +264,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           )}
           {role === 'customer' && screen === 'history' && (
             <ServiceHistory onSelectRequest={(req) => {
-              if (['requested', 'accepted', 'enroute', 'arrived', 'inprogress'].includes(req.status)) {
+              if (['requested', 'accepted', 'enroute', 'arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported'].includes(req.status)) {
                 navigate('/customer/tracking');
                 return;
               }

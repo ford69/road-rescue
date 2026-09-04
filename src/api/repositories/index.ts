@@ -4,6 +4,8 @@ import type {
   ChatMessageDto,
   LiveLocationDto,
   MechanicDto,
+  MechanicPublicProfileDto,
+  MechanicReviewDto,
   MechanicEarningsDto,
   NotificationDto,
   PaymentDto,
@@ -86,6 +88,18 @@ export const requestsApi = {
       body: JSON.stringify({ status }),
     });
   },
+  requestConfirmation(id: string) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/request-confirmation`, { method: 'POST' });
+  },
+  confirmCompletion(id: string) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/confirm-completion`, { method: 'POST' });
+  },
+  reportIssue(id: string, reason: string) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/report-issue`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
   location(id: string) {
     return apiRequest<LiveLocationDto | null>(`/requests/${id}/location`);
   },
@@ -97,6 +111,12 @@ export const mechanicsApi = {
   },
   nearby(lat = 5.6037, lng = -0.187) {
     return apiRequest<MechanicDto[]>(`/mechanics/nearby?lat=${lat}&lng=${lng}`);
+  },
+  publicProfile(id: string) {
+    return apiRequest<MechanicPublicProfileDto>(`/mechanics/${id}`);
+  },
+  publicReviews(id: string) {
+    return apiRequest<MechanicReviewDto[]>(`/mechanics/${id}/reviews`);
   },
   setAvailability(availability: boolean) {
     return apiRequest('/mechanics/me/availability', {

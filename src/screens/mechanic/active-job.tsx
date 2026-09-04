@@ -23,6 +23,7 @@ import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { RequestStatus, RescueRequestDto } from '@/api/types';
 import { nextJobAction, canCancelJob } from '@/lib/job-status';
+import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { RequestChat } from '@/components/request-chat';
 import { setActiveRescueFlag } from '@/pwa/active-rescue';
 import {
@@ -33,7 +34,7 @@ import {
 } from '@/lib/geolocation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
-const ACTIVE = new Set(['accepted', 'enroute', 'arrived', 'inprogress']);
+const ACTIVE = new Set(['accepted', 'enroute', 'arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported']);
 
 function customerName(job: RescueRequestDto): string {
   const user = job.customer?.userId;
@@ -53,6 +54,7 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
   const [sheetExpanded, setSheetExpanded] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [currentLocation, setCurrentLocation] = React.useState<{
     latitude: number;
     longitude: number;
@@ -118,14 +120,34 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
         title: action?.successTitle ?? 'Status updated',
         description: action?.successDescription,
       });
-      if (status === 'completed') {
-        onBack();
-      }
     } catch (err) {
       toast({
         type: 'error',
         title: 'Update failed',
         description: err instanceof ApiClientError ? err.message : 'Could not update job status',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestConfirmation = async () => {
+    if (!active) return;
+    setBusy(true);
+    try {
+      await requestsApi.requestConfirmation(active._id);
+      await reload();
+      setConfirmOpen(false);
+      toast({
+        type: 'success',
+        title: 'Confirmation requested',
+        description: 'The customer will review and confirm completion.',
+      });
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: 'Request failed',
+        description: err instanceof ApiClientError ? err.message : 'Could not request confirmation',
       });
     } finally {
       setBusy(false);
@@ -191,7 +213,7 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
       status:
         active.status === 'enroute'
           ? ('current' as const)
-          : ['arrived', 'inprogress', 'completed'].includes(active.status)
+          : ['arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported'].includes(active.status)
             ? ('done' as const)
             : ('pending' as const),
       icon: <Navigation2 className="h-5 w-5" />,
@@ -201,19 +223,27 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
       status:
         active.status === 'arrived'
           ? ('current' as const)
-          : ['inprogress', 'completed'].includes(active.status)
+          : ['inprogress', 'awaiting_confirmation', 'issue_reported'].includes(active.status)
             ? ('done' as const)
             : ('pending' as const),
       icon: <MapPin className="h-5 w-5" />,
     },
     {
       title: 'Service in progress',
-      status: active.status === 'inprogress' ? ('current' as const) : ('pending' as const),
+      status:
+        active.status === 'inprogress'
+          ? ('current' as const)
+          : ['awaiting_confirmation', 'issue_reported'].includes(active.status)
+            ? ('done' as const)
+            : ('pending' as const),
       icon: <Wrench className="h-5 w-5" />,
     },
     {
-      title: 'Job completed',
-      status: 'pending' as const,
+      title: 'Waiting for customer confirmation',
+      status:
+        active.status === 'awaiting_confirmation' || active.status === 'issue_reported'
+          ? ('current' as const)
+          : ('pending' as const),
       icon: <CheckCircle2 className="h-5 w-5" />,
     },
   ];
@@ -261,7 +291,14 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                 <p className="font-semibold text-sm">{serviceLabel}</p>
                 <p className="text-xs text-muted-foreground">{formatGhs(active.quotedPrice)}</p>
               </div>
-              <StatusChip status={active.status} />
+              <StatusChip
+                status={active.status}
+                label={
+                  active.status === 'awaiting_confirmation'
+                    ? 'Awaiting customer confirmation'
+                    : undefined
+                }
+              />
             </div>
           </MapFloatingCard>
         </MapView>
@@ -335,7 +372,18 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                 </>
               )}
 
-              {next && (
+              {active.status === 'awaiting_confirmation' && (
+                <p className="rounded-xl bg-accent px-4 py-3 text-sm">
+                  Waiting for the customer to confirm completion.
+                </p>
+              )}
+              {active.status === 'issue_reported' && (
+                <p className="rounded-xl bg-accent px-4 py-3 text-sm">
+                  The customer reported an issue. Resolve it, then request confirmation again.
+                </p>
+              )}
+
+              {next && active.status !== 'inprogress' && active.status !== 'issue_reported' && (
                 <Button
                   variant="primary"
                   size="lg"
@@ -344,6 +392,17 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                   onClick={() => void advance(next.status)}
                 >
                   {busy ? 'Updating…' : next.label}
+                </Button>
+              )}
+              {(active.status === 'inprogress' || active.status === 'issue_reported') && (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  disabled={busy}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  Request Customer Confirmation
                 </Button>
               )}
 
@@ -361,6 +420,25 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
             </div>
         </Card>
       </div>
+      <Sheet open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <SheetContent>
+          <SheetHeader title="Request Customer Confirmation?" onClose={() => setConfirmOpen(false)} />
+          <SheetBody>
+            <p className="text-sm text-muted-foreground">
+              Confirm that you have completed the requested service. The customer will be asked to review
+              and confirm completion.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" disabled={busy} onClick={() => void requestConfirmation()}>
+                {busy ? 'Sending…' : 'Request Confirmation'}
+              </Button>
+            </div>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
       <RequestChat
         requestId={active._id}
         recipientName={name}

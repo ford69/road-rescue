@@ -32,10 +32,10 @@ export function nextJobAction(status: RequestStatus): JobNextAction | null {
       };
     case 'inprogress':
       return {
-        status: 'completed',
-        label: 'Complete Job',
-        successTitle: 'Job completed',
-        successDescription: 'Payment will be recorded once confirmed by our payment provider.',
+        status: 'inprogress',
+        label: 'Request Customer Confirmation',
+        successTitle: 'Confirmation requested',
+        successDescription: 'The customer will review and confirm completion.',
       };
     default:
       return null;

@@ -9,6 +9,8 @@ export type ServiceStatus =
   | 'enroute'
   | 'arrived'
   | 'inprogress'
+  | 'awaiting_confirmation'
+  | 'issue_reported'
   | 'completed'
   | 'cancelled'
   | 'pending'
@@ -59,6 +61,17 @@ const statusConfig: Record<
     color: 'text-warning bg-warning-50 dark:bg-warning-700/20 dark:text-warning-500',
     dot: true,
     solid: 'bg-warning text-warning-foreground',
+  },
+  awaiting_confirmation: {
+    label: 'Awaiting your confirmation',
+    color: 'text-primary bg-primary-50 dark:bg-primary-900/30 dark:text-primary-300',
+    dot: true,
+    solid: 'bg-primary text-primary-foreground',
+  },
+  issue_reported: {
+    label: 'Issue reported',
+    color: 'text-critical bg-critical/10 dark:text-critical',
+    solid: 'bg-critical text-critical-foreground',
   },
   completed: {
     label: 'Completed',

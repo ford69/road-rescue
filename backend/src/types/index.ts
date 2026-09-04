@@ -8,6 +8,8 @@ export type RequestStatus =
   | 'enroute'
   | 'arrived'
   | 'inprogress'
+  | 'awaiting_confirmation'
+  | 'issue_reported'
   | 'completed'
   | 'cancelled';
 
@@ -23,13 +25,20 @@ export type SettlementStatus = 'pending' | 'processing' | 'settled' | 'failed';
 
 export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
 
-export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'incomplete';
+export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'incomplete' | 'expired';
 
 export type SubscriptionFeature =
   | 'priority_matching'
   | 'member_discount'
   | 'premium_support'
-  | 'higher_member_discount';
+  | 'higher_member_discount'
+  | 'mechanic_discovery'
+  | 'mechanic_profile'
+  | 'mechanic_reviews'
+  | 'service_upload'
+  | 'service_towing'
+  | 'service_fuel'
+  | 'service_accident';
 
 export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
 

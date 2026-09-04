@@ -20,6 +20,13 @@ const featureLabels: Record<string, string> = {
   member_discount: 'Member discounts on services',
   premium_support: 'Premium support',
   higher_member_discount: 'Larger member discounts',
+  mechanic_discovery: 'Mechanic discovery',
+  mechanic_profile: 'Mechanic profiles',
+  mechanic_reviews: 'Ratings and reviews',
+  service_upload: 'Service request uploads',
+  service_towing: 'Towing',
+  service_fuel: 'Fuel delivery',
+  service_accident: 'Accident services',
 };
 
 export function SubscriptionPlanPicker() {
@@ -58,6 +65,14 @@ export function SubscriptionPlanPicker() {
 
   const handleSelect = async (slug: SubscriptionPlanSlug) => {
     if (slug === activeSlug) return;
+    if (slug === 'premium') {
+        toast({
+          type: 'info',
+          title: 'Premium coming soon',
+          description: 'Premium is not available for purchase yet.',
+        });
+        return;
+      }
     setActionPlan(slug);
     try {
       if (slug === 'free') {
@@ -67,7 +82,7 @@ export function SubscriptionPlanPicker() {
         const result = await subscriptionsApi.initializeUpgrade(slug);
         toast({
           type: result.checkoutConfigured ? 'info' : 'warning',
-          title: slug === 'premium' ? 'Premium upgrade' : 'Basic upgrade',
+          title: 'Basic upgrade',
           description: result.message,
         });
       }
@@ -92,8 +107,12 @@ export function SubscriptionPlanPicker() {
       <div className="px-1">
         <h3 className="font-display text-base font-bold">Membership</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Membership covers app benefits like discounts and priority matching. Roadside services are
-          still paid per request.
+          Current plan: {current?.plan?.name ?? 'Basic'} · Status:{' '}
+          {(current?.status ?? current?.subscription?.status ?? 'active').replace('_', ' ')}
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Included services: flat tyre, battery, lockout, and diagnostics. Towing, fuel delivery, and
+          accident services require Premium.
         </p>
         {current && current.memberDiscountPercent > 0 && (
           <p className="text-sm font-medium text-primary mt-2">
@@ -142,7 +161,12 @@ export function SubscriptionPlanPicker() {
                   </ul>
                 )}
 
-                {!isActive && (
+                {!isActive && plan.slug === 'premium' && (
+                  <Button variant="outline" fullWidth disabled>
+                    Premium coming soon
+                  </Button>
+                )}
+                {!isActive && plan.slug !== 'premium' && (
                   <Button
                     variant={plan.slug === 'free' ? 'outline' : 'primary'}
                     fullWidth

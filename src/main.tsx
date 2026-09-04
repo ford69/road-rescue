@@ -38,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/verify-email" element={<VerifyEmailScreen />} />
               <Route path="/offline" element={<OfflineScreen />} />
               <Route path="/provider/earnings" element={<Navigate to="/mechanic/earnings" replace />} />
+              <Route path="/:role/:screen/:id" element={<App />} />
               <Route path="/:role/:screen" element={<App />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

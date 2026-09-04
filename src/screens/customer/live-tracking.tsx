@@ -26,16 +26,21 @@ import { paymentsApi, requestsApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { RequestStatus } from '@/api/types';
-import { useRequestSocket } from '@/hooks/useRequestSocket';
+import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/input';
 import { RequestChat } from '@/components/request-chat';
+import { useRequestSocket } from '@/hooks/useRequestSocket';
 import { setActiveRescueFlag } from '@/pwa/active-rescue';
+import { resolveMediaUrl } from '@/lib/user-display';
 
-type TrackPhase = 'waiting' | 'enroute' | 'arrived' | 'inprogress' | 'completed';
+type TrackPhase = 'waiting' | 'enroute' | 'arrived' | 'inprogress' | 'awaiting' | 'issue' | 'completed';
 
 function toPhase(status: RequestStatus): TrackPhase {
   if (status === 'requested' || status === 'searching' || status === 'assigned') return 'waiting';
   if (status === 'arrived') return 'arrived';
   if (status === 'inprogress') return 'inprogress';
+  if (status === 'awaiting_confirmation') return 'awaiting';
+  if (status === 'issue_reported') return 'issue';
   if (status === 'completed') return 'completed';
   return 'enroute';
 }
@@ -54,6 +59,10 @@ export function LiveTracking({
   const [chatOpen, setChatOpen] = React.useState(false);
   const [liveStatus, setLiveStatus] = React.useState<RequestStatus | null>(null);
   const [openingPayment, setOpeningPayment] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [issueOpen, setIssueOpen] = React.useState(false);
+  const [issueReason, setIssueReason] = React.useState('');
+  const [acting, setActing] = React.useState(false);
 
   // Requests are returned newest-first. Never fall back to an older active
   // request after the latest job completes.
@@ -68,6 +77,8 @@ export function LiveTracking({
       'enroute',
       'arrived',
       'inprogress',
+      'awaiting_confirmation',
+      'issue_reported',
       'completed',
     ].includes(latestRequest.status)
       ? latestRequest
@@ -88,7 +99,7 @@ export function LiveTracking({
   React.useEffect(() => {
     const inFlight =
       Boolean(active) &&
-      ['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress'].includes(
+      ['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported'].includes(
         active!.status,
       );
     setActiveRescueFlag(inFlight);
@@ -158,7 +169,7 @@ export function LiveTracking({
       status:
         phase === 'enroute'
           ? ('current' as const)
-          : phase === 'arrived' || phase === 'inprogress' || phase === 'completed'
+          : phase === 'arrived' || phase === 'inprogress' || phase === 'awaiting' || phase === 'issue' || phase === 'completed'
             ? ('done' as const)
             : ('pending' as const),
       icon: <Navigation2 className="h-5 w-5" />,
@@ -168,7 +179,7 @@ export function LiveTracking({
       status:
         phase === 'arrived'
           ? ('current' as const)
-          : phase === 'inprogress' || phase === 'completed'
+          : phase === 'inprogress' || phase === 'awaiting' || phase === 'issue' || phase === 'completed'
             ? ('done' as const)
             : ('pending' as const),
       icon: <MapPin className="h-5 w-5" />,
@@ -178,10 +189,20 @@ export function LiveTracking({
       status:
         phase === 'inprogress'
           ? ('current' as const)
-          : phase === 'completed'
+          : phase === 'awaiting' || phase === 'issue' || phase === 'completed'
             ? ('done' as const)
             : ('pending' as const),
       icon: <Wrench className="h-5 w-5" />,
+    },
+    {
+      title: 'Awaiting your confirmation',
+      status:
+        phase === 'awaiting' || phase === 'issue'
+          ? ('current' as const)
+          : phase === 'completed'
+            ? ('done' as const)
+            : ('pending' as const),
+      icon: <CheckCircle2 className="h-5 w-5" />,
     },
     {
       title: 'Service completed',
@@ -251,6 +272,46 @@ export function LiveTracking({
         description: error instanceof Error ? error.message : 'Try again',
       });
       setOpeningPayment(false);
+    }
+  };
+
+  const confirmCompletion = async () => {
+    setActing(true);
+    try {
+      await requestsApi.confirmCompletion(active._id);
+      await reload();
+      setConfirmOpen(false);
+      toast({ type: 'success', title: 'Service confirmed', description: 'This service is now closed.' });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Could not confirm',
+        description: error instanceof ApiClientError ? error.message : 'Try again',
+      });
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const reportIssue = async () => {
+    if (issueReason.trim().length < 10) {
+      toast({ type: 'error', title: 'Add more detail', description: 'Describe the issue in at least 10 characters.' });
+      return;
+    }
+    setActing(true);
+    try {
+      await requestsApi.reportIssue(active._id, issueReason.trim());
+      await reload();
+      setIssueOpen(false);
+      toast({ type: 'success', title: 'Issue reported', description: 'Support and your mechanic have been notified.' });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Could not report issue',
+        description: error instanceof ApiClientError ? error.message : 'Try again',
+      });
+    } finally {
+      setActing(false);
     }
   };
 
@@ -412,6 +473,41 @@ export function LiveTracking({
                   {cancelling ? 'Cancelling…' : 'Cancel request'}
                 </Button>
               )}
+              {phase === 'awaiting' && (
+                <div className="space-y-3 rounded-xl border border-border bg-accent/50 p-4">
+                  <p className="font-semibold">Service completion requested</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your mechanic, {name}, has indicated that your service has been completed. Please
+                    review and confirm.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {serviceLabel} · {new Date(active.createdAt).toLocaleString('en-GH')}
+                  </p>
+                  {active.images && active.images.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto">
+                      {active.images.map((src) => (
+                        <img
+                          key={src}
+                          src={resolveMediaUrl(src)}
+                          alt="Service upload"
+                          className="h-20 w-20 rounded-lg object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <Button fullWidth onClick={() => setConfirmOpen(true)}>
+                    Confirm & Close Service
+                  </Button>
+                  <Button fullWidth variant="outline" onClick={() => setIssueOpen(true)}>
+                    Report an Issue
+                  </Button>
+                </div>
+              )}
+              {phase === 'issue' && (
+                <p className="rounded-xl bg-accent px-4 py-3 text-sm">
+                  You reported an issue. This service stays open until it is resolved and confirmed.
+                </p>
+              )}
               {phase === 'completed' && (
                 <div className="space-y-2">
                   {active.paymentStatus !== 'paid' && (
@@ -440,6 +536,49 @@ export function LiveTracking({
           )}
         </div>
       </div>
+      <Sheet open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <SheetContent>
+          <SheetHeader title="Confirm Service Completion" onClose={() => setConfirmOpen(false)} />
+          <SheetBody>
+            <p className="text-sm text-muted-foreground">
+              Are you satisfied that the requested service has been completed? Once confirmed, this
+              service will be closed.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" disabled={acting} onClick={() => void confirmCompletion()}>
+                {acting ? 'Confirming…' : 'Confirm & Close Service'}
+              </Button>
+            </div>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
+      <Sheet open={issueOpen} onOpenChange={setIssueOpen}>
+        <SheetContent>
+          <SheetHeader title="Report an Issue" onClose={() => setIssueOpen(false)} />
+          <SheetBody>
+            <p className="text-sm text-muted-foreground mb-3">
+              Tell us what was not completed satisfactorily. This will not close the service.
+            </p>
+            <Textarea
+              value={issueReason}
+              onChange={(event) => setIssueReason(event.target.value)}
+              placeholder="Describe the issue"
+              maxLength={1000}
+            />
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setIssueOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" disabled={acting} onClick={() => void reportIssue()}>
+                {acting ? 'Sending…' : 'Submit issue'}
+              </Button>
+            </div>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
       <RequestChat
         requestId={active._id}
         recipientName={name}

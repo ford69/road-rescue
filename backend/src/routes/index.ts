@@ -19,6 +19,7 @@ import {
   createRequestSchema,
   createVehicleSchema,
   createSupportTicketSchema,
+  reportIssueSchema,
   updateAvailabilitySchema,
   updateLocationSchema,
   updateRequestStatusSchema,
@@ -69,6 +70,22 @@ router.patch(
   authorize('mechanic', 'admin', 'customer'),
   validateBody(updateRequestStatusSchema),
   asyncHandler(requestController.updateStatus),
+);
+router.post(
+  '/requests/:id/request-confirmation',
+  authorize('mechanic'),
+  asyncHandler(requestController.requestConfirmation),
+);
+router.post(
+  '/requests/:id/confirm-completion',
+  authorize('customer'),
+  asyncHandler(requestController.confirmCompletion),
+);
+router.post(
+  '/requests/:id/report-issue',
+  authorize('customer'),
+  validateBody(reportIssueSchema),
+  asyncHandler(requestController.reportIssue),
 );
 
 router.post(
@@ -122,6 +139,8 @@ router.post(
 );
 router.get('/mechanics/nearby', asyncHandler(mechanicController.nearby));
 router.get('/mechanics/me/earnings', authorize('mechanic'), asyncHandler(mechanicController.earnings));
+router.get('/mechanics/:id/reviews', asyncHandler(mechanicController.publicReviews));
+router.get('/mechanics/:id', asyncHandler(mechanicController.publicProfile));
 
 router.get('/notifications', asyncHandler(notificationController.list));
 router.post('/notifications/read-all', asyncHandler(notificationController.markAllRead));

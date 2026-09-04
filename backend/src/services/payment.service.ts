@@ -18,6 +18,10 @@ import type { SettlementStatus } from '../types/index.js';
 
 const provider = getPaymentProvider();
 
+export function isPaymentAvailable(status: string): boolean {
+  return status === 'completed';
+}
+
 async function assertCustomerOwnsRequest(userId: string, requestId: string) {
   const [customer, request] = await Promise.all([
     customerRepository.findByUserId(userId),
@@ -155,7 +159,7 @@ export const paymentService = {
       throw new ApiError(503, 'Online payments are not configured yet');
     }
     const { customer, request } = await assertCustomerOwnsRequest(userId, requestId);
-    if (request.status !== 'completed') {
+    if (!isPaymentAvailable(request.status)) {
       throw new ValidationError('Payment is available after the service is completed');
     }
     if (request.paymentStatus === 'paid') {

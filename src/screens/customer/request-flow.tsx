@@ -30,7 +30,7 @@ import {
   GHANA_PICKUP_LOCATIONS,
   type GhanaLocation,
 } from '@/lib/locations';
-import { useServiceTypes, useVehicles } from '@/hooks/useApi';
+import { useServiceTypes, useVehicles, useSubscription } from '@/hooks/useApi';
 import { requestsApi } from '@/api/repositories';
 import type { RescueRequestDto, ServiceType, VehicleDto } from '@/api/types';
 import { ApiClientError } from '@/api/client/http';
@@ -73,6 +73,11 @@ export function RequestFlow({
   const [searchParams] = useSearchParams();
   const { data: vehicles, loading: vehiclesLoading } = useVehicles();
   const { data: catalog } = useServiceTypes();
+  const { data: membership } = useSubscription();
+  const restricted = React.useMemo(
+    () => new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']),
+    [membership],
+  );
   const [step, setStep] = React.useState<Step>('location');
   const [pickup, setPickup] = React.useState<GhanaLocation>(DEFAULT_PICKUP_LOCATION);
   const [selectedVehicle, setSelectedVehicle] = React.useState<VehicleDto | null>(null);
@@ -90,10 +95,10 @@ export function RequestFlow({
 
   React.useEffect(() => {
     const serviceParam = searchParams.get('service');
-    if (isServiceType(serviceParam)) {
+    if (isServiceType(serviceParam) && !restricted.has(serviceParam)) {
       setSelectedService(serviceParam);
     }
-  }, [searchParams]);
+  }, [restricted, searchParams]);
 
   React.useEffect(() => {
     if (vehicles.length && !selectedVehicle) {
@@ -216,6 +221,7 @@ export function RequestFlow({
           catalogPrices={catalogPrices}
           selectedService={selectedService}
           description={description}
+          restricted={restricted}
           onSelect={setSelectedService}
           onDescriptionChange={setDescription}
           goNext={goNext}
@@ -404,6 +410,7 @@ function ProblemStep({
   catalogPrices,
   selectedService,
   description,
+  restricted,
   onSelect,
   onDescriptionChange,
   goNext,
@@ -411,6 +418,7 @@ function ProblemStep({
   catalogPrices: Partial<Record<ServiceType, number>>;
   selectedService: ServiceType | null;
   description: string;
+  restricted: Set<string>;
   onSelect: (s: ServiceType) => void;
   onDescriptionChange: (value: string) => void;
   goNext: () => void;
@@ -432,15 +440,18 @@ function ProblemStep({
           const Icon = iconMap[config.icon] ?? Wrench;
           const selected = selectedService === type;
           const price = catalogPrices[type] ?? config.basePrice;
+          const locked = restricted.has(type);
           return (
             <button
               key={type}
-              onClick={() => onSelect(type)}
+              onClick={() => !locked && onSelect(type)}
               className={cn(
                 'flex flex-col items-start gap-2 rounded-2xl border-2 p-4 text-left transition-all active:scale-[0.98]',
-                selected
-                  ? 'border-primary bg-primary-50/50 dark:bg-primary-900/20'
-                  : 'border-border bg-card hover:border-primary-200',
+                locked
+                  ? 'border-border bg-muted/40 opacity-80'
+                  : selected
+                    ? 'border-primary bg-primary-50/50 dark:bg-primary-900/20'
+                    : 'border-border bg-card hover:border-primary-200',
               )}
             >
               <div
@@ -456,6 +467,11 @@ function ProblemStep({
                 <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{config.description}</p>
               </div>
               <p className="text-xs font-bold text-primary mt-1">from {formatGhs(price)}</p>
+              {locked && (
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {config.label} is not included in your Basic plan. Upgrade to Premium to access this service.
+                </p>
+              )}
             </button>
           );
         })}

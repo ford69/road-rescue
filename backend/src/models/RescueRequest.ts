@@ -28,6 +28,13 @@ export interface IRescueRequest extends Document {
   arrivedAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
+  completionRequestedAt?: Date;
+  completionRequestedBy?: Types.ObjectId;
+  customerConfirmedAt?: Date;
+  customerConfirmedBy?: Types.ObjectId;
+  issueReportedAt?: Date;
+  issueReportedBy?: Types.ObjectId;
+  issueReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,7 +65,17 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
     images: [{ type: String }],
     status: {
       type: String,
-      enum: ['requested', 'accepted', 'enroute', 'arrived', 'inprogress', 'completed', 'cancelled'],
+      enum: [
+        'requested',
+        'accepted',
+        'enroute',
+        'arrived',
+        'inprogress',
+        'awaiting_confirmation',
+        'issue_reported',
+        'completed',
+        'cancelled',
+      ],
       default: 'requested',
       index: true,
     },
@@ -72,6 +89,13 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
     arrivedAt: { type: Date },
     completedAt: { type: Date },
     cancelledAt: { type: Date },
+    completionRequestedAt: { type: Date },
+    completionRequestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    customerConfirmedAt: { type: Date },
+    customerConfirmedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    issueReportedAt: { type: Date },
+    issueReportedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    issueReason: { type: String },
   },
   { timestamps: true },
 );

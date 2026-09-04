@@ -77,6 +77,21 @@ export const requestController = {
     );
     return sendSuccess(res, data, 'Status updated');
   },
+  requestConfirmation: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await requestService.requestConfirmation(req.user.id, paramId(req));
+    return sendSuccess(res, data, 'Customer confirmation requested');
+  },
+  confirmCompletion: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await requestService.confirmCompletion(req.user.id, paramId(req));
+    return sendSuccess(res, data, 'Service confirmed');
+  },
+  reportIssue: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await requestService.reportIssue(req.user.id, paramId(req), req.body.reason);
+    return sendSuccess(res, data, 'Issue reported');
+  },
 };
 
 export const mechanicController = {
@@ -94,6 +109,14 @@ export const mechanicController = {
     const lat = Number(req.query.lat ?? 5.6037);
     const lng = Number(req.query.lng ?? -0.187);
     const data = await mechanicService.listNearby(lat, lng);
+    return sendSuccess(res, data);
+  },
+  publicProfile: async (req: Request, res: Response) => {
+    const data = await mechanicService.getPublicProfile(paramId(req));
+    return sendSuccess(res, data);
+  },
+  publicReviews: async (req: Request, res: Response) => {
+    const data = await mechanicService.listPublicReviews(paramId(req));
     return sendSuccess(res, data);
   },
   earnings: async (req: Request, res: Response) => {

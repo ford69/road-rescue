@@ -23,8 +23,9 @@ import { EmptyState } from '@/components/empty-state';
 import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
 import { DEFAULT_PICKUP_LOCATION } from '@/lib/locations';
-import { useNearbyMechanics, useRequests, useServiceTypes } from '@/hooks/useApi';
+import { useNearbyMechanics, useRequests, useServiceTypes, useSubscription } from '@/hooks/useApi';
 import type { RescueRequestDto, ServiceType } from '@/api/types';
+import { useToast } from '@/components/ui/toast';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -36,16 +37,18 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Wrench,
 };
 
-const ACTIVE_STATUSES = new Set(['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress']);
+const ACTIVE_STATUSES = new Set(['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress', 'awaiting_confirmation', 'issue_reported']);
 
 export function CustomerHome({
   onRequestHelp,
   onSelectRequest,
   onTrackRequest,
+  onOpenMechanic,
 }: {
   onRequestHelp: (service?: ServiceType) => void;
   onSelectRequest: (req: RescueRequestDto) => void;
   onTrackRequest: (req: RescueRequestDto) => void;
+  onOpenMechanic: (mechanicId: string) => void;
 }) {
   const { data: requests, loading: requestsLoading, error: requestsError } = useRequests();
   const { data: mechanics, loading: mechanicsLoading } = useNearbyMechanics(
@@ -53,6 +56,21 @@ export function CustomerHome({
     DEFAULT_PICKUP_LOCATION.longitude,
   );
   const { data: serviceTypes } = useServiceTypes();
+  const { data: membership } = useSubscription();
+  const { toast } = useToast();
+  const restricted = new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']);
+
+  const requestService = (type?: ServiceType) => {
+    if (type && restricted.has(type)) {
+      toast({
+        type: 'info',
+        title: `${serviceTypeConfig[type].label} is not included in your Basic plan.`,
+        description: 'Upgrade to Premium to access this service. Premium is coming soon.',
+      });
+      return;
+    }
+    onRequestHelp(type);
+  };
 
   const latestRequest = requests[0];
   const activeRequest =
@@ -92,7 +110,7 @@ export function CustomerHome({
           variant="primary"
           size="xl"
           fullWidth
-          onClick={() => onRequestHelp()}
+          onClick={() => requestService()}
           className="relative overflow-hidden shadow-yellow-glow"
         >
           <ShieldAlert className="h-6 w-6" />
@@ -112,13 +130,16 @@ export function CustomerHome({
             return (
               <button
                 key={type}
-                onClick={() => onRequestHelp(type)}
+                onClick={() => requestService(type)}
                 className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card hover:border-primary-200 active:scale-95"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-foreground">
                   <Icon className="h-6 w-6" />
                 </div>
                 <span className="text-xs font-semibold text-center leading-tight">{config.label}</span>
+                {restricted.has(type) && (
+                  <span className="text-[10px] font-semibold text-muted-foreground">Premium</span>
+                )}
               </button>
             );
           })}
@@ -131,7 +152,7 @@ export function CustomerHome({
               return (
                 <button
                   key={type}
-                  onClick={() => onRequestHelp(type)}
+                  onClick={() => requestService(type)}
                   className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 transition-all hover:shadow-card hover:border-primary-200 active:scale-95"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-foreground">
@@ -160,9 +181,13 @@ export function CustomerHome({
                 <StatusChip status={activeRequest.status} />
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {activeRequest.mechanic
-                  ? `${mechanicDisplayName(activeRequest.mechanic)} · ${activeRequest.pickupLocation.address}`
-                  : `Matching mechanic near ${activeRequest.pickupLocation.address}`}
+                {activeRequest.status === 'awaiting_confirmation'
+                  ? 'Your mechanic requested confirmation. Review the service and confirm or report an issue.'
+                  : activeRequest.status === 'issue_reported'
+                    ? 'Your issue report is open. This service stays active until it is resolved.'
+                    : activeRequest.mechanic
+                      ? `${mechanicDisplayName(activeRequest.mechanic)} · ${activeRequest.pickupLocation.address}`
+                      : `Matching mechanic near ${activeRequest.pickupLocation.address}`}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -190,7 +215,7 @@ export function CustomerHome({
               .map((m) => {
                 const name = mechanicDisplayName(m);
                 return (
-                  <Card key={m._id} interactive className="min-w-[240px] shrink-0">
+                  <Card key={m._id} interactive className="min-w-[240px] shrink-0" onClick={() => onOpenMechanic(m._id)}>
                     <div className="p-4 space-y-3">
                       <div className="flex items-center gap-3">
                         <Avatar fallback={mechanicInitials(name)} size="lg" ring />
@@ -237,7 +262,7 @@ export function CustomerHome({
             title="No requests yet"
             description="Request roadside assistance to get started."
             action={
-              <Button variant="primary" onClick={() => onRequestHelp()}>
+              <Button variant="primary" onClick={() => requestService()}>
                 Request Assistance
               </Button>
             }

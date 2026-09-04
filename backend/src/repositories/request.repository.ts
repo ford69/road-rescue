@@ -33,7 +33,17 @@ export const requestRepository = {
     return RescueRequest.findOne({
       customer: customerId,
       status: {
-        $in: ['requested', 'searching', 'assigned', 'accepted', 'enroute', 'arrived', 'inprogress'],
+        $in: [
+          'requested',
+          'searching',
+          'assigned',
+          'accepted',
+          'enroute',
+          'arrived',
+          'inprogress',
+          'awaiting_confirmation',
+          'issue_reported',
+        ],
       },
     }).sort({ createdAt: -1 });
   },

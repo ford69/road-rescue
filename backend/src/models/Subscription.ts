@@ -25,7 +25,7 @@ const subscriptionSchema = new Schema<ISubscription>(
     },
     status: {
       type: String,
-      enum: ['active', 'cancelled', 'past_due', 'incomplete'],
+      enum: ['active', 'cancelled', 'past_due', 'incomplete', 'expired'],
       default: 'active',
     },
     paystackSubscriptionCode: { type: String },

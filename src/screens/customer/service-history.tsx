@@ -210,7 +210,15 @@ export function ServiceHistory({
                           req.paymentStatus === 'paid' ? 'text-success' : 'text-warning',
                         )}
                       >
-                        {req.paymentStatus === 'paid' ? 'Paid' : 'Payment due'}
+                        {req.status === 'completed' && req.paymentStatus !== 'paid'
+                          ? 'Payment due'
+                          : req.paymentStatus === 'paid'
+                            ? 'Paid'
+                            : req.status === 'awaiting_confirmation'
+                              ? 'Awaiting confirmation'
+                              : req.status === 'issue_reported'
+                                ? 'Issue reported'
+                                : 'In progress'}
                       </p>
                       {req.status === 'completed' && req.paymentStatus !== 'paid' && (
                         <Button

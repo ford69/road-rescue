@@ -22,7 +22,7 @@ export const subscriptionService = {
     if (existing) return existing;
     return subscriptionRepository.create({
       customer: customer._id,
-      planSlug: 'free',
+      planSlug: 'basic',
       status: 'active',
       currentPeriodStart: new Date(),
     });
@@ -39,7 +39,11 @@ export const subscriptionService = {
     return {
       subscription,
       plan,
-      entitlements,
+      entitlements: entitlements.features,
+      planSlug: entitlements.planSlug,
+      status: entitlements.status,
+      allowedServiceTypes: entitlements.allowedServiceTypes,
+      restrictedServiceTypes: entitlements.restrictedServiceTypes,
       memberDiscountPercent: entitlementService.getMemberDiscountPercent(
         subscription?.planSlug ?? 'free',
       ),
@@ -47,6 +51,9 @@ export const subscriptionService = {
   },
 
   async initializeUpgrade(userId: string, planSlug: SubscriptionPlanSlug) {
+    if (planSlug === 'premium') {
+      throw new ValidationError('Premium is coming soon and is not available for purchase yet.');
+    }
     if (planSlug === 'free') {
       throw new ValidationError('Use downgrade to move to the Free plan');
     }
@@ -106,21 +113,36 @@ export async function seedSubscriptionPlans(): Promise<void> {
   await subscriptionPlanRepository.upsertPlan({
     slug: 'basic',
     name: 'Basic',
-    description: 'Member discounts and priority matching for roadside assistance.',
+    description:
+      'Roadside help for common issues, mechanic discovery, profiles, and ratings. Towing, fuel delivery, and accident services are reserved for Premium.',
     monthlyPriceGhs: env.SUBSCRIPTION_BASIC_PRICE_GHS,
-    features: ['priority_matching', 'member_discount'],
+    features: [
+      'mechanic_discovery',
+      'mechanic_profile',
+      'mechanic_reviews',
+      'service_upload',
+      'priority_matching',
+      'member_discount',
+    ],
     sortOrder: 1,
   });
   await subscriptionPlanRepository.upsertPlan({
     slug: 'premium',
     name: 'Premium',
-    description: 'Higher priority, larger discounts, and premium support.',
+    description: 'Everything in Basic plus towing, fuel delivery, accident support, and premium support.',
     monthlyPriceGhs: env.SUBSCRIPTION_PREMIUM_PRICE_GHS,
     features: [
       'priority_matching',
       'member_discount',
       'premium_support',
       'higher_member_discount',
+      'mechanic_discovery',
+      'mechanic_profile',
+      'mechanic_reviews',
+      'service_upload',
+      'service_towing',
+      'service_fuel',
+      'service_accident',
     ],
     sortOrder: 2,
   });

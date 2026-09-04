@@ -26,13 +26,21 @@ export type SubscriptionStatus =
   | 'trialing'
   | 'past_due'
   | 'cancelled'
-  | 'incomplete';
+  | 'incomplete'
+  | 'expired';
 
 export type SubscriptionFeature =
   | 'priority_matching'
   | 'member_discount'
   | 'premium_support'
-  | 'higher_member_discount';
+  | 'higher_member_discount'
+  | 'mechanic_discovery'
+  | 'mechanic_profile'
+  | 'mechanic_reviews'
+  | 'service_upload'
+  | 'service_towing'
+  | 'service_fuel'
+  | 'service_accident';
 
 export type RequestStatus =
   | 'requested'
@@ -42,6 +50,8 @@ export type RequestStatus =
   | 'enroute'
   | 'arrived'
   | 'inprogress'
+  | 'awaiting_confirmation'
+  | 'issue_reported'
   | 'completed'
   | 'cancelled';
 
@@ -99,6 +109,30 @@ export interface NotificationDto {
   body: string;
   type: 'success' | 'info' | 'warning' | 'critical';
   read: boolean;
+  createdAt: string;
+  meta?: { requestId?: string };
+}
+
+export interface MechanicPublicProfileDto {
+  id: string;
+  name: string;
+  garageName: string;
+  avatar: string | null;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  experience: number;
+  specialties: ServiceType[];
+  city: string;
+  availability: boolean;
+  rating: number;
+  reviewCount: number;
+  completedJobs: number;
+}
+
+export interface MechanicReviewDto {
+  id: string;
+  stars: number;
+  review: string;
+  customerName: string;
   createdAt: string;
 }
 
@@ -232,6 +266,10 @@ export interface SubscriptionSummaryDto {
   subscription: SubscriptionDto | null;
   plan: SubscriptionPlanDto | null;
   entitlements: SubscriptionFeature[];
+  planSlug?: SubscriptionPlanSlug;
+  status?: SubscriptionStatus;
+  allowedServiceTypes?: ServiceType[];
+  restrictedServiceTypes?: ServiceType[];
   memberDiscountPercent: number;
 }
 
@@ -290,6 +328,7 @@ export interface RescueRequestDto {
   quotedPrice: number;
   paymentStatus: string;
   description?: string;
+  images?: string[];
   pickupLocation: {
     address: string;
     city: string;
@@ -306,5 +345,9 @@ export interface RescueRequestDto {
   updatedAt?: string;
   completedAt?: string;
   cancelledAt?: string;
+  completionRequestedAt?: string;
+  customerConfirmedAt?: string;
+  issueReportedAt?: string;
+  issueReason?: string;
   eta?: number;
 }
