@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MailCheck, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ const RESEND_COOLDOWN_MS = 60_000;
 export function VerifyEmailScreen() {
   const [search] = useSearchParams();
   const navigate = useNavigate();
-  const { user, setUser, isAuthenticated } = useAuth();
+  const { user, setUser, isAuthenticated, logout } = useAuth();
   const token = search.get('token') ?? '';
   const emailFromQuery = search.get('email') ?? '';
   const [email, setEmail] = React.useState(emailFromQuery || readPendingEmail() || user?.email || '');
@@ -107,6 +107,17 @@ export function VerifyEmailScreen() {
     if (user) {
       navigate(postAuthPath(user), { replace: true });
       return;
+    }
+    navigate('/auth/login', { replace: true });
+  };
+
+  const goToLogin = async () => {
+    try {
+      if (isAuthenticated) {
+        await logout();
+      }
+    } catch {
+      setUser(null);
     }
     navigate('/auth/login', { replace: true });
   };
@@ -225,9 +236,13 @@ export function VerifyEmailScreen() {
           {errorMessage && <p className="text-sm text-critical">{errorMessage}</p>}
 
           <div className="flex flex-col gap-2 pt-2">
-            <Link className="text-center text-sm font-semibold text-primary" to="/auth/login">
+            <button
+              type="button"
+              className="text-center text-sm font-semibold text-primary"
+              onClick={() => void goToLogin()}
+            >
               Back to login
-            </Link>
+            </button>
           </div>
         </Card>
       </div>

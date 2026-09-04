@@ -46,7 +46,7 @@ export function LoginScreen() {
   const { user, isAuthenticated, loading } = useAuth();
 
   React.useEffect(() => {
-    if (!loading && isAuthenticated && user) {
+    if (!loading && isAuthenticated && user?.emailVerified) {
       navigate(postAuthPath(user, search.get('next')), { replace: true });
     }
   }, [isAuthenticated, loading, navigate, search, user]);
