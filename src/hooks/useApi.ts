@@ -17,6 +17,10 @@ import type {
   VehicleDto,
 } from '@/api/types';
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export function useVehicles(enabled = true) {
   const [data, setData] = useState<VehicleDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +30,7 @@ export function useVehicles(enabled = true) {
     setLoading(true);
     setError(null);
     try {
-      setData(await vehiclesApi.list());
+      setData(asArray(await vehiclesApi.list()));
     } catch (err) {
       // Non-customer roles are not allowed to list vehicles.
       setData([]);
@@ -61,7 +65,7 @@ export function useRequests(options?: { pollMs?: number }) {
     requestInFlight.current = true;
     setError(null);
     try {
-      setData(await requestsApi.list());
+        setData(asArray(await requestsApi.list()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load requests');
     } finally {
@@ -100,7 +104,7 @@ export function useNotifications() {
     setLoading(true);
     setError(null);
     try {
-      setData(await notificationsApi.list());
+      setData(asArray(await notificationsApi.list()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load notifications');
     } finally {
@@ -124,7 +128,7 @@ export function useNearbyMechanics(lat = 5.6037, lng = -0.187) {
     void (async () => {
       setLoading(true);
       try {
-        setData(await mechanicsApi.nearby(lat, lng));
+        setData(asArray(await mechanicsApi.nearby(lat, lng)));
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load mechanics');
@@ -144,7 +148,7 @@ export function useServiceTypes() {
   useEffect(() => {
     void (async () => {
       try {
-        setData(await catalogApi.serviceTypes());
+        setData(asArray(await catalogApi.serviceTypes()));
       } finally {
         setLoading(false);
       }
@@ -188,7 +192,7 @@ export function useAvailableJobs(options?: { pollMs?: number; enabled?: boolean 
     requestInFlight.current = true;
     setError(null);
     try {
-      setData(await requestsApi.available());
+      setData(asArray(await requestsApi.available()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {

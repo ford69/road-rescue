@@ -330,7 +330,7 @@ export function AdminDashboard() {
                       <Badge variant="warning">Pending</Badge>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {mechanic.specialties.map((specialty) => (
+                      {mechanic.specialties?.map((specialty) => (
                         <Badge key={specialty} variant="subtle">
                           {serviceTypeConfig[specialty]?.label ?? specialty}
                         </Badge>

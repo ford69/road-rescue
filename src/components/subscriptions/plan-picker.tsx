@@ -150,7 +150,7 @@ export function SubscriptionPlanPicker() {
                   </p>
                 </div>
 
-                {plan.features.length > 0 && (
+                {Boolean(plan.features?.length) && (
                   <ul className="space-y-1.5">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">

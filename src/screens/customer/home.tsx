@@ -223,20 +223,20 @@ export function CustomerHome({
                           <p className="font-semibold text-sm truncate">{name}</p>
                           <div className="flex items-center gap-1 mt-0.5">
                             <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                            <span className="text-xs font-bold">{m.rating.toFixed(1)}</span>
+                            <span className="text-xs font-bold">{(m.rating ?? 0).toFixed(1)}</span>
                             <span className="text-xs text-muted-foreground">({m.reviewCount})</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5" />
-                        <span>{m.location.city}</span>
+                        <span>{m.location?.city ?? 'Ghana'}</span>
                         <span>·</span>
                         <Clock className="h-3.5 w-3.5" />
                         <span>{m.completedJobs} jobs</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {m.specialties.slice(0, 3).map((s) => (
+                        {(m.specialties ?? []).slice(0, 3).map((s) => (
                           <Badge key={s} variant="subtle">
                             {serviceTypeConfig[s]?.label ?? s}
                           </Badge>

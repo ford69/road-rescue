@@ -24,16 +24,16 @@ import {
 const router = Router();
 
 // Public auth endpoints first — never require a bearer token.
-router.post('/login', guestOnly, validateBody(loginSchema), asyncHandler(authController.login));
+// Login is allowed while a previous session is still present so users can
+// switch accounts after deploy or a stale cookie/token.
+router.post('/login', validateBody(loginSchema), asyncHandler(authController.login));
 router.post(
   '/admin/login',
-  guestOnly,
   validateBody(loginSchema),
   asyncHandler(authController.loginAdmin),
 );
 router.post(
   '/login/admin',
-  guestOnly,
   validateBody(loginSchema),
   asyncHandler(authController.loginAdmin),
 );

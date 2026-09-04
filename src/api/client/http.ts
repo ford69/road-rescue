@@ -47,6 +47,19 @@ async function refreshAccessToken(): Promise<boolean> {
   return true;
 }
 
+function skipAccessToken(path: string): boolean {
+  return (
+    path === '/auth/login' ||
+    path === '/auth/login/admin' ||
+    path === '/auth/admin/login' ||
+    path.startsWith('/auth/register/') ||
+    path === '/auth/forgot-password' ||
+    path === '/auth/reset-password' ||
+    path === '/auth/verify-email' ||
+    path === '/auth/resend-verification'
+  );
+}
+
 function notifyEmailNotVerified(path: string): void {
   if (path.startsWith('/auth/')) return;
   if (typeof window === 'undefined') return;
@@ -63,7 +76,7 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const accessToken = tokenStore.getAccess();
+  const accessToken = skipAccessToken(path) ? null : tokenStore.getAccess();
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }

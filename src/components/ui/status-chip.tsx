@@ -112,7 +112,7 @@ export function StatusChip({
   className?: string;
   label?: string;
 }) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? statusConfig.pending;
   const text = label ?? config.label;
 
   const variantClass =

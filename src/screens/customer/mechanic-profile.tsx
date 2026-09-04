@@ -37,7 +37,7 @@ export function MechanicProfilePage() {
       .then(([nextProfile, nextReviews]) => {
         if (cancelled) return;
         setProfile(nextProfile);
-        setReviews(nextReviews);
+        setReviews(Array.isArray(nextReviews) ? nextReviews : []);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -97,7 +97,7 @@ export function MechanicProfilePage() {
             <div className="mt-2 flex items-center gap-3 text-sm">
               <span className="inline-flex items-center gap-1 font-semibold">
                 <Star className="h-4 w-4 fill-warning text-warning" />
-                {profile.rating.toFixed(1)}
+                {(profile.rating ?? 0).toFixed(1)}
               </span>
               <span className="text-muted-foreground">Based on {profile.reviewCount} reviews</span>
             </div>
@@ -117,7 +117,7 @@ export function MechanicProfilePage() {
       <Card className="p-5 space-y-3">
         <h2 className="font-display text-base font-bold">Services offered</h2>
         <div className="flex flex-wrap gap-2">
-          {profile.specialties.length === 0 ? (
+          {(profile.specialties ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">No specialties listed yet.</p>
           ) : (
             profile.specialties.map((slug) => (

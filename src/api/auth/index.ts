@@ -68,6 +68,7 @@ export const authApi = {
   },
 
   async login(email: string, password: string) {
+    tokenStore.clear();
     const data = await apiRequest<AuthResult>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -77,6 +78,7 @@ export const authApi = {
   },
 
   async loginAdmin(email: string, password: string) {
+    tokenStore.clear();
     const data = await apiRequest<AuthResult>('/auth/login/admin', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
