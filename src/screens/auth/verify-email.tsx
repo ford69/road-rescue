@@ -95,6 +95,10 @@ export function VerifyEmailScreen() {
       } else if (code === 'VERIFICATION_EMAIL_RATE_LIMITED') {
         setResendUntil(Date.now() + RESEND_COOLDOWN_MS);
         setErrorMessage('Please wait before requesting another email.');
+      } else if (error instanceof ApiClientError && error.status === 404) {
+        setErrorMessage(
+          'Could not reach the verification service. If you used this account before, try signing in again — existing accounts no longer need a new email.',
+        );
       } else {
         setErrorMessage(error instanceof ApiClientError ? error.message : 'Unable to resend email');
       }

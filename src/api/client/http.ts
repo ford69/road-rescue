@@ -56,7 +56,8 @@ function skipAccessToken(path: string): boolean {
     path === '/auth/forgot-password' ||
     path === '/auth/reset-password' ||
     path === '/auth/verify-email' ||
-    path === '/auth/resend-verification'
+    path === '/auth/resend-verification' ||
+    path === '/auth/verification/resend'
   );
 }
 

@@ -25,3 +25,11 @@ export function evaluateVerificationToken(input: {
   if (input.expiresAt && input.expiresAt.getTime() < now.getTime()) return 'expired';
   return 'valid';
 }
+
+/** Accounts that signed in before email verification existed. */
+export function isLegacyAccount(user: {
+  emailVerified?: boolean;
+  lastLogin?: Date | null;
+}): boolean {
+  return !user.emailVerified && Boolean(user.lastLogin);
+}

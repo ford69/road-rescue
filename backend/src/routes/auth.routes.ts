@@ -28,6 +28,20 @@ const router = Router();
 // switch accounts after deploy or a stale cookie/token.
 router.post('/login', validateBody(loginSchema), asyncHandler(authController.login));
 router.post(
+  '/resend-verification',
+  resendVerificationMinuteLimiter,
+  resendVerificationHourlyLimiter,
+  validateBody(resendVerificationSchema),
+  asyncHandler(authController.resendVerification),
+);
+router.post(
+  '/verification/resend',
+  resendVerificationMinuteLimiter,
+  resendVerificationHourlyLimiter,
+  validateBody(resendVerificationSchema),
+  asyncHandler(authController.resendVerification),
+);
+router.post(
   '/admin/login',
   validateBody(loginSchema),
   asyncHandler(authController.loginAdmin),
@@ -78,13 +92,6 @@ router.post(
   verifyEmailLimiter,
   validateBody(verifyEmailSchema),
   asyncHandler(authController.verifyEmail),
-);
-router.post(
-  '/resend-verification',
-  resendVerificationMinuteLimiter,
-  resendVerificationHourlyLimiter,
-  validateBody(resendVerificationSchema),
-  asyncHandler(authController.resendVerification),
 );
 router.get('/me', authenticate, asyncHandler(authController.me));
 

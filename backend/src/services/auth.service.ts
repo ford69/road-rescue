@@ -11,7 +11,7 @@ import {
   hashToken,
   verifyRefreshToken,
 } from '../auth/tokens.js';
-import { createEmailVerification, evaluateVerificationToken } from '../auth/email-verification.js';
+import { createEmailVerification, evaluateVerificationToken, isLegacyAccount } from '../auth/email-verification.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import type { IMechanic } from '../models/Mechanic.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
@@ -19,6 +19,7 @@ import { notificationRepository } from '../repositories/misc.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import type { Role } from '../types/index.js';
 import {
+  ApiError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -274,7 +275,11 @@ export const authService = {
       // Same message as bad credentials — do not reveal account role.
       throw new UnauthorizedError('Invalid email or password');
     }
-    if (!user.emailVerified) {
+    if (!user.emailVerified && isLegacyAccount(user)) {
+      user.emailVerified = true;
+      user.emailVerifiedAt = user.lastLogin ?? new Date();
+      await user.save();
+    } else if (!user.emailVerified) {
       throw new ForbiddenError(
         'Please verify your email address before accessing Road Rescue.',
         AuthErrorCode.EMAIL_NOT_VERIFIED,
@@ -440,24 +445,39 @@ export const authService = {
     if (user.emailVerified) {
       throw new ConflictError('Your email is already verified.', AuthErrorCode.EMAIL_ALREADY_VERIFIED);
     }
+    if (isLegacyAccount(user)) {
+      user.emailVerified = true;
+      user.emailVerifiedAt = user.lastLogin ?? new Date();
+      await user.save();
+      throw new ConflictError('Your email is already verified.', AuthErrorCode.EMAIL_ALREADY_VERIFIED);
+    }
 
     const verification = createEmailVerification();
     user.emailVerificationToken = verification.tokenHash;
     user.emailVerificationExpires = verification.expiresAt;
     await user.save();
 
-    void emailService
-      .sendVerificationEmail({
+    const emailed = await emailService.sendVerificationEmail({
+      email: user.email,
+      firstName: user.firstName,
+      token: verification.token,
+    });
+    if (!emailed.sent) {
+      logger.error('Resend verification email was not sent', {
         email: user.email,
-        firstName: user.firstName,
-        token: verification.token,
-      })
-      .catch((error: unknown) => {
-        logger.error('Resend verification email failed', {
-          email: user.email,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        reason: emailed.reason,
       });
+      if (emailed.skipped && env.NODE_ENV !== 'production') {
+        return {
+          message: 'If that email exists, a verification link has been sent.',
+          emailVerificationToken: verification.token,
+        };
+      }
+      throw new ApiError(
+        503,
+        'We could not send the verification email. Please try again shortly.',
+      );
+    }
 
     return {
       message: 'If that email exists, a verification link has been sent.',

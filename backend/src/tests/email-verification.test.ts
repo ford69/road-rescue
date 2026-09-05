@@ -4,6 +4,7 @@ import {
   createEmailVerification,
   EMAIL_VERIFICATION_TTL_MS,
   evaluateVerificationToken,
+  isLegacyAccount,
 } from '../auth/email-verification.js';
 import { AuthErrorCode, ForbiddenError } from '../utils/errors.js';
 import { requireEmailVerification } from '../middleware/requireEmailVerification.js';
@@ -57,6 +58,12 @@ describe('email verification tokens', () => {
       }),
     ).toBe('already_verified');
   });
+
+  it('treats previously signed-in unverified users as legacy accounts', () => {
+    expect(isLegacyAccount({ emailVerified: false, lastLogin: new Date() })).toBe(true);
+    expect(isLegacyAccount({ emailVerified: false, lastLogin: null })).toBe(false);
+    expect(isLegacyAccount({ emailVerified: true, lastLogin: new Date() })).toBe(false);
+  });
 });
 
 describe('requireEmailVerification middleware', () => {
@@ -87,6 +94,22 @@ describe('requireEmailVerification middleware', () => {
 
     await requireEmailVerification(req, res, next);
 
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('grandfathers accounts that signed in before email verification', async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(userRepository.findById).mockResolvedValue({
+      emailVerified: false,
+      lastLogin: new Date('2026-01-01T00:00:00.000Z'),
+      save,
+    } as never);
+    const next = vi.fn() as NextFunction;
+    const req = { user: { id: 'u1', role: 'customer', email: 'a@b.c' } } as Request;
+
+    await requireEmailVerification(req, res, next);
+
+    expect(save).toHaveBeenCalledOnce();
     expect(next).toHaveBeenCalledWith();
   });
 });

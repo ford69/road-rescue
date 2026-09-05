@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { userRepository } from '../repositories/user.repository.js';
 import { AuthErrorCode, ForbiddenError, UnauthorizedError } from '../utils/errors.js';
+import { isLegacyAccount } from '../auth/email-verification.js';
 
 /**
  * Loads the current user from the database and requires emailVerified.
@@ -20,6 +21,13 @@ export async function requireEmailVerification(
     const user = await userRepository.findById(req.user.id);
     if (!user) {
       next(new UnauthorizedError('Authentication required'));
+      return;
+    }
+    if (!user.emailVerified && isLegacyAccount(user)) {
+      user.emailVerified = true;
+      user.emailVerifiedAt = user.lastLogin ?? new Date();
+      await user.save();
+      next();
       return;
     }
     if (!user.emailVerified) {
