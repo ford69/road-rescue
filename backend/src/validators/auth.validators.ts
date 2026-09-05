@@ -94,7 +94,15 @@ export const createRequestSchema = z.object({
 });
 
 export const updateRequestStatusSchema = z.object({
-  status: z.enum(['accepted', 'enroute', 'arrived', 'inprogress', 'cancelled']),
+  status: z.enum([
+    'accepted',
+    'enroute',
+    'arrived',
+    'inprogress',
+    'awaiting_confirmation',
+    'completed',
+    'cancelled',
+  ]),
 });
 
 export const reportIssueSchema = z.object({

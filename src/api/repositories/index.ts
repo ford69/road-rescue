@@ -1,4 +1,4 @@
-import { apiRequest } from '../client/http';
+import { ApiClientError, apiRequest } from '../client/http';
 import type {
   AdminDashboardDto,
   ChatMessageDto,
@@ -88,11 +88,31 @@ export const requestsApi = {
       body: JSON.stringify({ status }),
     });
   },
-  requestConfirmation(id: string) {
-    return apiRequest<RescueRequestDto>(`/requests/${id}/request-confirmation`, { method: 'POST' });
+  async requestConfirmation(id: string) {
+    try {
+      return await apiRequest<RescueRequestDto>(`/requests/${id}/request-confirmation`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      if (!(error instanceof ApiClientError) || error.status !== 404) throw error;
+      return apiRequest<RescueRequestDto>(`/requests/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'awaiting_confirmation' }),
+      });
+    }
   },
-  confirmCompletion(id: string) {
-    return apiRequest<RescueRequestDto>(`/requests/${id}/confirm-completion`, { method: 'POST' });
+  async confirmCompletion(id: string) {
+    try {
+      return await apiRequest<RescueRequestDto>(`/requests/${id}/confirm-completion`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      if (!(error instanceof ApiClientError) || error.status !== 404) throw error;
+      return apiRequest<RescueRequestDto>(`/requests/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'completed' }),
+      });
+    }
   },
   reportIssue(id: string, reason: string) {
     return apiRequest<RescueRequestDto>(`/requests/${id}/report-issue`, {

@@ -168,6 +168,23 @@ describe('service confirmation workflow', () => {
     expect(notificationRepository.create).toHaveBeenCalled();
   });
 
+  it('lets a mechanic request confirmation via status patch', async () => {
+    vi.mocked(mechanicRepository.findByUserId).mockResolvedValue(mechanicDoc() as never);
+    vi.mocked(requestRepository.findById)
+      .mockResolvedValueOnce(requestDoc('inprogress') as never)
+      .mockResolvedValueOnce({ ...requestDoc('awaiting_confirmation') } as never);
+
+    const result = await requestService.updateStatus(mechanicUserId, 'mechanic', requestId, {
+      status: 'awaiting_confirmation',
+    });
+    expect(requestRepository.updateStatus).toHaveBeenCalledWith(
+      requestId,
+      'awaiting_confirmation',
+      expect.objectContaining({ completionRequestedBy: mechanicUserId }),
+    );
+    expect(result).toMatchObject({ status: 'awaiting_confirmation' });
+  });
+
   it('does not allow a mechanic to close a job via status patch', async () => {
     vi.mocked(mechanicRepository.findByUserId).mockResolvedValue(mechanicDoc() as never);
     vi.mocked(requestRepository.findById).mockResolvedValue(requestDoc('inprogress') as never);

@@ -10,10 +10,15 @@ import { corsHeadersMiddleware, createCorsOptions } from './config/cors.js';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { requestController } from './controllers/domain.controller.js';
+import { authenticate, authorize } from './middleware/auth.js';
+import { requireEmailVerification } from './middleware/requireEmailVerification.js';
+import { validateBody } from './middleware/validate.js';
 import authRoutes from './routes/auth.routes.js';
 import apiRoutes from './routes/index.js';
 import { paymentController } from './controllers/payment.controller.js';
 import { asyncHandler } from './utils/asyncHandler.js';
+import { reportIssueSchema } from './validators/auth.validators.js';
 
 export function createApp() {
   const app = express();
@@ -74,6 +79,30 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRoutes);
+  // Completion workflow — registered on the app so a stale /api router
+  // cannot 404 these POSTs behind authenticate.
+  app.post(
+    '/api/requests/:id/request-confirmation',
+    authenticate,
+    requireEmailVerification,
+    authorize('mechanic'),
+    asyncHandler(requestController.requestConfirmation),
+  );
+  app.post(
+    '/api/requests/:id/confirm-completion',
+    authenticate,
+    requireEmailVerification,
+    authorize('customer'),
+    asyncHandler(requestController.confirmCompletion),
+  );
+  app.post(
+    '/api/requests/:id/report-issue',
+    authenticate,
+    requireEmailVerification,
+    authorize('customer'),
+    validateBody(reportIssueSchema),
+    asyncHandler(requestController.reportIssue),
+  );
   app.use('/api', apiRoutes);
 
   app.use(notFoundHandler);

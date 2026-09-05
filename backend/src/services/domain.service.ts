@@ -217,6 +217,13 @@ export const requestService = {
   },
 
   async updateStatus(userId: string, role: string, requestId: string, input: UpdateStatusInput) {
+    if (role === 'mechanic' && input.status === 'awaiting_confirmation') {
+      return this.requestConfirmation(userId, requestId);
+    }
+    if (role === 'customer' && input.status === 'completed') {
+      return this.confirmCompletion(userId, requestId);
+    }
+
     const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
     if (!request) throw new NotFoundError('Rescue request not found');
 
