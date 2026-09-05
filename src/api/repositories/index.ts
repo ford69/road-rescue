@@ -1,4 +1,10 @@
 import { ApiClientError, apiRequest } from '../client/http';
+
+function isRejectedStatusValue(error: unknown, status: string): boolean {
+  if (!(error instanceof ApiClientError) || error.status !== 400) return false;
+  const details = error.details as { fieldErrors?: { status?: string[] } } | undefined;
+  return (details?.fieldErrors?.status ?? []).some((message) => message.includes(status));
+}
 import type {
   AdminDashboardDto,
   ChatMessageDto,
@@ -95,10 +101,19 @@ export const requestsApi = {
       });
     } catch (error) {
       if (!(error instanceof ApiClientError) || error.status !== 404) throw error;
-      return apiRequest<RescueRequestDto>(`/requests/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'awaiting_confirmation' }),
-      });
+      try {
+        return await apiRequest<RescueRequestDto>(`/requests/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'awaiting_confirmation' }),
+        });
+      } catch (patchError) {
+        // Production still validates the older status enum (no awaiting_confirmation).
+        if (!isRejectedStatusValue(patchError, 'awaiting_confirmation')) throw patchError;
+        return apiRequest<RescueRequestDto>(`/requests/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'completed' }),
+        });
+      }
     }
   },
   async confirmCompletion(id: string) {

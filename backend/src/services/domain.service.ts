@@ -217,7 +217,10 @@ export const requestService = {
   },
 
   async updateStatus(userId: string, role: string, requestId: string, input: UpdateStatusInput) {
-    if (role === 'mechanic' && input.status === 'awaiting_confirmation') {
+    if (
+      role === 'mechanic' &&
+      (input.status === 'awaiting_confirmation' || input.status === 'completed')
+    ) {
       return this.requestConfirmation(userId, requestId);
     }
     if (role === 'customer' && input.status === 'completed') {
