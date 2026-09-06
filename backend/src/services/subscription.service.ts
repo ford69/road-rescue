@@ -124,15 +124,13 @@ export const subscriptionService = {
       );
     }
 
-    const customer = await customerRepository.findByUserId(userId);
-    if (!customer) throw new NotFoundError('Customer profile not found');
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('Customer account not found');
-    await seedSubscriptionPlans();
-    const plan = await subscriptionPlanRepository.findBySlug(BASIC_PLAN);
-    if (!plan) {
-      throw new ApiError(503, 'The Basic plan is not available. Please try again shortly.');
+    let customer = await customerRepository.findByUserId(userId);
+    if (!customer) {
+      customer = await customerRepository.create({ userId: user._id, emergencyContacts: [] });
     }
+    await seedSubscriptionPlans();
 
     const existing = await subscriptionRepository.findByCustomer(customer._id.toString());
     if (existing?.planSlug === 'basic' && existing.status === 'active') {

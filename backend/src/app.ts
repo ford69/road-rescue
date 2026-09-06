@@ -18,6 +18,7 @@ import { validateBody } from './middleware/validate.js';
 import authRoutes from './routes/auth.routes.js';
 import apiRoutes from './routes/index.js';
 import { paymentController } from './controllers/payment.controller.js';
+import { subscriptionController } from './controllers/subscription.controller.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { reportIssueSchema } from './validators/auth.validators.js';
 
@@ -88,6 +89,36 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRoutes);
+  app.get(
+    '/api/subscriptions/me',
+    authenticate,
+    authorize('customer'),
+    asyncHandler(subscriptionController.current),
+  );
+  app.post(
+    '/api/subscriptions/checkout',
+    authenticate,
+    authorize('customer'),
+    asyncHandler(subscriptionController.checkout),
+  );
+  app.post(
+    '/api/subscriptions/upgrade',
+    authenticate,
+    authorize('customer'),
+    asyncHandler(subscriptionController.initializeUpgrade),
+  );
+  app.get(
+    '/api/subscriptions/verify/:reference',
+    authenticate,
+    authorize('customer'),
+    asyncHandler(subscriptionController.verify),
+  );
+  app.post(
+    '/api/subscriptions/downgrade',
+    authenticate,
+    authorize('customer'),
+    asyncHandler(subscriptionController.downgradeToFree),
+  );
   // Completion workflow — registered on the app so a stale /api router
   // cannot 404 these POSTs behind authenticate.
   app.post(
