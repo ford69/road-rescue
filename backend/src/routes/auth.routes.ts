@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 import {
   resendVerificationHourlyLimiter,
   resendVerificationMinuteLimiter,
@@ -73,7 +73,7 @@ router.post(
   asyncHandler(authController.createAdmin),
 );
 
-router.post('/logout', authenticate, asyncHandler(authController.logout));
+router.post('/logout', optionalAuth, asyncHandler(authController.logout));
 router.post('/refresh', asyncHandler(authController.refresh));
 router.post(
   '/forgot-password',

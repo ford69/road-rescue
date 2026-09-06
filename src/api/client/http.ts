@@ -96,7 +96,7 @@ export async function apiRequest<T>(
     cache: 'no-store',
   });
 
-  if (response.status === 401 && retry) {
+  if (response.status === 401 && retry && !skipAccessToken(path) && path !== '/auth/logout' && path !== '/auth/refresh') {
     refreshPromise ??= refreshAccessToken().finally(() => {
       refreshPromise = null;
     });

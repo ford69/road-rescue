@@ -184,7 +184,7 @@ export const authService = {
   async registerMechanic(
     input: RegisterMechanicInput,
     selfie: Express.Multer.File | undefined,
-    _res: Response,
+    res: Response,
   ) {
     if (!selfie) {
       throw new ValidationError('A clear selfie photo is required');
@@ -265,6 +265,7 @@ export const authService = {
       });
     });
 
+    clearAuthCookies(res);
     return registrationPendingResponse(user.email, verification.token);
   },
 

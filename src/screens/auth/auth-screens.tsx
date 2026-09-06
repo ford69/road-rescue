@@ -291,6 +291,7 @@ export function RegisterScreen() {
         navigate('/auth/complete-subscription?checkout=1', { replace: true });
         return;
       }
+      setUser(null);
       toast({
         type: 'success',
         title: 'Account created',

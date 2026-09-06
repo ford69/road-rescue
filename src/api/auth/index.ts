@@ -38,9 +38,21 @@ export interface RegisterMechanicInput extends RegisterCustomerInput {
   truck?: string;
 }
 
+async function dropExistingSession(): Promise<void> {
+  try {
+    if (tokenStore.getAccess() || tokenStore.getRefresh()) {
+      await apiRequest<{ success: boolean }>('/auth/logout', { method: 'POST' });
+    }
+  } catch {
+    // Stale tokens/cookies should not block a new registration.
+  } finally {
+    tokenStore.clear();
+  }
+}
+
 export const authApi = {
   async registerCustomer(input: RegisterCustomerInput) {
-    tokenStore.clear();
+    await dropExistingSession();
     const data = await apiRequest<RegisterResult>('/auth/register/customer', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -52,6 +64,7 @@ export const authApi = {
   },
 
   async registerMechanic(input: RegisterMechanicInput) {
+    await dropExistingSession();
     const formData = new FormData();
     formData.append('firstName', input.firstName);
     formData.append('lastName', input.lastName);
