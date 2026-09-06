@@ -11,7 +11,7 @@ import { requestRepository } from '../repositories/request.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { vehicleRepository } from '../repositories/vehicle.repository.js';
 import type { RequestStatus } from '../types/index.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { ForbiddenError, NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
 import { assertObjectId, refId } from '../utils/objectId.js';
 import type {
   createRequestSchema,
@@ -110,20 +110,6 @@ export const requestService = {
       status: 'requested',
       quotedPrice,
       paymentStatus: 'pending',
-    });
-
-    await paymentRepository.create({
-      customer: customer._id,
-      request: request._id,
-      grossAmount: quotedPrice,
-      amount: quotedPrice,
-      platformFee: 0,
-      providerAmount: quotedPrice,
-      currency: 'GHS',
-      paymentProvider: 'paystack',
-      paymentMethod: 'mobile_money',
-      status: 'pending',
-      settlementStatus: 'pending',
     });
 
     await notificationRepository.create({
@@ -313,6 +299,9 @@ export const requestService = {
     if (!request.mechanic || refId(request.mechanic) !== mechanic._id.toString()) {
       throw new ForbiddenError('You are not assigned to this request');
     }
+    if (request.status === 'awaiting_confirmation') {
+      throw new ConflictError('A completion request has already been sent for this service');
+    }
     if (request.status !== 'inprogress' && request.status !== 'issue_reported') {
       throw new ValidationError('You can request confirmation only after the service is in progress');
     }
@@ -330,11 +319,11 @@ export const requestService = {
     const customer = await customerRepository.findById(refId(request.customer));
     if (customer) {
       await notificationRepository.create({
-        title: 'Service completion requested',
-        body: 'Your mechanic has requested confirmation that your service is complete. Please review and confirm.',
+        title: 'Service Completed',
+        body: 'Your mechanic has indicated that your service has been completed. Please review the service and confirm that the work is complete.',
         recipient: customer.userId,
         type: 'info',
-        meta: { requestId },
+        meta: { requestId, action: 'review' },
       });
     }
 
@@ -348,6 +337,9 @@ export const requestService = {
     if (!request) throw new NotFoundError('Rescue request not found');
     if (refId(request.customer) !== customer._id.toString()) {
       throw new ForbiddenError('You do not own this request');
+    }
+    if (request.status === 'completed') {
+      throw new ConflictError('This service is already completed');
     }
     if (request.status !== 'awaiting_confirmation') {
       throw new ValidationError('This service is not waiting for your confirmation');
@@ -381,7 +373,7 @@ export const requestService = {
 
     await notificationRepository.create({
       title: 'Service completed',
-      body: `Your rescue is complete. Amount due: ₵${request.quotedPrice}.`,
+      body: 'You confirmed that this Road Rescue service is complete.',
       recipient: customer.userId,
       type: 'success',
       meta: { requestId },

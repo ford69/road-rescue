@@ -4,6 +4,7 @@ import { tokenStore } from '../utils/tokenStore';
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export const EMAIL_NOT_VERIFIED_EVENT = 'rr:email-not-verified';
+export const SUBSCRIPTION_REQUIRED_EVENT = 'rr:subscription-required';
 
 export class ApiClientError extends Error {
   status: number;
@@ -67,6 +68,12 @@ function notifyEmailNotVerified(path: string): void {
   window.dispatchEvent(new CustomEvent(EMAIL_NOT_VERIFIED_EVENT));
 }
 
+function notifySubscriptionRequired(path: string): void {
+  if (path.startsWith('/auth/')) return;
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SUBSCRIPTION_REQUIRED_EVENT));
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -103,6 +110,9 @@ export async function apiRequest<T>(
   if (!response.ok || !payload.success) {
     if (payload.code === 'EMAIL_NOT_VERIFIED') {
       notifyEmailNotVerified(path);
+    }
+    if (payload.code === 'SUBSCRIPTION_REQUIRED') {
+      notifySubscriptionRequired(path);
     }
     throw new ApiClientError(
       payload.message || 'Request failed',

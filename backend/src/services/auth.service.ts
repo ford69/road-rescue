@@ -38,6 +38,8 @@ import type { z } from 'zod';
 import { getPublicUploadPath } from '../uploads/storage.js';
 import { emailService } from '../email/index.js';
 import { subscriptionService } from './subscription.service.js';
+import { entitlementService } from './entitlement.service.js';
+import { isPaidCustomerPlan } from './plan-access.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -75,6 +77,35 @@ function sanitizeUser(user: {
   };
 }
 
+async function presentAuthUser(user: Parameters<typeof sanitizeUser>[0] & { role: Role; _id: { toString(): string } }) {
+  const base = sanitizeUser(user);
+  if (user.role !== 'customer') {
+    return { ...base, hasActiveSubscription: true as const };
+  }
+  const entitlements = await entitlementService.getCustomerEntitlements(user._id.toString());
+  return {
+    ...base,
+    hasActiveSubscription: isPaidCustomerPlan(entitlements.planSlug, entitlements.status),
+    subscriptionPlanSlug: entitlements.planSlug,
+    subscriptionStatus: entitlements.status,
+  };
+}
+
+async function issueSession(
+  user: { _id: { toString(): string }; role: Role; email: string; refreshTokenHash?: string; lastLogin?: Date; save: () => Promise<unknown> },
+  res: Response,
+  touchLastLogin: boolean,
+) {
+  const tokens = createTokenPair(user._id.toString(), user.role, user.email);
+  user.refreshTokenHash = await hashToken(tokens.refreshToken);
+  if (touchLastLogin) {
+    user.lastLogin = new Date();
+  }
+  await user.save();
+  setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+  return tokens;
+}
+
 function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
   // Frontend (roadrescue4u.com) and API (api.roadrescue4u.com) are cross-site.
   // SameSite=None is required for the browser to accept/send cookies on fetch.
@@ -100,7 +131,7 @@ function clearAuthCookies(res: Response): void {
 }
 
 export const authService = {
-  async registerCustomer(input: RegisterCustomerInput, _res: Response) {
+  async registerCustomer(input: RegisterCustomerInput, res: Response) {
     await ensureUniqueIdentity(input.email, input.phone);
     const password = await hashPassword(input.password);
     const verification = createEmailVerification();
@@ -123,7 +154,7 @@ export const authService = {
     await subscriptionService.ensureFreePlanForCustomer(user._id.toString());
     await notificationRepository.create({
       title: 'Welcome to Road Rescue Ghana',
-      body: 'Verify your email to start requesting roadside help across Ghana.',
+      body: 'Verify your email and complete Basic membership to start requesting roadside help.',
       recipient: user._id,
       type: 'success',
     });
@@ -141,7 +172,13 @@ export const authService = {
         });
       });
 
-    return registrationPendingResponse(user.email, verification.token);
+    const tokens = await issueSession(user, res, false);
+    return {
+      ...registrationPendingResponse(user.email, verification.token),
+      requiresSubscription: true,
+      user: await presentAuthUser(user),
+      tokens,
+    };
   },
 
   async registerMechanic(
@@ -279,20 +316,10 @@ export const authService = {
       user.emailVerified = true;
       user.emailVerifiedAt = user.lastLogin ?? new Date();
       await user.save();
-    } else if (!user.emailVerified) {
-      throw new ForbiddenError(
-        'Please verify your email address before accessing Road Rescue.',
-        AuthErrorCode.EMAIL_NOT_VERIFIED,
-      );
     }
 
-    const tokens = createTokenPair(user._id.toString(), user.role, user.email);
-    user.refreshTokenHash = await hashToken(tokens.refreshToken);
-    user.lastLogin = new Date();
-    await user.save();
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-
-    return { user: sanitizeUser(user), tokens };
+    const tokens = await issueSession(user, res, user.emailVerified);
+    return { user: await presentAuthUser(user), tokens };
   },
 
   async logout(userId: string | undefined, res: Response) {
@@ -334,7 +361,7 @@ export const authService = {
     await user.save();
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
-    return { user: sanitizeUser(user), tokens };
+    return { user: await presentAuthUser(user), tokens };
   },
 
   async forgotPassword(email: string) {
@@ -434,7 +461,7 @@ export const authService = {
         });
     }
 
-    return { message: 'Email verified successfully', user: sanitizeUser(user), tokens };
+    return { message: 'Email verified successfully', user: await presentAuthUser(user), tokens };
   },
 
   async resendVerification(email: string) {
@@ -498,7 +525,7 @@ export const authService = {
           ? await mechanicRepository.findByUserId(userId)
           : null;
 
-    return { user: sanitizeUser(user), profile };
+    return { user: await presentAuthUser(user), profile };
   },
 };
 

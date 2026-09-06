@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
-import { authenticate, authorize, guestOnly } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import {
   resendVerificationHourlyLimiter,
   resendVerificationMinuteLimiter,
@@ -54,14 +54,12 @@ router.post(
 
 router.post(
   '/register/customer',
-  guestOnly,
   validateBody(registerCustomerSchema),
   asyncHandler(authController.registerCustomer),
 );
 
 router.post(
   '/register/mechanic',
-  guestOnly,
   upload.single('selfie'),
   validateBody(registerMechanicSchema),
   asyncHandler(authController.registerMechanic),

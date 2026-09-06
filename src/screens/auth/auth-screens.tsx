@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Camera, Check, Eye, EyeOff, LifeBuoy, X } from 'lucide-react';
+import { Camera, Check, Crown, Eye, EyeOff, LifeBuoy, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -46,7 +46,7 @@ export function LoginScreen() {
   const { user, isAuthenticated, loading } = useAuth();
 
   React.useEffect(() => {
-    if (!loading && isAuthenticated && user?.emailVerified) {
+    if (!loading && isAuthenticated && user) {
       navigate(postAuthPath(user, search.get('next')), { replace: true });
     }
   }, [isAuthenticated, loading, navigate, search, user]);
@@ -142,6 +142,7 @@ const registerSchema = z
     email: z.string().email(),
     phone: z.string().min(9),
     password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Confirm your password'),
     garageName: z.string().optional(),
     ghanaCardNumber: z.string().optional(),
     experience: z.coerce.number().min(0).max(50).optional(),
@@ -150,6 +151,9 @@ const registerSchema = z
     address: z.string().optional(),
   })
   .superRefine((value, ctx) => {
+    if (value.password !== value.confirmPassword) {
+      ctx.addIssue({ code: 'custom', path: ['confirmPassword'], message: 'Passwords do not match' });
+    }
     if (value.role === 'mechanic') {
       if (!value.garageName) ctx.addIssue({ code: 'custom', path: ['garageName'], message: 'Required' });
       if (!/^GHA-\d{9}-\d$/i.test(value.ghanaCardNumber ?? '')) {
@@ -178,8 +182,10 @@ const mechanicSpecialties = [
 export function RegisterScreen() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setUser } = useAuth();
   const [submitting, setSubmitting] = React.useState(false);
-  const [mechanicStep, setMechanicStep] = React.useState<1 | 2 | 3>(1);
+  const [basicSelected, setBasicSelected] = React.useState(false);
+  const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [selfie, setSelfie] = React.useState<File | null>(null);
   const [specialties, setSpecialties] = React.useState<(typeof mechanicSpecialties)[number][]>([
     'battery',
@@ -194,6 +200,7 @@ export function RegisterScreen() {
       email: '',
       phone: '',
       password: '',
+      confirmPassword: '',
       garageName: '',
       ghanaCardNumber: '',
       experience: 1,
@@ -204,15 +211,20 @@ export function RegisterScreen() {
   });
   const role = form.watch('role');
   const password = form.watch('password');
+  const totalSteps = role === 'mechanic' ? 3 : 2;
 
-  const advanceMechanicStep = async () => {
+  const advanceStep = async () => {
     const fields =
-      mechanicStep === 1
-        ? (['firstName', 'lastName', 'email', 'phone', 'password'] as const)
+      step === 1
+        ? (['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'] as const)
         : (['garageName', 'experience', 'city', 'address'] as const);
     const valid = await form.trigger(fields);
-    if (!valid || (mechanicStep === 1 && !isValidPassword(password))) return;
-    setMechanicStep((current) => (current === 1 ? 2 : 3));
+    if (!valid || (step === 1 && !isValidPassword(password))) return;
+    if (role === 'customer') {
+      setStep(2);
+      return;
+    }
+    setStep((current) => (current === 1 ? 2 : 3));
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -232,7 +244,15 @@ export function RegisterScreen() {
       });
       return;
     }
-      setSubmitting(true);
+    if (values.role === 'customer' && !basicSelected) {
+      toast({
+        type: 'error',
+        title: 'Select Basic',
+        description: 'Choose the Basic plan to continue registration.',
+      });
+      return;
+    }
+    setSubmitting(true);
     try {
       const result =
         values.role === 'customer'
@@ -261,6 +281,16 @@ export function RegisterScreen() {
               truck: values.truck || undefined,
             });
       rememberPendingEmail(result.email || values.email);
+      if (values.role === 'customer') {
+        if (result.user) setUser(result.user);
+        toast({
+          type: 'success',
+          title: 'Account created',
+          description: 'Complete your Basic subscription to continue.',
+        });
+        navigate('/auth/complete-subscription?checkout=1', { replace: true });
+        return;
+      }
       toast({
         type: 'success',
         title: 'Account created',
@@ -281,9 +311,9 @@ export function RegisterScreen() {
   });
 
   const handleRegistrationSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    if (role === 'mechanic' && mechanicStep < 3) {
+    if (step < totalSteps) {
       event.preventDefault();
-      void advanceMechanicStep();
+      void advanceStep();
       return;
     }
     void onSubmit(event);
@@ -291,8 +321,14 @@ export function RegisterScreen() {
 
   return (
     <AuthShell
-      title="Create account"
-      subtitle="Join Road Rescue Ghana as a customer or mechanic"
+      title={role === 'customer' ? 'Create your Road Rescue account' : 'Create account'}
+      subtitle={
+        role === 'customer'
+          ? step === 1
+            ? 'Enter your account details to get started'
+            : 'Choose your plan'
+          : 'Join Road Rescue Ghana as a customer or mechanic'
+      }
       footer={
         <p className="text-sm text-muted-foreground">
           Already registered?{' '}
@@ -303,30 +339,35 @@ export function RegisterScreen() {
       }
     >
       <form className="space-y-4" onSubmit={handleRegistrationSubmit}>
-        {role === 'mechanic' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-              <span>Personal</span>
-              <span>Business</span>
-              <span>Verification</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((step) => (
-                <div
-                  key={step}
-                  className={`h-1.5 rounded-full ${
-                    mechanicStep >= step ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-center text-xs text-muted-foreground">
-              Step {mechanicStep} of 3
-            </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+            {role === 'mechanic' ? (
+              <>
+                <span>Personal</span>
+                <span>Business</span>
+                <span>Verification</span>
+              </>
+            ) : (
+              <>
+                <span>Account</span>
+                <span>Plan</span>
+              </>
+            )}
           </div>
-        )}
+          <div className={`grid gap-2 ${role === 'customer' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+            {Array.from({ length: totalSteps }, (_, index) => index + 1).map((item) => (
+              <div
+                key={item}
+                className={`h-1.5 rounded-full ${step >= item ? 'bg-primary' : 'bg-muted'}`}
+              />
+            ))}
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Step {step} of {totalSteps}
+          </p>
+        </div>
 
-        {mechanicStep === 1 && (
+        {step === 1 && (
           <div className="grid grid-cols-2 gap-2">
           {(['customer', 'mechanic'] as const).map((option) => (
             <button
@@ -334,7 +375,7 @@ export function RegisterScreen() {
               type="button"
               onClick={() => {
                 form.setValue('role', option);
-                setMechanicStep(1);
+                setStep(1);
               }}
               className={`rounded-xl border px-3 py-2 text-sm font-semibold capitalize ${
                 role === option ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
@@ -345,7 +386,7 @@ export function RegisterScreen() {
           ))}
           </div>
         )}
-        {(role === 'customer' || mechanicStep === 1) && (
+        {step === 1 && (
           <>
             <div className="grid grid-cols-2 gap-3">
               <Field label="First name" error={form.formState.errors.firstName?.message}>
@@ -369,9 +410,59 @@ export function RegisterScreen() {
               />
             </Field>
             <PasswordRequirements password={password} />
+            <Field label="Confirm password" error={form.formState.errors.confirmPassword?.message}>
+              <PasswordInput
+                autoComplete="new-password"
+                error={Boolean(form.formState.errors.confirmPassword)}
+                {...form.register('confirmPassword')}
+              />
+            </Field>
           </>
         )}
-        {role === 'mechanic' && mechanicStep === 2 && (
+        {role === 'customer' && step === 2 && (
+          <div className="space-y-3 pt-2">
+            <div>
+              <h3 className="font-display text-lg font-bold">Choose your plan</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBasicSelected(true)}
+              className={`w-full rounded-xl border p-4 text-left space-y-3 ${
+                basicSelected ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <p className="font-semibold">BASIC</p>
+              </div>
+              <ul className="space-y-1.5">
+                {[
+                  'Mechanic assistance',
+                  'Mechanic discovery',
+                  'Mechanic profiles',
+                  'Ratings & reviews',
+                  'Customer uploads',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm">
+                    <Check className="h-4 w-4 text-success shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm font-semibold text-primary">
+                {basicSelected ? 'Basic selected' : 'Select Basic'}
+              </p>
+            </button>
+            <div className="rounded-xl border border-border p-4 opacity-80">
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-muted-foreground" />
+                <p className="font-semibold">Premium</p>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Coming Soon</p>
+            </div>
+          </div>
+        )}
+        {role === 'mechanic' && step === 2 && (
           <>
             <div>
               <h3 className="font-display text-lg font-bold">Business details</h3>
@@ -398,7 +489,7 @@ export function RegisterScreen() {
             </Field>
           </>
         )}
-        {role === 'mechanic' && mechanicStep === 3 && (
+        {role === 'mechanic' && step === 3 && (
           <>
             <div>
               <h3 className="font-display text-lg font-bold">Identity verification</h3>
@@ -473,43 +564,41 @@ export function RegisterScreen() {
             </div>
           </>
         )}
-        {role === 'mechanic' ? (
-          <div className="flex gap-2">
-            {mechanicStep > 1 && (
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                disabled={submitting}
-                onClick={() =>
-                  setMechanicStep((current) => (current === 3 ? 2 : 1))
-                }
-              >
-                Back
-              </Button>
-            )}
+        <div className="flex gap-2">
+          {step > 1 && (
             <Button
-              type={mechanicStep === 3 ? 'submit' : 'button'}
-              className="flex-[2]"
-              disabled={submitting || (mechanicStep === 1 && !isValidPassword(password))}
-              onClick={mechanicStep < 3 ? () => void advanceMechanicStep() : undefined}
+              type="button"
+              variant="outline"
+              className="flex-1"
+              disabled={submitting}
+              onClick={() =>
+                setStep((current) => (current === 3 ? 2 : 1))
+              }
             >
-              {submitting
-                ? 'Submitting…'
-                : mechanicStep === 3
-                  ? 'Submit application'
-                  : 'Continue'}
+              Back
             </Button>
-          </div>
-        ) : (
+          )}
           <Button
-            type="submit"
-            className="w-full"
-            disabled={submitting || !isValidPassword(password)}
+            type={step === totalSteps ? 'submit' : 'button'}
+            className={step > 1 ? 'flex-[2]' : 'w-full'}
+            disabled={
+              submitting ||
+              (step === 1 && !isValidPassword(password)) ||
+              (role === 'customer' && step === 2 && !basicSelected)
+            }
+            onClick={step < totalSteps ? () => void advanceStep() : undefined}
           >
-            {submitting ? 'Creating…' : 'Create account'}
+            {submitting
+              ? role === 'mechanic'
+                ? 'Submitting…'
+                : 'Creating…'
+              : step < totalSteps
+                ? 'Continue'
+                : role === 'mechanic'
+                  ? 'Submit application'
+                  : 'Create Account & Continue'}
           </Button>
-        )}
+        </div>
       </form>
     </AuthShell>
   );

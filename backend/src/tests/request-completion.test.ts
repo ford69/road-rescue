@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ForbiddenError, ValidationError } from '../utils/errors.js';
+import { ForbiddenError, ValidationError, ConflictError } from '../utils/errors.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import { requestRepository } from '../repositories/request.repository.js';
@@ -131,7 +131,7 @@ describe('service confirmation workflow', () => {
       expect.objectContaining({ customerConfirmedBy: customerUserId }),
     );
     expect(result).toMatchObject({ status: 'completed' });
-    expect(isPaymentAvailable('completed')).toBe(true);
+    expect(isPaymentAvailable('completed')).toBe(false);
   });
 
   it('rejects confirmation from another customer', async () => {
@@ -202,10 +202,26 @@ describe('service confirmation workflow', () => {
     expect(result).toMatchObject({ status: 'awaiting_confirmation' });
   });
 
-  it('does not treat awaiting confirmation as payable', () => {
+  it('does not treat any service status as payable through Road Rescue', () => {
     expect(isPaymentAvailable('awaiting_confirmation')).toBe(false);
     expect(isPaymentAvailable('inprogress')).toBe(false);
-    expect(isPaymentAvailable('completed')).toBe(true);
+    expect(isPaymentAvailable('completed')).toBe(false);
+  });
+
+  it('rejects a second completion request', async () => {
+    vi.mocked(mechanicRepository.findByUserId).mockResolvedValue(mechanicDoc() as never);
+    vi.mocked(requestRepository.findById).mockResolvedValue(requestDoc('awaiting_confirmation') as never);
+    await expect(requestService.requestConfirmation(mechanicUserId, requestId)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  it('rejects a second customer approval', async () => {
+    vi.mocked(customerRepository.findByUserId).mockResolvedValue(customerDoc() as never);
+    vi.mocked(requestRepository.findById).mockResolvedValue(requestDoc('completed') as never);
+    await expect(requestService.confirmCompletion(customerUserId, requestId)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
   });
 
   it('rejects customer confirmation while the job is still in progress', async () => {

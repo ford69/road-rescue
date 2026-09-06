@@ -10,7 +10,14 @@ export const BASIC_INCLUDED_SERVICES: ServiceTypeSlug[] = [
 ];
 
 export function isSubscriptionActive(status: string): boolean {
-  return status === 'active';
+  return status === 'active' || status === 'non_renewing';
+}
+
+export function isPaidCustomerPlan(
+  planSlug: SubscriptionPlanSlug,
+  status: string,
+): boolean {
+  return (planSlug === 'basic' || planSlug === 'premium') && isSubscriptionActive(status);
 }
 
 export function planAllowsService(

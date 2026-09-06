@@ -9,6 +9,7 @@ import {
 } from '../controllers/domain.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { requireEmailVerification } from '../middleware/requireEmailVerification.js';
+import { requireCustomerSubscription } from '../middleware/requireCustomerSubscription.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { paymentController } from '../controllers/payment.controller.js';
@@ -37,7 +38,34 @@ router.get('/service-types', asyncHandler(catalogController.serviceTypes));
 router.get('/subscriptions/plans', asyncHandler(subscriptionController.listPlans));
 
 router.use(authenticate);
+router.get(
+  '/subscriptions/me',
+  authorize('customer'),
+  asyncHandler(subscriptionController.current),
+);
+router.post(
+  '/subscriptions/checkout',
+  authorize('customer'),
+  asyncHandler(subscriptionController.checkout),
+);
+router.post(
+  '/subscriptions/upgrade',
+  authorize('customer'),
+  asyncHandler(subscriptionController.initializeUpgrade),
+);
+router.get(
+  '/subscriptions/verify/:reference',
+  authorize('customer'),
+  asyncHandler(subscriptionController.verify),
+);
+router.post(
+  '/subscriptions/downgrade',
+  authorize('customer'),
+  asyncHandler(subscriptionController.downgradeToFree),
+);
+
 router.use(requireEmailVerification);
+router.use(requireCustomerSubscription);
 
 router.get('/vehicles', authorize('customer'), asyncHandler(vehicleController.list));
 router.post(
@@ -88,11 +116,6 @@ router.post(
   asyncHandler(requestController.reportIssue),
 );
 
-router.post(
-  '/payments/:requestId/initialize',
-  authorize('customer'),
-  asyncHandler(paymentController.initialize),
-);
 router.get(
   '/payments/verify/:reference',
   authorize('customer'),
@@ -107,22 +130,6 @@ router.get(
   '/mechanics/me/payout-info',
   authorize('mechanic'),
   asyncHandler(paymentController.mechanicPayoutInfo),
-);
-
-router.get(
-  '/subscriptions/me',
-  authorize('customer'),
-  asyncHandler(subscriptionController.current),
-);
-router.post(
-  '/subscriptions/upgrade',
-  authorize('customer'),
-  asyncHandler(subscriptionController.initializeUpgrade),
-);
-router.post(
-  '/subscriptions/downgrade',
-  authorize('customer'),
-  asyncHandler(subscriptionController.downgradeToFree),
 );
 
 router.patch(

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { SiteNav } from '@/components/marketing/site-nav';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { useAuth } from '@/context/auth-context';
+import { postAuthPath } from '@/lib/auth-gate';
 import { BRAND_ASSETS, MARKETING_IMAGES, SERVICE_IMAGES } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
@@ -165,7 +166,7 @@ export function LandingPage() {
 
   React.useEffect(() => {
     if (!loading && isAuthenticated && user) {
-      navigate(user.emailVerified ? `/${user.role}/home` : '/auth/verify-email', { replace: true });
+      navigate(postAuthPath(user), { replace: true });
     }
   }, [isAuthenticated, loading, navigate, user]);
 

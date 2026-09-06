@@ -13,6 +13,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { requestController } from './controllers/domain.controller.js';
 import { authenticate, authorize } from './middleware/auth.js';
 import { requireEmailVerification } from './middleware/requireEmailVerification.js';
+import { requireCustomerSubscription } from './middleware/requireCustomerSubscription.js';
 import { validateBody } from './middleware/validate.js';
 import authRoutes from './routes/auth.routes.js';
 import apiRoutes from './routes/index.js';
@@ -58,6 +59,14 @@ export function createApp() {
     express.raw({ type: 'application/json', limit: '256kb' }),
     asyncHandler(paymentController.webhook),
   );
+  app.get(
+    '/api/v1/subscriptions/paystack/callback',
+    paymentController.browserCallback,
+  );
+  app.get(
+    '/api/subscriptions/paystack/callback',
+    paymentController.browserCallback,
+  );
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
@@ -92,6 +101,7 @@ export function createApp() {
     '/api/requests/:id/confirm-completion',
     authenticate,
     requireEmailVerification,
+    requireCustomerSubscription,
     authorize('customer'),
     asyncHandler(requestController.confirmCompletion),
   );
@@ -99,6 +109,7 @@ export function createApp() {
     '/api/requests/:id/report-issue',
     authenticate,
     requireEmailVerification,
+    requireCustomerSubscription,
     authorize('customer'),
     validateBody(reportIssueSchema),
     asyncHandler(requestController.reportIssue),

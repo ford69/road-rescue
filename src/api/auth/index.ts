@@ -10,8 +10,11 @@ export interface AuthResult {
 
 export interface RegisterResult {
   requiresEmailVerification: boolean;
+  requiresSubscription?: boolean;
   email?: string;
   emailVerificationToken?: string;
+  user?: ApiUser;
+  tokens?: AuthTokens;
 }
 
 export interface RegisterCustomerInput {
@@ -37,10 +40,15 @@ export interface RegisterMechanicInput extends RegisterCustomerInput {
 
 export const authApi = {
   async registerCustomer(input: RegisterCustomerInput) {
-    return apiRequest<RegisterResult>('/auth/register/customer', {
+    tokenStore.clear();
+    const data = await apiRequest<RegisterResult>('/auth/register/customer', {
       method: 'POST',
       body: JSON.stringify(input),
     });
+    if (data.tokens) {
+      tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
+    }
+    return data;
   },
 
   async registerMechanic(input: RegisterMechanicInput) {

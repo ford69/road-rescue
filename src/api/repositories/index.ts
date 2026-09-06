@@ -1,10 +1,4 @@
 import { ApiClientError, apiRequest } from '../client/http';
-
-function isRejectedStatusValue(error: unknown, status: string): boolean {
-  if (!(error instanceof ApiClientError) || error.status !== 400) return false;
-  const details = error.details as { fieldErrors?: { status?: string[] } } | undefined;
-  return (details?.fieldErrors?.status ?? []).some((message) => message.includes(status));
-}
 import type {
   AdminDashboardDto,
   ChatMessageDto,
@@ -14,18 +8,22 @@ import type {
   MechanicReviewDto,
   MechanicEarningsDto,
   NotificationDto,
-  PaymentDto,
-  PaymentInitializationDto,
   ProviderPaymentDto,
   ProviderPayoutInfoDto,
   RescueRequestDto,
   ServiceTypeDto,
+  SubscriptionCheckoutDto,
   SubscriptionPlanDto,
   SubscriptionPlanSlug,
   SubscriptionSummaryDto,
-  SubscriptionUpgradeDto,
   VehicleDto,
 } from '../types';
+
+function isRejectedStatusValue(error: unknown, status: string): boolean {
+  if (!(error instanceof ApiClientError) || error.status !== 400) return false;
+  const details = error.details as { fieldErrors?: { status?: string[] } } | undefined;
+  return (details?.fieldErrors?.status ?? []).some((message) => message.includes(status));
+}
 
 export type SupportTicketCategory = 'complaint' | 'billing' | 'account' | 'rescue' | 'other';
 
@@ -191,17 +189,6 @@ export const notificationsApi = {
   },
 };
 
-export const paymentsApi = {
-  initialize(requestId: string) {
-    return apiRequest<PaymentInitializationDto>(`/payments/${requestId}/initialize`, {
-      method: 'POST',
-    });
-  },
-  verify(reference: string) {
-    return apiRequest<PaymentDto>(`/payments/verify/${encodeURIComponent(reference)}`);
-  },
-};
-
 export const chatApi = {
   list(requestId: string) {
     return apiRequest<ChatMessageDto[]>(`/requests/${requestId}/messages`);
@@ -221,11 +208,16 @@ export const subscriptionsApi = {
   current() {
     return apiRequest<SubscriptionSummaryDto>('/subscriptions/me');
   },
-  initializeUpgrade(planSlug: SubscriptionPlanSlug) {
-    return apiRequest<SubscriptionUpgradeDto>('/subscriptions/upgrade', {
+  checkout(planSlug: SubscriptionPlanSlug = 'basic') {
+    return apiRequest<SubscriptionCheckoutDto>('/subscriptions/checkout', {
       method: 'POST',
       body: JSON.stringify({ planSlug }),
     });
+  },
+  verify(reference: string) {
+    return apiRequest<SubscriptionSummaryDto>(
+      `/subscriptions/verify/${encodeURIComponent(reference)}`,
+    );
   },
   downgradeToFree() {
     return apiRequest<SubscriptionSummaryDto>('/subscriptions/downgrade', { method: 'POST' });

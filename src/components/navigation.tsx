@@ -15,6 +15,8 @@ import {
   X,
   Search,
   ShieldAlert,
+  LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -245,7 +247,7 @@ export function TopBar({
   notificationCount: number;
   onOpenNotifications: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const menuRef = React.useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -275,6 +277,11 @@ export function TopBar({
   const goTo = (path: string) => {
     setMenuOpen(false);
     navigate(path);
+  };
+
+  const signOut = () => {
+    setMenuOpen(false);
+    void logout().then(() => navigate('/auth/login', { replace: true }));
   };
 
   return (
@@ -381,6 +388,27 @@ export function TopBar({
                 <Settings className="h-4 w-4 text-muted-foreground" />
                 Settings
               </button>
+              {role === 'customer' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-accent"
+                  onClick={() => goTo('/customer/subscription')}
+                >
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  Subscription
+                </button>
+              )}
+              <div className="my-1 h-px bg-border" />
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-accent"
+                onClick={signOut}
+              >
+                <LogOut className="h-4 w-4 text-muted-foreground" />
+                Sign Out
+              </button>
             </div>
           )}
         </div>
@@ -403,7 +431,8 @@ export function MobileMenu({
   onNavigate: (id: string) => void;
   active: string;
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const items = getNavItems(role);
   const initials = getUserInitials(user);
   const avatarSrc = resolveMediaUrl(user?.avatar);
@@ -499,11 +528,22 @@ export function MobileMenu({
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Theme</span>
             <ThemeToggle />
           </div>
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-foreground hover:bg-accent"
+            onClick={() => {
+              onClose();
+              void logout().then(() => navigate('/auth/login', { replace: true }));
+            }}
+          >
+            <LogOut className="h-5 w-5" />
+            Sign Out
+          </button>
         </div>
       </div>
     </div>

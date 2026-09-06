@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetBody } from '@/components/ui/she
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, ServiceType } from '@/api/types';
-import { EMAIL_NOT_VERIFIED_EVENT } from '@/api/client/http';
+import { EMAIL_NOT_VERIFIED_EVENT, SUBSCRIPTION_REQUIRED_EVENT } from '@/api/client/http';
 import { useAuth } from '@/context/auth-context';
 
 import { MechanicProfilePage } from '@/screens/customer/mechanic-profile';
@@ -20,6 +20,7 @@ import { RequestFlow } from '@/screens/customer/request-flow';
 import { LiveTracking } from '@/screens/customer/live-tracking';
 import { ServiceHistory } from '@/screens/customer/service-history';
 import { Profile } from '@/screens/customer/profile';
+import { CustomerSubscriptionPage } from '@/screens/customer/subscription';
 import { Notifications } from '@/screens/customer/notifications';
 import { HelpSupport } from '@/screens/help-support';
 import { MechanicHome, MechanicEarnings } from '@/screens/mechanic/home';
@@ -48,7 +49,8 @@ type Screen =
   | 'mechanics'
   | 'payments'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'subscription';
 
 const roles: Role[] = ['customer', 'mechanic', 'admin'];
 const screens: Screen[] = [
@@ -66,6 +68,7 @@ const screens: Screen[] = [
   'payments',
   'reports',
   'settings',
+  'subscription',
 ];
 
 function isRole(value: string | undefined): value is Role {
@@ -88,8 +91,16 @@ function ProtectedApp() {
       }
       navigate('/auth/verify-email', { replace: true });
     };
+    const onSubscriptionRequired = () => {
+      if (location.pathname.startsWith('/auth/complete-subscription')) return;
+      navigate('/auth/complete-subscription', { replace: true });
+    };
     window.addEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
-    return () => window.removeEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
+    window.addEventListener(SUBSCRIPTION_REQUIRED_EVENT, onSubscriptionRequired);
+    return () => {
+      window.removeEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
+      window.removeEventListener(SUBSCRIPTION_REQUIRED_EVENT, onSubscriptionRequired);
+    };
   }, [location.pathname, navigate]);
 
   if (loading) {
@@ -102,6 +113,10 @@ function ProtectedApp() {
 
   if (!isAuthenticated || !user) {
     return <Navigate to={`/auth/login?next=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+
+  if (user.role === 'customer' && !user.hasActiveSubscription) {
+    return <Navigate to={`/auth/complete-subscription${location.search}`} replace />;
   }
 
   if (!user.emailVerified) {
@@ -184,6 +199,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       payments: 'Payments',
       reports: 'Reports',
       settings: 'Settings',
+      subscription: 'Subscription',
     };
     return titles[screen] ?? 'Road Rescue';
   };
@@ -273,6 +289,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           )}
           {role === 'customer' && screen === 'alerts' && <Notifications />}
           {role === 'customer' && screen === 'profile' && <Profile onSignOut={onLogout} />}
+          {role === 'customer' && screen === 'subscription' && <CustomerSubscriptionPage />}
           {role === 'customer' && screen === 'support' && <HelpSupport />}
 
           {role === 'mechanic' && screen === 'home' && (

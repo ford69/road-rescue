@@ -27,6 +27,9 @@ export function clearPendingEmail(): void {
 }
 
 export function postAuthPath(user: ApiUser, fallback?: string | null): string {
+  if (user.role === 'customer' && !user.hasActiveSubscription) {
+    return '/auth/complete-subscription';
+  }
   if (!user.emailVerified) return '/auth/verify-email';
   if (fallback && fallback.startsWith('/') && !fallback.startsWith('/auth/')) {
     return fallback;

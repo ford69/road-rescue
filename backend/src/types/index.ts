@@ -25,7 +25,13 @@ export type SettlementStatus = 'pending' | 'processing' | 'settled' | 'failed';
 
 export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
 
-export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'incomplete' | 'expired';
+export type SubscriptionStatus =
+  | 'active'
+  | 'non_renewing'
+  | 'cancelled'
+  | 'past_due'
+  | 'incomplete'
+  | 'expired';
 
 export type SubscriptionFeature =
   | 'priority_matching'

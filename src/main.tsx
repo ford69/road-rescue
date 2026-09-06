@@ -10,6 +10,7 @@ import {
   ResetPasswordScreen,
 } from './screens/auth/auth-screens';
 import { VerifyEmailScreen } from './screens/auth/verify-email';
+import { CompleteSubscriptionScreen } from './screens/auth/complete-subscription';
 import { LandingPage } from './screens/landing';
 import { OfflineScreen } from './screens/offline';
 import { ThemeProvider } from './components/theme-provider';
@@ -36,6 +37,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/auth/reset-password" element={<ResetPasswordScreen />} />
               <Route path="/auth/verify-email" element={<VerifyEmailScreen />} />
               <Route path="/verify-email" element={<VerifyEmailScreen />} />
+              <Route path="/auth/complete-subscription" element={<CompleteSubscriptionScreen />} />
+              <Route path="/registration/complete" element={<CompleteSubscriptionScreen />} />
               <Route path="/offline" element={<OfflineScreen />} />
               <Route path="/provider/earnings" element={<Navigate to="/mechanic/earnings" replace />} />
               <Route path="/:role/:screen/:id" element={<App />} />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculatePaymentSplit } from '../payments/payment-provider.impl.js';
 import { entitlementService } from '../services/entitlement.service.js';
-import { isPaymentAvailable } from '../services/payment.service.js';
+import { paymentService, isPaymentAvailable } from '../services/payment.service.js';
 
 describe('payment split', () => {
   it('calculates platform and provider amounts without holding a wallet balance', () => {
@@ -35,9 +35,15 @@ describe('subscription entitlements', () => {
 });
 
 describe('payment eligibility after confirmation', () => {
-  it('is only available after the customer confirms completion', () => {
+  it('never treats mechanic services as payable in Road Rescue', () => {
     expect(isPaymentAvailable('awaiting_confirmation')).toBe(false);
     expect(isPaymentAvailable('issue_reported')).toBe(false);
-    expect(isPaymentAvailable('completed')).toBe(true);
+    expect(isPaymentAvailable('completed')).toBe(false);
+  });
+
+  it('rejects mechanic-service Paystack checkout', async () => {
+    await expect(paymentService.initialize('u1', 'r1')).rejects.toMatchObject({
+      statusCode: 400,
+    });
   });
 });

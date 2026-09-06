@@ -23,6 +23,7 @@ export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
 
 export type SubscriptionStatus =
   | 'active'
+  | 'non_renewing'
   | 'trialing'
   | 'past_due'
   | 'cancelled'
@@ -68,6 +69,9 @@ export interface ApiUser {
   emailVerifiedAt?: string | null;
   lastLogin: string | null;
   createdAt: string;
+  hasActiveSubscription?: boolean;
+  subscriptionPlanSlug?: SubscriptionPlanSlug;
+  subscriptionStatus?: SubscriptionStatus;
 }
 
 export interface AuthTokens {
@@ -273,12 +277,12 @@ export interface SubscriptionSummaryDto {
   memberDiscountPercent: number;
 }
 
-export interface SubscriptionUpgradeDto {
-  plan: SubscriptionPlanDto;
-  checkoutConfigured: boolean;
-  message: string;
+export interface SubscriptionCheckoutDto {
+  authorizationUrl: string;
+  reference: string;
   callbackUrl: string;
-  customerEmail: string;
+  publicKey?: string;
+  planSlug: SubscriptionPlanSlug;
 }
 
 export interface PaymentInitializationDto {

@@ -402,7 +402,7 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                   disabled={busy}
                   onClick={() => setConfirmOpen(true)}
                 >
-                  Request Customer Confirmation
+                  Send Service Completion Request
                 </Button>
               )}
 
@@ -422,18 +422,18 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
       </div>
       <Sheet open={confirmOpen} onOpenChange={setConfirmOpen}>
         <SheetContent>
-          <SheetHeader title="Request Customer Confirmation?" onClose={() => setConfirmOpen(false)} />
+          <SheetHeader title="Service Completion Request" onClose={() => setConfirmOpen(false)} />
           <SheetBody>
             <p className="text-sm text-muted-foreground">
-              Confirm that you have completed the requested service. The customer will be asked to review
-              and confirm completion.
+              Are you sure the service has been completed? The customer will receive a request to
+              review and approve the service completion.
             </p>
             <div className="mt-4 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
                 Cancel
               </Button>
               <Button className="flex-1" disabled={busy} onClick={() => void requestConfirmation()}>
-                {busy ? 'Sending…' : 'Request Confirmation'}
+                {busy ? 'Sending…' : 'Send Completion Request'}
               </Button>
             </div>
           </SheetBody>

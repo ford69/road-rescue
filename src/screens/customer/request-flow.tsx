@@ -660,8 +660,10 @@ function SubmittedScreen({
             </span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-muted-foreground">Quoted price</span>
-            <span className="font-semibold text-right">{formatGhs(request.quotedPrice)}</span>
+            <span className="text-muted-foreground">Service</span>
+            <span className="font-semibold text-right">
+              {serviceTypeConfig[request.serviceType].label}
+            </span>
           </div>
         </div>
       </Card>

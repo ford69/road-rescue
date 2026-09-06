@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowedServicesForPlan,
+  isPaidCustomerPlan,
   planAllowsService,
 } from '../services/plan-access.js';
 
@@ -31,5 +32,12 @@ describe('plan service access', () => {
     expect(allowedServicesForPlan('premium', 'active')).toEqual(
       expect.arrayContaining(['towing', 'fuel', 'accident', 'battery']),
     );
+  });
+
+  it('treats only paid active plans as dashboard-eligible', () => {
+    expect(isPaidCustomerPlan('free', 'active')).toBe(false);
+    expect(isPaidCustomerPlan('basic', 'incomplete')).toBe(false);
+    expect(isPaidCustomerPlan('basic', 'active')).toBe(true);
+    expect(isPaidCustomerPlan('basic', 'non_renewing')).toBe(true);
   });
 });

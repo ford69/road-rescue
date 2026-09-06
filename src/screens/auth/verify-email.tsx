@@ -127,6 +127,13 @@ export function VerifyEmailScreen() {
   };
 
   React.useEffect(() => {
+    if (token) return;
+    if (isAuthenticated && user?.role === 'customer' && !user.hasActiveSubscription && !user.emailVerified) {
+      navigate('/auth/complete-subscription', { replace: true });
+    }
+  }, [isAuthenticated, navigate, token, user]);
+
+  React.useEffect(() => {
     if (isAuthenticated && user?.emailVerified && state !== 'success' && state !== 'already') {
       navigate(postAuthPath(user), { replace: true });
     }

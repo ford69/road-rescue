@@ -20,7 +20,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { StatusChip } from '@/components/ui/status-chip';
 import { EmptyState } from '@/components/empty-state';
-import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
 import { DEFAULT_PICKUP_LOCATION } from '@/lib/locations';
 import { useNearbyMechanics, useRequests, useServiceTypes, useSubscription } from '@/hooks/useApi';
@@ -294,7 +293,6 @@ export function CustomerHome({
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-sm">{formatGhs(req.quotedPrice)}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(req.createdAt).toLocaleDateString('en-GH', {
                           month: 'short',

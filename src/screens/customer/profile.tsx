@@ -22,7 +22,6 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/sheet';
-import { formatGhs } from '@/lib/currency';
 import { getUserInitials, resolveMediaUrl } from '@/lib/user-display';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/components/theme-provider';
@@ -80,9 +79,6 @@ export function Profile({
         ? 'Administrator'
         : membershipLabel;
   const completedCount = requests.filter((r) => r.status === 'completed').length;
-  const totalSpent = requests
-    .filter((r) => r.status === 'completed' || r.paymentStatus === 'paid')
-    .reduce((sum, r) => sum + r.quotedPrice, 0);
 
   React.useEffect(() => {
     if (user?.role !== 'mechanic') return;
@@ -193,10 +189,10 @@ export function Profile({
             <p className="font-display text-2xl font-bold">
               {user?.role === 'mechanic'
                 ? `⭐ ${(mechanicProfile?.rating ?? 0).toFixed(1)}`
-                : formatGhs(totalSpent)}
+                : completedCount}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {user?.role === 'mechanic' ? 'Rating' : 'Spent'}
+              {user?.role === 'mechanic' ? 'Rating' : 'Completed'}
             </p>
           </div>
         </Card>

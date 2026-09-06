@@ -567,8 +567,8 @@ export function MechanicEarnings() {
         {(earnings?.recentPayments?.length ?? 0) === 0 ? (
           <EmptyState
             icon={<DollarSign className="h-10 w-10" />}
-            title="No payments yet"
-            description="Completed service payments will appear here with payment and settlement status."
+            title="No in-app job payments"
+            description="Customers pay you directly. Road Rescue does not collect mechanic service payments."
           />
         ) : (
           <div className="space-y-2">

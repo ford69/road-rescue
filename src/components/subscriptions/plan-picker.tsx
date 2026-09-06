@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Check, Crown, Sparkles, Star } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,26 +17,24 @@ const planIcons: Record<SubscriptionPlanSlug, React.ReactNode> = {
   premium: <Crown className="h-5 w-5" />,
 };
 
-const featureLabels: Record<string, string> = {
-  priority_matching: 'Priority matching',
-  member_discount: 'Member discounts on services',
-  premium_support: 'Premium support',
-  higher_member_discount: 'Larger member discounts',
-  mechanic_discovery: 'Mechanic discovery',
-  mechanic_profile: 'Mechanic profiles',
-  mechanic_reviews: 'Ratings and reviews',
-  service_upload: 'Service request uploads',
-  service_towing: 'Towing',
-  service_fuel: 'Fuel delivery',
-  service_accident: 'Accident services',
-};
+const includedBasic = [
+  'Mechanic assistance',
+  'Mechanic profiles',
+  'Reviews & ratings',
+  'Customer uploads',
+];
 
 export function SubscriptionPlanPicker() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [plans, setPlans] = React.useState<SubscriptionPlanDto[]>([]);
   const [current, setCurrent] = React.useState<SubscriptionSummaryDto | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [verifying, setVerifying] = React.useState(false);
   const [actionPlan, setActionPlan] = React.useState<SubscriptionPlanSlug | null>(null);
+  const [verifyState, setVerifyState] = React.useState<
+    'idle' | 'pending' | 'active' | 'failed' | 'cancelled'
+  >('idle');
 
   const reload = React.useCallback(async () => {
     const [planList, summary] = await Promise.all([
@@ -44,6 +43,7 @@ export function SubscriptionPlanPicker() {
     ]);
     setPlans(ensureArray(planList));
     setCurrent(summary);
+    return summary;
   }, []);
 
   React.useEffect(() => {
@@ -62,32 +62,64 @@ export function SubscriptionPlanPicker() {
     })();
   }, [reload, toast]);
 
-  const activeSlug = current?.subscription?.planSlug ?? 'free';
+  const paymentReference = searchParams.get('reference') ?? searchParams.get('trxref');
+
+  React.useEffect(() => {
+    if (!paymentReference) return;
+    setVerifying(true);
+    setVerifyState('pending');
+    void subscriptionsApi
+      .verify(paymentReference)
+      .then(async (summary) => {
+        setCurrent(summary);
+        setVerifyState(summary.status === 'active' ? 'active' : 'pending');
+        toast({
+          type: 'success',
+          title: 'Subscription Active',
+          description: 'Your Basic plan is now active.',
+        });
+      })
+      .catch((error) => {
+        setVerifyState('failed');
+        toast({
+          type: 'error',
+          title: 'Payment verification failed',
+          description: error instanceof ApiClientError ? error.message : 'Try again from Membership.',
+        });
+      })
+      .finally(() => {
+        setVerifying(false);
+        setSearchParams({}, { replace: true });
+      });
+  }, [paymentReference, setSearchParams, toast]);
+
+  const activeSlug = current?.planSlug ?? current?.subscription?.planSlug ?? 'free';
+  const statusLabel = String(current?.status ?? current?.subscription?.status ?? 'active').replace(
+    /_/g,
+    ' ',
+  );
 
   const handleSelect = async (slug: SubscriptionPlanSlug) => {
-    if (slug === activeSlug) return;
+    if (slug === activeSlug && current?.status === 'active') return;
     if (slug === 'premium') {
-        toast({
-          type: 'info',
-          title: 'Premium coming soon',
-          description: 'Premium is not available for purchase yet.',
-        });
-        return;
-      }
+      toast({
+        type: 'info',
+        title: 'Premium coming soon',
+        description: 'Premium is not available for purchase yet.',
+      });
+      return;
+    }
     setActionPlan(slug);
     try {
       if (slug === 'free') {
         await subscriptionsApi.downgradeToFree();
         toast({ type: 'success', title: 'Moved to Free plan' });
+        await reload();
       } else {
-        const result = await subscriptionsApi.initializeUpgrade(slug);
-        toast({
-          type: result.checkoutConfigured ? 'info' : 'warning',
-          title: 'Basic upgrade',
-          description: result.message,
-        });
+        const checkout = await subscriptionsApi.checkout('basic');
+        window.location.assign(checkout.authorizationUrl);
+        return;
       }
-      await reload();
     } catch (error) {
       toast({
         type: 'error',
@@ -104,23 +136,51 @@ export function SubscriptionPlanPicker() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="px-1">
-        <h3 className="font-display text-base font-bold">Membership</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Current plan: {current?.plan?.name ?? 'Basic'} · Status:{' '}
-          {(current?.status ?? current?.subscription?.status ?? 'active').replace('_', ' ')}
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Included services: flat tyre, battery, lockout, and diagnostics. Towing, fuel delivery, and
-          accident services require Premium.
-        </p>
-        {current && current.memberDiscountPercent > 0 && (
-          <p className="text-sm font-medium text-primary mt-2">
-            Active member discount: {current.memberDiscountPercent}% off eligible services
+    <div className="space-y-4">
+      {verifying && (
+        <Card className="p-4">
+          <p className="font-semibold">Verifying your payment…</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Confirming your Paystack payment with Road Rescue. This does not activate until the
+            server verifies the charge.
           </p>
-        )}
+        </Card>
+      )}
+      {verifyState === 'active' && (
+        <Card className="p-4 border-success/40">
+          <p className="font-semibold">Subscription Active</p>
+          <p className="text-sm text-muted-foreground mt-1">Your Basic membership is ready to use.</p>
+        </Card>
+      )}
+      {verifyState === 'failed' && (
+        <Card className="p-4">
+          <p className="font-semibold">Payment Failed</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            We could not confirm this payment. Your plan was not changed.
+          </p>
+        </Card>
+      )}
+
+      <div className="px-1">
+        <h3 className="font-display text-base font-bold">Your Road Rescue Plan</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          {current?.plan?.name ?? 'Free'} · {statusLabel}
+        </p>
       </div>
+
+      {activeSlug === 'basic' && (current?.status === 'active' || current?.status === 'non_renewing') && (
+        <Card className="p-4 space-y-3">
+          <p className="font-semibold">Your plan includes</p>
+          <ul className="space-y-1.5">
+            {includedBasic.map((item) => (
+              <li key={item} className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-success shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="space-y-2">
         {plans.map((plan) => {
@@ -141,7 +201,7 @@ export function SubscriptionPlanPicker() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{plan.name}</p>
                         {isActive && <Badge variant="primary">Current</Badge>}
-                        {isPremium && !isActive && <Badge>Premium</Badge>}
+                        {isPremium && <Badge>Coming Soon</Badge>}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">{plan.description}</p>
                     </div>
@@ -151,34 +211,29 @@ export function SubscriptionPlanPicker() {
                   </p>
                 </div>
 
-                {Boolean(plan.features?.length) && (
-                  <ul className="space-y-1.5">
-                    {ensureArray(plan.features).map((feature) => (
-                      <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="h-4 w-4 text-success shrink-0" />
-                        {featureLabels[feature] ?? feature.replace(/_/g, ' ')}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
                 {!isActive && plan.slug === 'premium' && (
                   <Button variant="outline" fullWidth disabled>
                     Premium coming soon
                   </Button>
                 )}
-                {!isActive && plan.slug !== 'premium' && (
+                {!isActive && plan.slug === 'basic' && (
                   <Button
-                    variant={plan.slug === 'free' ? 'outline' : 'primary'}
+                    variant="primary"
                     fullWidth
                     disabled={actionPlan !== null}
-                    onClick={() => void handleSelect(plan.slug)}
+                    onClick={() => void handleSelect('basic')}
                   >
-                    {actionPlan === plan.slug
-                      ? 'Updating…'
-                      : plan.slug === 'free'
-                        ? 'Switch to Free'
-                        : `Upgrade to ${plan.name}`}
+                    {actionPlan === 'basic' ? 'Opening checkout…' : 'Subscribe to Basic'}
+                  </Button>
+                )}
+                {!isActive && plan.slug === 'free' && (
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    disabled={actionPlan !== null}
+                    onClick={() => void handleSelect('free')}
+                  >
+                    {actionPlan === 'free' ? 'Updating…' : 'Switch to Free'}
                   </Button>
                 )}
               </div>

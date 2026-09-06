@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Truck,
   BatteryCharging,
@@ -20,12 +19,9 @@ import { Avatar } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
 import { useRequests } from '@/hooks/useApi';
 import type { RescueRequestDto } from '@/api/types';
-import { paymentsApi } from '@/api/repositories';
-import { useToast } from '@/components/ui/toast';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -44,52 +40,9 @@ export function ServiceHistory({
 }: {
   onSelectRequest: (req: RescueRequestDto) => void;
 }) {
-  const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { data: requests, loading, error, reload } = useRequests();
+  const { data: requests, loading, error } = useRequests();
   const [filter, setFilter] = React.useState<FilterTab>('all');
   const [search, setSearch] = React.useState('');
-  const [payingId, setPayingId] = React.useState<string | null>(null);
-  const paymentReference =
-    searchParams.get('reference') ?? searchParams.get('trxref');
-
-  React.useEffect(() => {
-    if (!paymentReference) return;
-    void paymentsApi
-      .verify(paymentReference)
-      .then(async () => {
-        await reload();
-        toast({
-          type: 'success',
-          title: 'Payment successful',
-          description: 'Your receipt is now available in service history.',
-        });
-      })
-      .catch((paymentError) => {
-        toast({
-          type: 'error',
-          title: 'Payment verification failed',
-          description:
-            paymentError instanceof Error ? paymentError.message : 'Try again',
-        });
-      })
-      .finally(() => setSearchParams({}, { replace: true }));
-  }, [paymentReference, reload, setSearchParams, toast]);
-
-  const startPayment = async (requestId: string) => {
-    setPayingId(requestId);
-    try {
-      const payment = await paymentsApi.initialize(requestId);
-      window.location.assign(payment.authorizationUrl);
-    } catch (paymentError) {
-      toast({
-        type: 'error',
-        title: 'Could not start payment',
-        description: paymentError instanceof Error ? paymentError.message : 'Try again',
-      });
-      setPayingId(null);
-    }
-  };
 
   const filtered = requests.filter((r) => {
     if (filter !== 'all' && r.status !== filter) return false;
@@ -100,10 +53,6 @@ export function ServiceHistory({
     }
     return true;
   });
-
-  const totalSpent = requests
-    .filter((r) => r.paymentStatus === 'paid')
-    .reduce((sum, r) => sum + (r.quotedPrice ?? 0), 0);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground py-8 text-center">Loading service history…</p>;
@@ -118,10 +67,12 @@ export function ServiceHistory({
   return (
     <div className="space-y-4 pb-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-gradient-to-br from-foreground to-foreground/80 border-0 text-background dark:from-zinc-800 dark:to-zinc-900">
+        <Card>
           <div className="p-4">
-            <p className="text-sm text-background/60 dark:text-zinc-400">Total Spent</p>
-            <p className="font-display text-2xl font-bold mt-1">{formatGhs(totalSpent)}</p>
+            <p className="text-sm text-muted-foreground">Completed</p>
+            <p className="font-display text-2xl font-bold mt-1">
+              {requests.filter((r) => r.status === 'completed').length}
+            </p>
           </div>
         </Card>
         <Card>
@@ -201,48 +152,28 @@ export function ServiceHistory({
                           })}
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold">{formatGhs(req.quotedPrice)}</p>
-                      <p
-                        className={cn(
-                          'mt-1 text-xs font-semibold',
-                          req.paymentStatus === 'paid' ? 'text-success' : 'text-warning',
-                        )}
-                      >
-                        {req.status === 'completed' && req.paymentStatus !== 'paid'
-                          ? 'Payment due'
-                          : req.paymentStatus === 'paid'
-                            ? 'Paid'
-                            : req.status === 'awaiting_confirmation'
-                              ? 'Awaiting confirmation'
-                              : req.status === 'issue_reported'
-                                ? 'Issue reported'
-                                : 'In progress'}
-                      </p>
-                      {req.status === 'completed' && req.paymentStatus !== 'paid' && (
+                      {req.status === 'awaiting_confirmation' && (
                         <Button
                           size="sm"
-                          className="mt-2"
-                          disabled={payingId === req._id}
+                          className="mt-3"
                           onClick={(event) => {
                             event.stopPropagation();
-                            void startPayment(req._id);
+                            onSelectRequest(req);
                           }}
                         >
-                          {payingId === req._id ? 'Opening…' : 'Pay now'}
+                          Review Service
                         </Button>
                       )}
-                      {req.status === 'completed' && (
-                        <div className="flex items-center gap-0.5 justify-end mt-1">
-                          <Star className="h-3 w-3 fill-warning text-warning" />
-                          <Star className="h-3 w-3 fill-warning text-warning" />
-                          <Star className="h-3 w-3 fill-warning text-warning" />
-                          <Star className="h-3 w-3 fill-warning text-warning" />
-                          <Star className="h-3 w-3 fill-warning text-warning" />
-                        </div>
-                      )}
                     </div>
+                    {req.status === 'completed' && (
+                      <div className="flex items-center gap-0.5 justify-end mt-1">
+                        <Star className="h-3 w-3 fill-warning text-warning" />
+                        <Star className="h-3 w-3 fill-warning text-warning" />
+                        <Star className="h-3 w-3 fill-warning text-warning" />
+                        <Star className="h-3 w-3 fill-warning text-warning" />
+                        <Star className="h-3 w-3 fill-warning text-warning" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

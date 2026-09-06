@@ -6,7 +6,7 @@ import { UnauthorizedError } from '../utils/errors.js';
 export const authController = {
   registerCustomer: async (req: Request, res: Response) => {
     const data = await authService.registerCustomer(req.body, res);
-    return sendSuccess(res, data, 'Please verify your email address before continuing.', 201);
+    return sendSuccess(res, data, 'Complete your Basic subscription to continue.', 201);
   },
 
   registerMechanic: async (req: Request, res: Response) => {

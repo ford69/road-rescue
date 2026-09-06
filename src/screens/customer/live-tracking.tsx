@@ -5,7 +5,6 @@ import {
   MessageSquare,
   Star,
   Share2,
-  Check,
   MapPin,
   ChevronUp,
   ChevronDown,
@@ -19,10 +18,9 @@ import { Avatar } from '@/components/ui/avatar';
 import { StatusChip } from '@/components/ui/status-chip';
 import { MapView, MapFloatingCard } from '@/components/map-view';
 import { Timeline } from '@/components/timeline';
-import { formatGhs } from '@/lib/currency';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { useRequests } from '@/hooks/useApi';
-import { paymentsApi, requestsApi } from '@/api/repositories';
+import { requestsApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { RequestStatus } from '@/api/types';
@@ -58,7 +56,6 @@ export function LiveTracking({
   const [cancelling, setCancelling] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const [liveStatus, setLiveStatus] = React.useState<RequestStatus | null>(null);
-  const [openingPayment, setOpeningPayment] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [issueOpen, setIssueOpen] = React.useState(false);
   const [issueReason, setIssueReason] = React.useState('');
@@ -260,28 +257,13 @@ export function LiveTracking({
     }
   };
 
-  const payForService = async () => {
-    setOpeningPayment(true);
-    try {
-      const payment = await paymentsApi.initialize(active._id);
-      window.location.assign(payment.authorizationUrl);
-    } catch (error) {
-      toast({
-        type: 'error',
-        title: 'Could not start payment',
-        description: error instanceof Error ? error.message : 'Try again',
-      });
-      setOpeningPayment(false);
-    }
-  };
-
   const confirmCompletion = async () => {
     setActing(true);
     try {
       await requestsApi.confirmCompletion(active._id);
       await reload();
       setConfirmOpen(false);
-      toast({ type: 'success', title: 'Service confirmed', description: 'This service is now closed.' });
+      toast({ type: 'success', title: 'Service approved', description: 'This service is now completed.' });
     } catch (error) {
       toast({
         type: 'error',
@@ -456,13 +438,9 @@ export function LiveTracking({
             </div>
           </Card>
 
-          {sheetExpanded && (
+              {sheetExpanded && (
             <>
               <Timeline items={timelineItems} />
-              <div className="rounded-xl bg-accent p-4 flex items-center justify-between">
-                <span className="text-sm font-medium">Quoted price</span>
-                <span className="font-display text-xl font-bold">{formatGhs(active.quotedPrice)}</span>
-              </div>
               {canCancel && (
                 <Button
                   fullWidth
@@ -475,10 +453,9 @@ export function LiveTracking({
               )}
               {phase === 'awaiting' && (
                 <div className="space-y-3 rounded-xl border border-border bg-accent/50 p-4">
-                  <p className="font-semibold">Service completion requested</p>
+                  <p className="font-semibold">Service Completed</p>
                   <p className="text-sm text-muted-foreground">
-                    Your mechanic, {name}, has indicated that your service has been completed. Please
-                    review and confirm.
+                    Your mechanic has requested confirmation that the service has been completed.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {serviceLabel} · {new Date(active.createdAt).toLocaleString('en-GH')}
@@ -496,7 +473,7 @@ export function LiveTracking({
                     </div>
                   )}
                   <Button fullWidth onClick={() => setConfirmOpen(true)}>
-                    Confirm & Close Service
+                    Approve
                   </Button>
                   <Button fullWidth variant="outline" onClick={() => setIssueOpen(true)}>
                     Report an Issue
@@ -510,19 +487,9 @@ export function LiveTracking({
               )}
               {phase === 'completed' && (
                 <div className="space-y-2">
-                  {active.paymentStatus !== 'paid' && (
-                    <Button
-                      fullWidth
-                      size="lg"
-                      disabled={openingPayment}
-                      onClick={() => void payForService()}
-                    >
-                      <Check className="h-5 w-5" />
-                      {openingPayment
-                        ? 'Opening payment…'
-                        : `Pay ${formatGhs(active.quotedPrice)}`}
-                    </Button>
-                  )}
+                  <p className="rounded-xl bg-accent px-4 py-3 text-sm">
+                    This service is complete. Any payment to your mechanic happens outside Road Rescue.
+                  </p>
                   <Button
                     fullWidth
                     variant="outline"
@@ -538,18 +505,17 @@ export function LiveTracking({
       </div>
       <Sheet open={confirmOpen} onOpenChange={setConfirmOpen}>
         <SheetContent>
-          <SheetHeader title="Confirm Service Completion" onClose={() => setConfirmOpen(false)} />
+          <SheetHeader title="Approve Service Completion?" onClose={() => setConfirmOpen(false)} />
           <SheetBody>
             <p className="text-sm text-muted-foreground">
-              Are you satisfied that the requested service has been completed? Once confirmed, this
-              service will be closed.
+              By approving, you confirm that the requested Road Rescue service has been completed.
             </p>
             <div className="mt-4 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
                 Cancel
               </Button>
               <Button className="flex-1" disabled={acting} onClick={() => void confirmCompletion()}>
-                {acting ? 'Confirming…' : 'Confirm & Close Service'}
+                {acting ? 'Approving…' : 'Approve'}
               </Button>
             </div>
           </SheetBody>

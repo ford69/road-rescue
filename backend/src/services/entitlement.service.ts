@@ -51,7 +51,7 @@ export const entitlementService = {
     const subscription = await subscriptionRepository.findByCustomer(customer._id.toString());
     const planSlug = subscription?.planSlug ?? 'free';
     const status = subscription?.status ?? 'active';
-    const active = status === 'active';
+    const active = status === 'active' || status === 'non_renewing';
     const allowedServiceTypes = allowedServicesForPlan(planSlug, status);
     return {
       planSlug,

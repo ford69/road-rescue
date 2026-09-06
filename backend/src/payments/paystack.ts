@@ -92,15 +92,44 @@ export async function verifyPaystackPayment(reference: string) {
 }
 
 export function verifyPaystackSignature(rawBody: Buffer, signature?: string): boolean {
-  if (!env.PAYSTACK_SECRET_KEY || !signature) return false;
-  const expected = crypto
-    .createHmac('sha512', env.PAYSTACK_SECRET_KEY)
-    .update(rawBody)
-    .digest('hex');
+  const secret = env.PAYSTACK_WEBHOOK_SECRET || env.PAYSTACK_SECRET_KEY;
+  if (!secret || !signature) return false;
+  const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
   const supplied = Buffer.from(signature, 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
   return (
-    supplied.length === expectedBuffer.length &&
-    crypto.timingSafeEqual(supplied, expectedBuffer)
+    supplied.length === expectedBuffer.length && crypto.timingSafeEqual(supplied, expectedBuffer)
   );
+}
+
+export async function initializePaystackSubscription(input: {
+  email: string;
+  amountGhs: number;
+  reference: string;
+  planCode: string;
+  callbackUrl: string;
+  metadata: Record<string, string>;
+}): Promise<{ authorizationUrl: string; accessCode: string; reference: string }> {
+  const data = await paystackRequest<{
+    authorization_url: string;
+    access_code: string;
+    reference: string;
+  }>('/transaction/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: input.email,
+      amount: Math.round(input.amountGhs * 100),
+      currency: 'GHS',
+      reference: input.reference,
+      plan: input.planCode,
+      channels: ['card', 'mobile_money'],
+      callback_url: input.callbackUrl,
+      metadata: input.metadata,
+    }),
+  });
+  return {
+    authorizationUrl: data.authorization_url,
+    accessCode: data.access_code,
+    reference: data.reference,
+  };
 }
