@@ -23,8 +23,9 @@ function timeAgo(value: string): string {
   return new Date(value).toLocaleDateString('en-GH', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function MechanicProfilePage() {
-  const { mechanicId } = useParams();
+export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId?: string }) {
+  const { id, mechanicId: mechanicIdParam } = useParams();
+  const mechanicId = mechanicIdProp ?? id ?? mechanicIdParam;
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<MechanicPublicProfileDto | null>(null);
   const [reviews, setReviews] = React.useState<MechanicReviewDto[]>([]);
@@ -32,7 +33,11 @@ export function MechanicProfilePage() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!mechanicId) return;
+    if (!mechanicId) {
+      setLoading(false);
+      setError('Mechanic not found');
+      return;
+    }
     let cancelled = false;
     void Promise.all([mechanicsApi.publicProfile(mechanicId), mechanicsApi.publicReviews(mechanicId)])
       .then(([nextProfile, nextReviews]) => {

@@ -270,7 +270,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
             />
           )}
           {role === 'customer' && screen === 'mechanics' && idParam && (
-            <MechanicProfilePage />
+            <MechanicProfilePage mechanicId={idParam} />
           )}
           {role === 'customer' && screen === 'request' && (
             <RequestFlow
