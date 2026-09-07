@@ -109,6 +109,19 @@ export const reportIssueSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 });
 
+export const createRatingSchema = z.object({
+  stars: z.coerce.number().int().min(1).max(5),
+  review: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine((value) => value === undefined || value.length >= 10, {
+      message: 'Review must be at least 10 characters',
+    }),
+});
+
 export const updateAvailabilitySchema = z.object({
   availability: z.boolean(),
 });

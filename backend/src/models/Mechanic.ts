@@ -48,7 +48,7 @@ const mechanicSchema = new Schema<IMechanic>(
       },
     ],
     availability: { type: Boolean, default: false },
-    rating: { type: Number, default: 5 },
+    rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     completedJobs: { type: Number, default: 0 },
     earnings: { type: Number, default: 0 },

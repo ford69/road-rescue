@@ -26,12 +26,15 @@ import { EmptyState } from '@/components/empty-state';
 import { Input } from '@/components/ui/input';
 import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig } from '@/lib/service-config';
+import { StarRatingDisplay } from '@/components/ratings/star-rating';
+import { PaginationBar } from '@/components/ui/pagination';
 import { useAvailableJobs, useRequests } from '@/hooks/useApi';
 import { mechanicsApi, requestsApi } from '@/api/repositories';
 import type { RequestStatus, RescueRequestDto } from '@/api/types';
 import { useToast } from '@/components/ui/toast';
 import { nextJobAction, canCancelJob } from '@/lib/job-status';
 import { ApiClientError } from '@/api/client/http';
+import { ensureArray } from '@/lib/ensure-array';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -338,11 +341,6 @@ export function MechanicHome({
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">{vehicleLabel(job)}</p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-display text-xl font-bold text-success">
-                          {formatGhs(job.quotedPrice)}
-                        </p>
-                      </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 text-sm">
@@ -481,11 +479,8 @@ export function MechanicHome({
 }
 
 export function MechanicEarnings() {
-  const { data: requests, loading: requestsLoading, error } = useRequests();
   const [earnings, setEarnings] = React.useState<Awaited<ReturnType<typeof mechanicsApi.earnings>> | null>(null);
   const [earningsLoading, setEarningsLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState<'all' | 'completed' | 'cancelled'>('all');
-  const [search, setSearch] = React.useState('');
 
   React.useEffect(() => {
     void (async () => {
@@ -497,21 +492,11 @@ export function MechanicEarnings() {
     })();
   }, []);
 
-  if (requestsLoading || earningsLoading) {
+  if (earningsLoading) {
     return <p className="text-sm text-muted-foreground py-8 text-center">Loading payments & earnings…</p>;
   }
 
   const payoutInfo = earnings?.payoutInfo;
-  const jobs = requests.filter((job) => {
-    if (!['completed', 'cancelled'].includes(job.status)) return false;
-    if (filter !== 'all' && job.status !== filter) return false;
-    if (!search.trim()) return true;
-    const query = search.toLowerCase();
-    const service = serviceTypeConfig[job.serviceType]?.label ?? job.serviceType;
-    return `${service} ${customerLabel(job)} ${job.pickupLocation.address} ${job.pickupLocation.city}`
-      .toLowerCase()
-      .includes(query);
-  });
 
   return (
     <div className="space-y-4 pb-4">
@@ -598,110 +583,147 @@ export function MechanicEarnings() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
+export function MechanicJobHistory() {
+  const [jobs, setJobs] = React.useState<RescueRequestDto[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [total, setTotal] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const [limit] = React.useState(20);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  const reload = React.useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await mechanicsApi.jobHistory({
+        page,
+        limit,
+        q: debouncedSearch || undefined,
+      });
+      setJobs(ensureArray(result.items));
+      setTotal(result.total);
+      setTotalPages(result.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load job history');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, limit, debouncedSearch]);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (loading && jobs.length === 0 && !error) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Loading job history…</p>;
+  }
+
+  return (
+    <div className="space-y-4 pb-4">
       <div>
-        <h3 className="font-display text-base font-bold mb-3 px-1">Job history</h3>
-        <div className="mb-3 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search jobs, customers or locations"
-              className="pl-9"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['all', 'completed', 'cancelled'] as const).map((value) => (
-              <Button
-                key={value}
-                size="sm"
-                variant={filter === value ? 'primary' : 'outline'}
-                onClick={() => setFilter(value)}
-              >
-                {value[0].toUpperCase() + value.slice(1)}
-              </Button>
-            ))}
-          </div>
-        </div>
-        {error ? (
-          <EmptyState
-            icon={<Briefcase className="h-10 w-10" />}
-            title="Could not load job history"
-            description={error}
-          />
-        ) : jobs.length === 0 ? (
-          <EmptyState
-            icon={<Briefcase className="h-10 w-10" />}
-            title="No past jobs found"
-            description="Completed and cancelled rescues will appear here."
-          />
-        ) : (
-          <div className="space-y-2">
-            {jobs.map((job) => (
+        <h2 className="font-display text-xl font-bold tracking-tight">Job History</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Completed Road Rescue jobs assigned to you.
+        </p>
+      </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search jobs, customers or locations"
+          className="pl-9"
+        />
+      </div>
+      {error ? (
+        <EmptyState
+          icon={<Briefcase className="h-10 w-10" />}
+          title="Could not load job history"
+          description={error}
+        />
+      ) : jobs.length === 0 ? (
+        <EmptyState
+          icon={<Briefcase className="h-10 w-10" />}
+          title={debouncedSearch ? 'No matching jobs' : 'No completed jobs yet.'}
+          description={
+            debouncedSearch
+              ? 'Try a different service type, city, or address.'
+              : "Completed services will appear here once you've finished your first Road Rescue job."
+          }
+        />
+      ) : (
+        <div className="space-y-3">
+          {jobs.map((job) => {
+            const rating = job.customerRating;
+            return (
               <Card key={job._id}>
                 <div className="p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                        job.status === 'completed'
-                          ? 'bg-success-50 text-success dark:bg-success-700/20'
-                          : 'bg-accent text-muted-foreground',
-                      )}
-                    >
-                      {job.status === 'completed' ? (
-                        <DollarSign className="h-5 w-5" />
-                      ) : (
-                        <X className="h-5 w-5" />
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">
+                        {serviceTypeConfig[job.serviceType]?.label ?? job.serviceType}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">Customer: {customerLabel(job)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Location: {job.pickupLocation.city}
+                      </p>
+                      {job.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{job.description}</p>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-sm">
-                            {serviceTypeConfig[job.serviceType]?.label ?? job.serviceType}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {customerLabel(job)}
-                          </p>
-                        </div>
-                        <StatusChip status={job.status} />
-                      </div>
-                    </div>
+                    <StatusChip status={job.status} />
                   </div>
-                  <div className="flex items-end justify-between gap-3 border-t border-border pt-3">
-                    <div className="min-w-0 text-xs text-muted-foreground">
-                      <p className="truncate">{job.pickupLocation.address}</p>
-                      <p className="mt-1">
-                        {new Date(
-                          job.completedAt ?? job.cancelledAt ?? job.updatedAt ?? job.createdAt,
-                        ).toLocaleDateString('en-GH', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                        {' · '}
-                        {new Date(
-                          job.completedAt ?? job.cancelledAt ?? job.updatedAt ?? job.createdAt,
-                        ).toLocaleTimeString('en-GH', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    {job.status === 'completed' && (
-                      <p className="shrink-0 font-bold text-success">
-                        +{formatGhs(job.quotedPrice)}
-                      </p>
+                  <p className="text-xs text-muted-foreground">
+                    Completed:{' '}
+                    {new Date(job.completedAt ?? job.updatedAt ?? job.createdAt).toLocaleDateString('en-GH', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </p>
+                  <div className="border-t border-border pt-3">
+                    <p className="text-sm font-semibold mb-1">Customer Rating</p>
+                    {rating ? (
+                      <div className="space-y-1">
+                        <StarRatingDisplay stars={rating.stars} />
+                        {rating.review && (
+                          <p className="text-sm text-muted-foreground">“{rating.review}”</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Not yet rated</p>
                     )}
                   </div>
                 </div>
               </Card>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={loading}
+          />
+        </div>
+      )}
     </div>
   );
 }

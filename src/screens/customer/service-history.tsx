@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Wrench,
   Search,
-  Star,
   MapPin,
   Calendar,
 } from 'lucide-react';
@@ -20,8 +19,12 @@ import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
-import { useRequests } from '@/hooks/useApi';
+import { StarRatingDisplay } from '@/components/ratings/star-rating';
+import { RateProviderSheet } from '@/components/ratings/rate-provider-sheet';
+import { PaginationBar } from '@/components/ui/pagination';
+import { requestsApi } from '@/api/repositories';
 import type { RescueRequestDto } from '@/api/types';
+import { ensureArray } from '@/lib/ensure-array';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Truck,
@@ -40,21 +43,54 @@ export function ServiceHistory({
 }: {
   onSelectRequest: (req: RescueRequestDto) => void;
 }) {
-  const { data: requests, loading, error } = useRequests();
+  const [requests, setRequests] = React.useState<RescueRequestDto[]>([]);
   const [filter, setFilter] = React.useState<FilterTab>('all');
   const [search, setSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [total, setTotal] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const [limit] = React.useState(20);
+  const [counts, setCounts] = React.useState({ total: 0, completed: 0, cancelled: 0 });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [ratingRequest, setRatingRequest] = React.useState<RescueRequestDto | null>(null);
 
-  const filtered = requests.filter((r) => {
-    if (filter !== 'all' && r.status !== filter) return false;
-    if (search) {
-      const config = serviceTypeConfig[r.serviceType];
-      const haystack = `${config.label} ${r.pickupLocation.address} ${r.pickupLocation.city}`.toLowerCase();
-      return haystack.includes(search.toLowerCase());
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  const reload = React.useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await requestsApi.history({
+        page,
+        limit,
+        q: debouncedSearch || undefined,
+        status: filter === 'all' ? undefined : filter,
+      });
+      setRequests(ensureArray(result.items));
+      setTotal(result.total);
+      setTotalPages(result.totalPages);
+      setCounts(result.counts ?? { total: 0, completed: 0, cancelled: 0 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load history');
+    } finally {
+      setLoading(false);
     }
-    return true;
-  });
+  }, [page, limit, filter, debouncedSearch]);
 
-  if (loading) {
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (loading && requests.length === 0) {
     return <p className="text-sm text-muted-foreground py-8 text-center">Loading service history…</p>;
   }
 
@@ -70,15 +106,13 @@ export function ServiceHistory({
         <Card>
           <div className="p-4">
             <p className="text-sm text-muted-foreground">Completed</p>
-            <p className="font-display text-2xl font-bold mt-1">
-              {requests.filter((r) => r.status === 'completed').length}
-            </p>
+            <p className="font-display text-2xl font-bold mt-1">{counts.completed}</p>
           </div>
         </Card>
         <Card>
           <div className="p-4">
             <p className="text-sm text-muted-foreground">Services</p>
-            <p className="font-display text-2xl font-bold mt-1">{requests.length}</p>
+            <p className="font-display text-2xl font-bold mt-1">{counts.total}</p>
           </div>
         </Card>
       </div>
@@ -105,16 +139,20 @@ export function ServiceHistory({
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {requests.length === 0 ? (
         <EmptyState
           icon={<Wrench className="h-10 w-10" />}
-          title="No service history"
-          description="Your past requests will appear here once you use the service."
+          title={debouncedSearch ? 'No matching services' : 'No service history'}
+          description={
+            debouncedSearch
+              ? 'Try a different service type or location.'
+              : 'Your past requests will appear here once you use the service.'
+          }
           action={<Button variant="primary">Request Assistance</Button>}
         />
       ) : (
         <div className="space-y-2">
-          {filtered.map((req) => {
+          {requests.map((req) => {
             const config = serviceTypeConfig[req.serviceType];
             const Icon = iconMap[config.icon] ?? Wrench;
             const mechanicName = req.mechanic ? mechanicDisplayName(req.mechanic) : null;
@@ -164,23 +202,55 @@ export function ServiceHistory({
                           Review Service
                         </Button>
                       )}
+                      {req.status === 'completed' && (
+                        <div className="mt-3 space-y-1">
+                          {req.customerRating ? (
+                            <>
+                              <StarRatingDisplay stars={req.customerRating.stars} />
+                              {req.customerRating.review && (
+                                <p className="text-xs text-muted-foreground">
+                                  Your review: “{req.customerRating.review}”
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setRatingRequest(req);
+                              }}
+                            >
+                              Rate Provider
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {req.status === 'completed' && (
-                      <div className="flex items-center gap-0.5 justify-end mt-1">
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                      </div>
-                    )}
                   </div>
                 </div>
               </Card>
             );
           })}
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={loading}
+          />
         </div>
       )}
+      <RateProviderSheet
+        request={ratingRequest}
+        open={Boolean(ratingRequest)}
+        onOpenChange={(open) => {
+          if (!open) setRatingRequest(null);
+        }}
+        onRated={() => void reload()}
+      />
     </div>
   );
 }

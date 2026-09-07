@@ -23,14 +23,13 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/input';
 import { MapView } from '@/components/map-view';
 import { EmptyState } from '@/components/empty-state';
-import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig } from '@/lib/service-config';
 import {
   DEFAULT_PICKUP_LOCATION,
   GHANA_PICKUP_LOCATIONS,
   type GhanaLocation,
 } from '@/lib/locations';
-import { useServiceTypes, useVehicles, useSubscription } from '@/hooks/useApi';
+import { useVehicles, useSubscription } from '@/hooks/useApi';
 import { requestsApi } from '@/api/repositories';
 import type { RescueRequestDto, ServiceType, VehicleDto } from '@/api/types';
 import { ApiClientError } from '@/api/client/http';
@@ -46,13 +45,12 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Wrench,
 };
 
-type Step = 'location' | 'vehicle' | 'problem' | 'estimate' | 'confirm' | 'submitted';
+type Step = 'location' | 'vehicle' | 'problem' | 'confirm' | 'submitted';
 
 const steps: { id: Step; label: string }[] = [
   { id: 'location', label: 'Location' },
   { id: 'vehicle', label: 'Vehicle' },
   { id: 'problem', label: 'Problem' },
-  { id: 'estimate', label: 'Estimate' },
   { id: 'confirm', label: 'Confirm' },
 ];
 
@@ -72,7 +70,6 @@ export function RequestFlow({
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { data: vehicles, loading: vehiclesLoading } = useVehicles();
-  const { data: catalog } = useServiceTypes();
   const { data: membership } = useSubscription();
   const restricted = React.useMemo(
     () => new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']),
@@ -89,9 +86,6 @@ export function RequestFlow({
 
   const stepIndex = steps.findIndex((s) => s.id === step);
   const isFlowStep = stepIndex >= 0;
-  const catalogPrices = Object.fromEntries(
-    catalog.map((service) => [service.slug, service.estimatedPrice]),
-  ) as Partial<Record<ServiceType, number>>;
 
   React.useEffect(() => {
     const serviceParam = searchParams.get('service');
@@ -107,13 +101,13 @@ export function RequestFlow({
   }, [vehicles, selectedVehicle]);
 
   const goNext = () => {
-    const order: Step[] = ['location', 'vehicle', 'problem', 'estimate', 'confirm'];
+    const order: Step[] = ['location', 'vehicle', 'problem', 'confirm'];
     const idx = order.indexOf(step);
     if (idx < order.length - 1) setStep(order[idx + 1]);
   };
 
   const goBack = () => {
-    const order: Step[] = ['location', 'vehicle', 'problem', 'estimate', 'confirm'];
+    const order: Step[] = ['location', 'vehicle', 'problem', 'confirm'];
     const idx = order.indexOf(step);
     if (idx > 0) setStep(order[idx - 1]);
     else onCancel();
@@ -218,20 +212,11 @@ export function RequestFlow({
       )}
       {step === 'problem' && (
         <ProblemStep
-          catalogPrices={catalogPrices}
           selectedService={selectedService}
           description={description}
           restricted={restricted}
           onSelect={setSelectedService}
           onDescriptionChange={setDescription}
-          goNext={goNext}
-        />
-      )}
-      {step === 'estimate' && (
-        <EstimateStep
-          vehicle={selectedVehicle}
-          service={selectedService}
-          price={selectedService ? catalogPrices[selectedService] : undefined}
           goNext={goNext}
         />
       )}
@@ -241,7 +226,6 @@ export function RequestFlow({
           vehicle={selectedVehicle}
           service={selectedService}
           description={description}
-          price={selectedService ? catalogPrices[selectedService] : undefined}
           submitting={submitting}
           onConfirm={() => void submitRequest()}
         />
@@ -407,7 +391,6 @@ function VehicleStep({
 }
 
 function ProblemStep({
-  catalogPrices,
   selectedService,
   description,
   restricted,
@@ -415,7 +398,6 @@ function ProblemStep({
   onDescriptionChange,
   goNext,
 }: {
-  catalogPrices: Partial<Record<ServiceType, number>>;
   selectedService: ServiceType | null;
   description: string;
   restricted: Set<string>;
@@ -439,7 +421,6 @@ function ProblemStep({
         {services.map(([type, config]) => {
           const Icon = iconMap[config.icon] ?? Wrench;
           const selected = selectedService === type;
-          const price = catalogPrices[type] ?? config.basePrice;
           const locked = restricted.has(type);
           return (
             <button
@@ -466,7 +447,6 @@ function ProblemStep({
                 <p className="font-semibold text-sm">{config.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{config.description}</p>
               </div>
-              <p className="text-xs font-bold text-primary mt-1">from {formatGhs(price)}</p>
               {locked && (
                 <p className="text-xs font-semibold text-muted-foreground">
                   {config.label} is not included in your Basic plan. Upgrade to Premium to access this service.
@@ -498,63 +478,11 @@ function ProblemStep({
   );
 }
 
-function EstimateStep({
-  vehicle,
-  service,
-  price,
-  goNext,
-}: {
-  vehicle: VehicleDto | null;
-  service: ServiceType | null;
-  price?: number;
-  goNext: () => void;
-}) {
-  if (!vehicle || !service) return null;
-  const config = serviceTypeConfig[service];
-  const Icon = iconMap[config.icon] ?? Wrench;
-  const estimate = price ?? config.basePrice;
-
-  return (
-    <div className="space-y-4 animate-fade-in-up">
-      <div>
-        <h2 className="font-display text-xl font-bold tracking-tight">Estimated cost</h2>
-        <p className="text-sm text-muted-foreground mt-1">Prices shown in Ghana Cedis (₵).</p>
-      </div>
-
-      <Card>
-        <div className="p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-semibold">{config.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {vehicle.year} {vehicle.make} {vehicle.vehicleModel}
-              </p>
-            </div>
-          </div>
-          <div className="rounded-xl bg-accent p-4 flex items-center justify-between">
-            <span className="text-sm font-medium">Estimated total</span>
-            <span className="font-display text-2xl font-bold">{formatGhs(estimate)}</span>
-          </div>
-        </div>
-      </Card>
-
-      <Button fullWidth size="lg" onClick={goNext}>
-        Continue
-        <ChevronRight className="h-5 w-5" />
-      </Button>
-    </div>
-  );
-}
-
 function ConfirmStep({
   pickup,
   vehicle,
   service,
   description,
-  price,
   submitting,
   onConfirm,
 }: {
@@ -562,13 +490,11 @@ function ConfirmStep({
   vehicle: VehicleDto | null;
   service: ServiceType | null;
   description: string;
-  price?: number;
   submitting: boolean;
   onConfirm: () => void;
 }) {
   if (!vehicle || !service) return null;
   const config = serviceTypeConfig[service];
-  const estimate = price ?? config.basePrice;
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -601,10 +527,6 @@ function ConfirmStep({
               <span className="font-semibold text-right max-w-[60%]">{description.trim()}</span>
             </div>
           )}
-          <div className="flex justify-between gap-3">
-            <span className="text-muted-foreground">Estimate</span>
-            <span className="font-semibold text-right">{formatGhs(estimate)}</span>
-          </div>
         </div>
       </Card>
 

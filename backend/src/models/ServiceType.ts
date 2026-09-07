@@ -22,7 +22,7 @@ const serviceTypeSchema = new Schema<IServiceType>(
     },
     name: { type: String, required: true },
     description: { type: String, required: true },
-    estimatedPrice: { type: Number, required: true },
+    estimatedPrice: { type: Number, default: 0 },
     icon: { type: String, required: true },
     active: { type: Boolean, default: true },
   },

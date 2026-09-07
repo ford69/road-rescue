@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatusChip } from '@/components/ui/status-chip';
 import { mechanicsApi } from '@/api/repositories';
-import type { MechanicPublicProfileDto, MechanicReviewDto } from '@/api/types';
+import type { MechanicPublicProfileDto, MechanicReviewDto, PaginatedDto } from '@/api/types';
 import { mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { resolveMediaUrl } from '@/lib/user-display';
 import { ApiClientError } from '@/api/client/http';
 import { ensureArray } from '@/lib/ensure-array';
+import { PaginationBar } from '@/components/ui/pagination';
 
 function timeAgo(value: string): string {
   const delta = Date.now() - new Date(value).getTime();
@@ -29,6 +30,8 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<MechanicPublicProfileDto | null>(null);
   const [reviews, setReviews] = React.useState<MechanicReviewDto[]>([]);
+  const [reviewPage, setReviewPage] = React.useState(1);
+  const [reviewMeta, setReviewMeta] = React.useState({ total: 0, totalPages: 1, limit: 20 });
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -39,11 +42,20 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
       return;
     }
     let cancelled = false;
-    void Promise.all([mechanicsApi.publicProfile(mechanicId), mechanicsApi.publicReviews(mechanicId)])
+    void Promise.all([
+      mechanicsApi.publicProfile(mechanicId),
+      mechanicsApi.publicReviews(mechanicId, { page: reviewPage, limit: 20 }),
+    ])
       .then(([nextProfile, nextReviews]) => {
         if (cancelled) return;
         setProfile(nextProfile);
-        setReviews(ensureArray(nextReviews));
+        const page = nextReviews as PaginatedDto<MechanicReviewDto>;
+        setReviews(ensureArray(page.items));
+        setReviewMeta({
+          total: page.total ?? ensureArray(page.items).length,
+          totalPages: page.totalPages ?? 1,
+          limit: page.limit ?? 20,
+        });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -55,7 +67,7 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
     return () => {
       cancelled = true;
     };
-  }, [mechanicId]);
+  }, [mechanicId, reviewPage]);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading mechanic profile…</p>;
@@ -101,11 +113,19 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
             </div>
             <p className="text-sm text-muted-foreground mt-1">{profile.garageName}</p>
             <div className="mt-2 flex items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1 font-semibold">
-                <Star className="h-4 w-4 fill-warning text-warning" />
-                {(profile.rating ?? 0).toFixed(1)}
-              </span>
-              <span className="text-muted-foreground">Based on {profile.reviewCount} reviews</span>
+              {profile.reviewCount > 0 ? (
+                <>
+                  <span className="inline-flex items-center gap-1 font-semibold">
+                    <Star className="h-4 w-4 fill-warning text-warning" />
+                    {(profile.rating ?? 0).toFixed(1)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {profile.reviewCount} {profile.reviewCount === 1 ? 'review' : 'reviews'}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No reviews yet</span>
+              )}
             </div>
           </div>
         </div>
@@ -136,22 +156,31 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
       </Card>
 
       <div className="space-y-3">
-        <h2 className="font-display text-base font-bold">Reviews</h2>
+        <h2 className="font-display text-base font-bold">Customer Reviews</h2>
         {reviews.length === 0 ? (
           <Card className="p-5 text-sm text-muted-foreground">
-            No customer reviews yet. Reviews appear after completed services.
+            No reviews yet. Customer reviews will appear here after completed jobs.
           </Card>
         ) : (
-          reviews.map((review) => (
-            <Card key={review.id} className="p-4 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-semibold text-sm">{review.customerName}</p>
-                <p className="text-xs text-muted-foreground">{timeAgo(review.createdAt)}</p>
-              </div>
-              <p className="text-sm text-warning">{'★'.repeat(review.stars)}{'☆'.repeat(5 - review.stars)}</p>
-              {review.review && <p className="text-sm text-muted-foreground">{review.review}</p>}
-            </Card>
-          ))
+          <>
+            {reviews.map((review) => (
+              <Card key={review.id} className="p-4 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-sm">{review.customerName}</p>
+                  <p className="text-xs text-muted-foreground">{timeAgo(review.createdAt)}</p>
+                </div>
+                <p className="text-sm text-warning">{'★'.repeat(review.stars)}{'☆'.repeat(5 - review.stars)}</p>
+                {review.review && <p className="text-sm text-muted-foreground">{review.review}</p>}
+              </Card>
+            ))}
+            <PaginationBar
+              page={reviewPage}
+              totalPages={reviewMeta.totalPages}
+              total={reviewMeta.total}
+              limit={reviewMeta.limit}
+              onPageChange={setReviewPage}
+            />
+          </>
         )}
       </div>
 

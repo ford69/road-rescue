@@ -15,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import { StatusChip } from '@/components/ui/status-chip';
 import { MapView, MapFloatingCard } from '@/components/map-view';
 import { Timeline } from '@/components/timeline';
-import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig } from '@/lib/service-config';
 import { useRequests } from '@/hooks/useApi';
 import { mechanicsApi, requestsApi } from '@/api/repositories';
@@ -289,7 +288,7 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
               </Button>
               <div className="text-center">
                 <p className="font-semibold text-sm">{serviceLabel}</p>
-                <p className="text-xs text-muted-foreground">{formatGhs(active.quotedPrice)}</p>
+                <p className="text-xs text-muted-foreground">{name}</p>
               </div>
               <StatusChip
                 status={active.status}

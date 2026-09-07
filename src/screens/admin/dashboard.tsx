@@ -182,9 +182,6 @@ export function AdminDashboard() {
                         <th className="pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Status
                         </th>
-                        <th className="pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide text-right">
-                          Price
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -218,9 +215,6 @@ export function AdminDashboard() {
                             <td className="py-3">
                               <StatusChip status={job.status} />
                             </td>
-                            <td className="py-3 text-right font-bold text-sm">
-                              {formatGhs(job.quotedPrice)}
-                            </td>
                           </tr>
                         );
                       })}
@@ -244,12 +238,7 @@ export function AdminDashboard() {
                         <p className="text-sm text-muted-foreground">
                           {config.label} · {mechanic}
                         </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            {job.pickupLocation.address}
-                          </span>
-                          <span className="font-bold">{formatGhs(job.quotedPrice)}</span>
-                        </div>
+                        <p className="text-xs text-muted-foreground">{job.pickupLocation.address}</p>
                       </div>
                     );
                   })}

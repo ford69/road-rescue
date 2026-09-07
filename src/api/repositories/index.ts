@@ -17,7 +17,19 @@ import type {
   SubscriptionPlanSlug,
   SubscriptionSummaryDto,
   VehicleDto,
+  PaginatedDto,
+  CustomerHistoryDto,
 } from '../types';
+
+function queryString(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
 
 function isRejectedStatusValue(error: unknown, status: string): boolean {
   if (!(error instanceof ApiClientError) || error.status !== 400) return false;
@@ -65,6 +77,16 @@ export const vehiclesApi = {
 export const requestsApi = {
   list() {
     return apiRequest<RescueRequestDto[]>('/requests');
+  },
+  history(params?: { page?: number; limit?: number; q?: string; status?: 'completed' | 'cancelled' }) {
+    return apiRequest<CustomerHistoryDto>(
+      `/requests/history${queryString({
+        page: params?.page,
+        limit: params?.limit,
+        q: params?.q,
+        status: params?.status,
+      })}`,
+    );
   },
   create(input: {
     vehicleId: string;
@@ -133,6 +155,18 @@ export const requestsApi = {
       body: JSON.stringify({ reason }),
     });
   },
+  rate(id: string, input: { stars: number; review?: string }) {
+    return apiRequest<{
+      rating: number;
+      review: string;
+      serviceId: string;
+      providerId: string;
+      createdAt: string;
+    }>(`/requests/${id}/rating`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
   location(id: string) {
     return apiRequest<LiveLocationDto | null>(`/requests/${id}/location`);
   },
@@ -148,8 +182,10 @@ export const mechanicsApi = {
   publicProfile(id: string) {
     return apiRequest<MechanicPublicProfileDto>(`/mechanics/${id}`);
   },
-  publicReviews(id: string) {
-    return apiRequest<MechanicReviewDto[]>(`/mechanics/${id}/reviews`);
+  publicReviews(id: string, params?: { page?: number; limit?: number }) {
+    return apiRequest<PaginatedDto<MechanicReviewDto>>(
+      `/mechanics/${id}/reviews${queryString({ page: params?.page, limit: params?.limit })}`,
+    );
   },
   setAvailability(availability: boolean) {
     return apiRequest('/mechanics/me/availability', {
@@ -171,6 +207,15 @@ export const mechanicsApi = {
   },
   earnings() {
     return apiRequest<MechanicEarningsDto>('/mechanics/me/earnings');
+  },
+  jobHistory(params?: { page?: number; limit?: number; q?: string }) {
+    return apiRequest<PaginatedDto<RescueRequestDto>>(
+      `/mechanics/me/jobs/history${queryString({
+        page: params?.page,
+        limit: params?.limit,
+        q: params?.q,
+      })}`,
+    );
   },
   payments() {
     return apiRequest<ProviderPaymentDto[]>('/mechanics/me/payments');

@@ -7,11 +7,19 @@ import {
   serviceTypeRepository,
   assignmentRepository,
 } from '../repositories/misc.repository.js';
+import type { IRescueRequest } from '../models/RescueRequest.js';
 import { requestRepository } from '../repositories/request.repository.js';
+import { ratingRepository } from '../repositories/rating.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { vehicleRepository } from '../repositories/vehicle.repository.js';
 import type { RequestStatus } from '../types/index.js';
-import { ForbiddenError, NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  AuthErrorCode,
+} from '../utils/errors.js';
 import { assertObjectId, refId } from '../utils/objectId.js';
 import type {
   createRequestSchema,
@@ -24,6 +32,7 @@ import type { z } from 'zod';
 import { emitToRequest } from '../sockets/index.js';
 import { paymentService } from './payment.service.js';
 import { entitlementService } from './entitlement.service.js';
+import { paginationMeta } from '../utils/pagination.js';
 
 type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 type CreateRequestInput = z.infer<typeof createRequestSchema>;
@@ -65,6 +74,59 @@ export const vehicleService = {
   },
 };
 
+function isDuplicateKeyError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: number }).code === 11000,
+  );
+}
+
+function toRequestRecord(request: IRescueRequest) {
+  if (typeof request.toJSON === 'function') {
+    return request.toJSON() as Record<string, unknown>;
+  }
+  return { ...(request as unknown as Record<string, unknown>) };
+}
+
+async function attachCustomerRatings(
+  requests: IRescueRequest[],
+  options?: { stripCustomerContact?: boolean },
+) {
+  const ids = requests.map((request) => request._id.toString());
+  const ratings = await ratingRepository.findByRequestIds(ids);
+  const byRequest = new Map(ratings.map((rating) => [rating.request.toString(), rating]));
+  return requests.map((request) => {
+    const json = toRequestRecord(request);
+    const rating = byRequest.get(request._id.toString());
+    json.customerRating = rating
+      ? {
+          stars: rating.stars,
+          review: rating.review ?? '',
+          createdAt: rating.createdAt,
+        }
+      : null;
+    if (options?.stripCustomerContact) {
+      const customer = json.customer as
+        | { _id?: unknown; userId?: { firstName?: string; lastName?: string } }
+        | undefined;
+      if (customer) {
+        json.customer = {
+          _id: customer._id,
+          userId: customer.userId
+            ? {
+                firstName: customer.userId.firstName,
+                lastName: customer.userId.lastName,
+              }
+            : undefined,
+        };
+      }
+    }
+    return json;
+  });
+}
+
 export const requestService = {
   async create(userId: string, input: CreateRequestInput) {
     const customer = await customerRepository.findByUserId(userId);
@@ -83,10 +145,6 @@ export const requestService = {
     const service = await serviceTypeRepository.findBySlug(input.serviceType);
     if (!service) throw new NotFoundError('Service type not found');
     await entitlementService.assertServiceAllowed(userId, input.serviceType);
-
-    const entitlements = await entitlementService.getCustomerEntitlements(userId);
-    const discountPercent = entitlementService.getMemberDiscountPercent(entitlements.planSlug);
-    const quotedPrice = Math.round(service.estimatedPrice * (1 - discountPercent / 100) * 100) / 100;
 
     const request = await requestRepository.create({
       customer: customer._id,
@@ -108,7 +166,7 @@ export const requestService = {
       description: input.description,
       images: [],
       status: 'requested',
-      quotedPrice,
+      quotedPrice: 0,
       paymentStatus: 'pending',
     });
 
@@ -126,21 +184,73 @@ export const requestService = {
     if (role === 'customer') {
       const customer = await customerRepository.findByUserId(userId);
       if (!customer) throw new NotFoundError('Customer profile not found');
-      return requestRepository.findByCustomer(customer._id.toString());
+      return attachCustomerRatings(await requestRepository.findByCustomer(customer._id.toString()));
     }
     if (role === 'mechanic') {
       const mechanic = await mechanicRepository.findByUserId(userId);
       if (!mechanic) throw new NotFoundError('Mechanic profile not found');
-      return requestRepository.findByMechanic(mechanic._id.toString());
+      return attachCustomerRatings(await requestRepository.findByMechanic(mechanic._id.toString()));
     }
-    return requestRepository.findAll();
+    return attachCustomerRatings(await requestRepository.findAll());
+  },
+
+  async listCustomerHistory(
+    userId: string,
+    paging: { page: number; limit: number; skip: number; q: string },
+    status?: 'completed' | 'cancelled',
+  ) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const customerId = customer._id.toString();
+    const statuses = status ? ([status] as RequestStatus[]) : undefined;
+    const [paged, total, completedCount, cancelledCount] = await Promise.all([
+      requestRepository.findByCustomerPaged(customerId, {
+        statuses,
+        skip: paging.skip,
+        limit: paging.limit,
+        q: paging.q,
+      }),
+      requestRepository.countByCustomer(customerId),
+      requestRepository.countByCustomer(customerId, ['completed']),
+      requestRepository.countByCustomer(customerId, ['cancelled']),
+    ]);
+    const items = await attachCustomerRatings(paged.items);
+    return {
+      items,
+      counts: {
+        total,
+        completed: completedCount,
+        cancelled: cancelledCount,
+      },
+      ...paginationMeta(paged.total, paging.page, paging.limit),
+    };
+  },
+
+  async listMechanicCompletedHistory(
+    userId: string,
+    paging: { page: number; limit: number; skip: number; q: string },
+  ) {
+    const mechanic = await mechanicRepository.findByUserId(userId);
+    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    const { items, total } = await requestRepository.findByMechanicPaged(mechanic._id.toString(), {
+      statuses: ['completed'],
+      skip: paging.skip,
+      limit: paging.limit,
+      q: paging.q,
+    });
+    const jobs = await attachCustomerRatings(items, { stripCustomerContact: true });
+    return {
+      items: jobs,
+      ...paginationMeta(total, paging.page, paging.limit),
+    };
   },
 
   async getById(userId: string, role: string, id: string) {
     const request = await requestRepository.findById(assertObjectId(id, 'request id'));
     if (!request) throw new NotFoundError('Rescue request not found');
     await assertRequestAccess(userId, role, request);
-    return request;
+    const [withRating] = await attachCustomerRatings([request]);
+    return withRating;
   },
 
   async getLocation(userId: string, role: string, id: string) {
@@ -382,6 +492,78 @@ export const requestService = {
     return requestRepository.findById(requestId);
   },
 
+  async rateCompleted(
+    userId: string,
+    requestId: string,
+    input: { stars: number; review?: string },
+  ) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (refId(request.customer) !== customer._id.toString()) {
+      throw new ForbiddenError('You do not own this request');
+    }
+    if (request.status !== 'completed') {
+      throw new ValidationError(
+        'You can rate this provider after the service is completed.',
+        undefined,
+        AuthErrorCode.SERVICE_NOT_COMPLETED,
+      );
+    }
+    if (!request.mechanic) {
+      throw new ValidationError('This service has no assigned mechanic to rate');
+    }
+
+    const existing = await ratingRepository.findByRequest(requestId);
+    if (existing) {
+      throw new ConflictError('You have already rated this service.', AuthErrorCode.ALREADY_RATED);
+    }
+
+    let rating;
+    try {
+      rating = await ratingRepository.create({
+        customer: customer._id,
+        mechanic: refId(request.mechanic),
+        request: request._id,
+        stars: input.stars,
+        review: input.review,
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new ConflictError('You have already rated this service.', AuthErrorCode.ALREADY_RATED);
+      }
+      throw error;
+    }
+
+    const mechanicId = refId(request.mechanic);
+    const stats = await ratingRepository.aggregateForMechanic(mechanicId);
+    const mechanic = await mechanicRepository.findById(mechanicId);
+    if (mechanic) {
+      mechanic.rating = stats.average;
+      mechanic.reviewCount = stats.count;
+      await mechanic.save();
+      await notificationRepository.create({
+        title: 'New Customer Review',
+        body: input.review
+          ? `You received a ${input.stars}-star rating. "${input.review}"`
+          : `You received a ${input.stars}-star rating for your completed service.`,
+        recipient: mechanic.userId,
+        type: 'success',
+        meta: { requestId },
+      });
+    }
+
+    return {
+      id: rating._id.toString(),
+      rating: rating.stars,
+      review: rating.review ?? '',
+      serviceId: requestId,
+      providerId: mechanicId,
+      createdAt: rating.createdAt,
+    };
+  },
+
   async reportIssue(userId: string, requestId: string, reason: string) {
     const customer = await customerRepository.findByUserId(userId);
     if (!customer) throw new NotFoundError('Customer profile not found');
@@ -597,24 +779,32 @@ export const mechanicService = {
     };
   },
 
-  async listPublicReviews(mechanicId: string) {
+  async listPublicReviews(
+    mechanicId: string,
+    paging: { page: number; limit: number; skip: number },
+  ) {
     const mechanic = await mechanicRepository.findById(assertObjectId(mechanicId, 'mechanic id'));
     if (!mechanic) throw new NotFoundError('Mechanic not found');
-    const { ratingRepository } = await import('../repositories/rating.repository.js');
-    const ratings = await ratingRepository.findByMechanic(mechanic._id.toString());
-    return ratings.map((rating) => {
-      const customer = rating.customer as unknown as {
-        userId?: { firstName?: string; lastName?: string };
-      };
-      const firstName = customer?.userId?.firstName ?? 'Customer';
-      return {
-        id: rating._id.toString(),
-        stars: rating.stars,
-        review: rating.review ?? '',
-        customerName: firstName,
-        createdAt: rating.createdAt,
-      };
+    const { items, total } = await ratingRepository.findByMechanicPaged(mechanic._id.toString(), {
+      skip: paging.skip,
+      limit: paging.limit,
     });
+    return {
+      items: items.map((rating) => {
+        const customer = rating.customer as unknown as {
+          userId?: { firstName?: string; lastName?: string };
+        };
+        const firstName = customer?.userId?.firstName ?? 'Customer';
+        return {
+          id: rating._id.toString(),
+          stars: rating.stars,
+          review: rating.review ?? '',
+          customerName: firstName,
+          createdAt: rating.createdAt,
+        };
+      }),
+      ...paginationMeta(total, paging.page, paging.limit),
+    };
   },
 
   async earnings(userId: string) {
@@ -723,7 +913,15 @@ export const adminService = {
 };
 
 export const catalogService = {
-  serviceTypes() {
-    return serviceTypeRepository.findAll();
+  async serviceTypes() {
+    const types = await serviceTypeRepository.findAll();
+    return types.map((type) => ({
+      _id: type._id,
+      slug: type.slug,
+      name: type.name,
+      description: type.description,
+      icon: type.icon,
+      active: type.active,
+    }));
   },
 };

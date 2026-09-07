@@ -23,7 +23,7 @@ import { Profile } from '@/screens/customer/profile';
 import { CustomerSubscriptionPage } from '@/screens/customer/subscription';
 import { Notifications } from '@/screens/customer/notifications';
 import { HelpSupport } from '@/screens/help-support';
-import { MechanicHome, MechanicEarnings } from '@/screens/mechanic/home';
+import { MechanicHome, MechanicEarnings, MechanicJobHistory } from '@/screens/mechanic/home';
 import { MechanicActiveJob } from '@/screens/mechanic/active-job';
 import { AdminDashboard } from '@/screens/admin/dashboard';
 import {
@@ -298,9 +298,8 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               onOpenJob={handleOpenMechanicJob}
             />
           )}
-          {role === 'mechanic' && (screen === 'history' || screen === 'earnings') && (
-            <MechanicEarnings />
-          )}
+          {role === 'mechanic' && screen === 'history' && <MechanicJobHistory />}
+          {role === 'mechanic' && screen === 'earnings' && <MechanicEarnings />}
           {role === 'mechanic' && screen === 'alerts' && <Notifications />}
           {role === 'mechanic' && screen === 'profile' && <Profile onSignOut={onLogout} />}
           {role === 'mechanic' && screen === 'support' && <HelpSupport />}

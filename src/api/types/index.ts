@@ -103,7 +103,6 @@ export interface ServiceTypeDto {
   slug: ServiceType;
   name: string;
   description: string;
-  estimatedPrice: number;
   icon: string;
 }
 
@@ -325,11 +324,34 @@ export interface AdminDashboardDto {
   serviceTypes: ServiceTypeDto[];
 }
 
+export interface PaginatedDto<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+export interface CustomerHistoryDto extends PaginatedDto<RescueRequestDto> {
+  counts: {
+    total: number;
+    completed: number;
+    cancelled: number;
+  };
+}
+
+export interface CustomerRatingDto {
+  stars: number;
+  review: string;
+  createdAt: string;
+}
+
 export interface RescueRequestDto {
   _id: string;
   status: RequestStatus;
   serviceType: ServiceType;
-  quotedPrice: number;
+  quotedPrice?: number;
   paymentStatus: string;
   description?: string;
   images?: string[];
@@ -343,8 +365,9 @@ export interface RescueRequestDto {
   mechanic?: MechanicDto;
   customer?: {
     _id: string;
-    userId?: { firstName: string; lastName: string; phone: string };
+    userId?: { firstName: string; lastName: string; phone?: string };
   };
+  customerRating?: CustomerRatingDto | null;
   createdAt: string;
   updatedAt?: string;
   completedAt?: string;

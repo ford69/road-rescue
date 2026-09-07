@@ -79,7 +79,7 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
       default: 'requested',
       index: true,
     },
-    quotedPrice: { type: Number, required: true },
+    quotedPrice: { type: Number, default: 0 },
     paymentStatus: {
       type: String,
       enum: ['pending', 'paid', 'failed', 'refunded'],

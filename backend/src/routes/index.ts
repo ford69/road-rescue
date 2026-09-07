@@ -21,6 +21,7 @@ import {
   createVehicleSchema,
   createSupportTicketSchema,
   reportIssueSchema,
+  createRatingSchema,
   updateAvailabilitySchema,
   updateLocationSchema,
   updateRequestStatusSchema,
@@ -77,6 +78,11 @@ router.post(
 router.delete('/vehicles/:id', authorize('customer'), asyncHandler(vehicleController.remove));
 
 router.get('/requests', asyncHandler(requestController.listMine));
+router.get(
+  '/requests/history',
+  authorize('customer'),
+  asyncHandler(requestController.listHistory),
+);
 router.post(
   '/requests',
   authorize('customer'),
@@ -115,6 +121,12 @@ router.post(
   validateBody(reportIssueSchema),
   asyncHandler(requestController.reportIssue),
 );
+router.post(
+  '/requests/:id/rating',
+  authorize('customer'),
+  validateBody(createRatingSchema),
+  asyncHandler(requestController.rateCompleted),
+);
 
 router.get(
   '/payments/verify/:reference',
@@ -146,6 +158,11 @@ router.post(
 );
 router.get('/mechanics/nearby', asyncHandler(mechanicController.nearby));
 router.get('/mechanics/me/earnings', authorize('mechanic'), asyncHandler(mechanicController.earnings));
+router.get(
+  '/mechanics/me/jobs/history',
+  authorize('mechanic'),
+  asyncHandler(mechanicController.jobHistory),
+);
 router.get('/mechanics/:id/reviews', asyncHandler(mechanicController.publicReviews));
 router.get('/mechanics/:id', asyncHandler(mechanicController.publicProfile));
 

@@ -110,7 +110,7 @@ export function AdminLiveJobs() {
                     ? `${job.customer.userId.firstName} ${job.customer.userId.lastName}`
                     : 'Customer';
                   return (
-                    <div key={job._id} className="grid gap-3 p-4 md:grid-cols-[1.2fr_1fr_auto] md:items-center">
+                    <div key={job._id} className="grid gap-3 p-4 md:grid-cols-[1.2fr_1fr] md:items-center">
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-semibold">{customer}</p>
@@ -129,7 +129,6 @@ export function AdminLiveJobs() {
                           {job.mechanic ? mechanicDisplayName(job.mechanic) : 'Awaiting mechanic'}
                         </p>
                       </div>
-                      <p className="font-display text-lg font-bold">{formatGhs(job.quotedPrice)}</p>
                     </div>
                   );
                 })
@@ -428,13 +427,12 @@ export function AdminReports() {
             <Card>
               <div className="p-5">
                 <h3 className="font-display font-bold">Service catalogue</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Active services and current estimates.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Active roadside services.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.serviceTypes.map((service) => (
                     <div key={service._id} className="rounded-xl border border-border p-3">
                       <p className="font-semibold">{service.name}</p>
                       <p className="mt-1 text-sm text-muted-foreground">{service.description}</p>
-                      <p className="mt-2 font-bold">{formatGhs(service.estimatedPrice)}</p>
                     </div>
                   ))}
                 </div>

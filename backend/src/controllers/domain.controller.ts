@@ -9,6 +9,7 @@ import {
 } from '../services/domain.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { UnauthorizedError, ValidationError } from '../utils/errors.js';
+import { parsePagination } from '../utils/pagination.js';
 
 function paramId(req: Request, name = 'id'): string {
   const value = req.params[name];
@@ -45,6 +46,19 @@ export const requestController = {
   listMine: async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const data = await requestService.listMine(req.user.id, req.user.role);
+    return sendSuccess(res, data);
+  },
+  listHistory: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const status =
+      req.query.status === 'completed' || req.query.status === 'cancelled'
+        ? req.query.status
+        : undefined;
+    const data = await requestService.listCustomerHistory(
+      req.user.id,
+      parsePagination(req.query),
+      status,
+    );
     return sendSuccess(res, data);
   },
   getById: async (req: Request, res: Response) => {
@@ -92,6 +106,11 @@ export const requestController = {
     const data = await requestService.reportIssue(req.user.id, paramId(req), req.body.reason);
     return sendSuccess(res, data, 'Issue reported');
   },
+  rateCompleted: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await requestService.rateCompleted(req.user.id, paramId(req), req.body);
+    return sendSuccess(res, data, 'Rating submitted successfully.');
+  },
 };
 
 export const mechanicController = {
@@ -116,12 +135,20 @@ export const mechanicController = {
     return sendSuccess(res, data);
   },
   publicReviews: async (req: Request, res: Response) => {
-    const data = await mechanicService.listPublicReviews(paramId(req));
+    const data = await mechanicService.listPublicReviews(paramId(req), parsePagination(req.query));
     return sendSuccess(res, data);
   },
   earnings: async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const data = await mechanicService.earnings(req.user.id);
+    return sendSuccess(res, data);
+  },
+  jobHistory: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await requestService.listMechanicCompletedHistory(
+      req.user.id,
+      parsePagination(req.query),
+    );
     return sendSuccess(res, data);
   },
 };
