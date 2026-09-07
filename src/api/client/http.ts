@@ -1,5 +1,9 @@
 import type { ApiResponse } from '../types';
 import { tokenStore } from '../utils/tokenStore';
+import {
+  isPublicAuthPath,
+  shouldAttemptRefresh,
+} from './auth-session';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -24,11 +28,17 @@ async function parseJson<T>(response: Response): Promise<ApiResponse<T>> {
 }
 
 let refreshPromise: Promise<boolean> | null = null;
+let refreshGeneration = -1;
 
-async function refreshAccessToken(): Promise<boolean> {
+function authLog(event: string, extra?: Record<string, unknown>): void {
+  console.info(`[auth] ${event}`, extra ?? {});
+}
+
+async function refreshAccessToken(epoch: number): Promise<boolean> {
   const refreshToken = tokenStore.getRefresh();
-  if (!refreshToken) return false;
+  if (!refreshToken || tokenStore.generation() !== epoch) return false;
 
+  authLog('auth.refresh.started', { generation: epoch });
   const response = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,7 +46,13 @@ async function refreshAccessToken(): Promise<boolean> {
     body: JSON.stringify({ refreshToken }),
   });
 
+  if (tokenStore.generation() !== epoch) {
+    authLog('auth.refresh.ignored', { reason: 'session_replaced' });
+    return false;
+  }
+
   if (!response.ok) {
+    authLog('auth.refresh.failed', { status: response.status });
     tokenStore.clear();
     return false;
   }
@@ -44,22 +60,13 @@ async function refreshAccessToken(): Promise<boolean> {
   const payload = await parseJson<{ tokens: { accessToken: string; refreshToken: string } }>(
     response,
   );
-  tokenStore.set(payload.data.tokens.accessToken, payload.data.tokens.refreshToken);
+  if (!payload.data?.tokens) {
+    tokenStore.clear();
+    return false;
+  }
+  tokenStore.replace(payload.data.tokens.accessToken, payload.data.tokens.refreshToken);
+  authLog('auth.refresh.success', { generation: epoch });
   return true;
-}
-
-function skipAccessToken(path: string): boolean {
-  return (
-    path === '/auth/login' ||
-    path === '/auth/login/admin' ||
-    path === '/auth/admin/login' ||
-    path.startsWith('/auth/register/') ||
-    path === '/auth/forgot-password' ||
-    path === '/auth/reset-password' ||
-    path === '/auth/verify-email' ||
-    path === '/auth/resend-verification' ||
-    path === '/auth/verification/resend'
-  );
 }
 
 function notifyEmailNotVerified(path: string): void {
@@ -84,7 +91,8 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const accessToken = skipAccessToken(path) ? null : tokenStore.getAccess();
+  const requestGeneration = tokenStore.generation();
+  const accessToken = isPublicAuthPath(path) ? null : tokenStore.getAccess();
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
@@ -96,12 +104,26 @@ export async function apiRequest<T>(
     cache: 'no-store',
   });
 
-  if (response.status === 401 && retry && !skipAccessToken(path) && path !== '/auth/logout' && path !== '/auth/refresh') {
-    refreshPromise ??= refreshAccessToken().finally(() => {
-      refreshPromise = null;
-    });
+  if (
+    shouldAttemptRefresh({
+      status: response.status,
+      retry,
+      path,
+      requestGeneration,
+      currentGeneration: tokenStore.generation(),
+      hasRefreshToken: Boolean(tokenStore.getRefresh()),
+    })
+  ) {
+    if (!refreshPromise || refreshGeneration !== requestGeneration) {
+      refreshGeneration = requestGeneration;
+      refreshPromise = refreshAccessToken(requestGeneration).finally(() => {
+        if (refreshGeneration === requestGeneration) {
+          refreshPromise = null;
+        }
+      });
+    }
     const refreshed = await refreshPromise;
-    if (refreshed) {
+    if (refreshed && tokenStore.generation() === requestGeneration) {
       return apiRequest<T>(path, options, false);
     }
   }

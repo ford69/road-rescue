@@ -2,6 +2,8 @@ import { apiRequest } from '../client/http';
 import type { ApiUser, AuthTokens, ServiceType } from '../types';
 import { tokenStore } from '../utils/tokenStore';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+
 export interface AuthResult {
   user: ApiUser;
   tokens: AuthTokens;
@@ -38,32 +40,53 @@ export interface RegisterMechanicInput extends RegisterCustomerInput {
   truck?: string;
 }
 
+function authLog(event: string, extra?: Record<string, unknown>): void {
+  console.info(`[auth] ${event}`, extra ?? {});
+}
+
+/**
+ * Always hit logout with credentials so HttpOnly cookies are cleared even when
+ * localStorage is already empty. Captures the current bearer before clearing.
+ */
 async function dropExistingSession(): Promise<void> {
+  const access = tokenStore.getAccess();
+  tokenStore.clear();
   try {
-    if (tokenStore.getAccess() || tokenStore.getRefresh()) {
-      await apiRequest<{ success: boolean }>('/auth/logout', { method: 'POST' });
-    }
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    if (access) headers.set('Authorization', `Bearer ${access}`);
+    authLog('auth.logout.started', { reason: 'replace_session' });
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      headers,
+    });
+    authLog('auth.logout.success', { reason: 'replace_session' });
   } catch {
-    // Stale tokens/cookies should not block a new registration.
-  } finally {
-    tokenStore.clear();
+    authLog('auth.logout.success', { reason: 'replace_session_client_cleared' });
   }
+}
+
+function storeSession(tokens?: AuthTokens): void {
+  if (!tokens?.accessToken || !tokens?.refreshToken) return;
+  tokenStore.set(tokens.accessToken, tokens.refreshToken);
 }
 
 export const authApi = {
   async registerCustomer(input: RegisterCustomerInput) {
+    authLog('auth.registration.started', { role: 'customer' });
     await dropExistingSession();
     const data = await apiRequest<RegisterResult>('/auth/register/customer', {
       method: 'POST',
       body: JSON.stringify(input),
     });
-    if (data.tokens) {
-      tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
-    }
+    storeSession(data.tokens);
+    authLog('auth.registration.success', { role: 'customer', userId: data.user?.id });
     return data;
   },
 
   async registerMechanic(input: RegisterMechanicInput) {
+    authLog('auth.registration.started', { role: 'mechanic' });
     await dropExistingSession();
     const formData = new FormData();
     formData.append('firstName', input.firstName);
@@ -82,38 +105,40 @@ export const authApi = {
     input.specialties.forEach((specialty) => formData.append('specialties', specialty));
     if (input.truck) formData.append('truck', input.truck);
 
-    return apiRequest<RegisterResult>('/auth/register/mechanic', {
+    const data = await apiRequest<RegisterResult>('/auth/register/mechanic', {
       method: 'POST',
       body: formData,
     });
+    authLog('auth.registration.success', { role: 'mechanic' });
+    return data;
   },
 
   async login(email: string, password: string) {
-    tokenStore.clear();
+    authLog('auth.login.started');
+    await dropExistingSession();
     const data = await apiRequest<AuthResult>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
+    storeSession(data.tokens);
+    authLog('auth.login.success', { userId: data.user.id });
     return data;
   },
 
   async loginAdmin(email: string, password: string) {
-    tokenStore.clear();
+    authLog('auth.login.started', { role: 'admin' });
+    await dropExistingSession();
     const data = await apiRequest<AuthResult>('/auth/login/admin', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
+    storeSession(data.tokens);
+    authLog('auth.login.success', { userId: data.user.id, role: 'admin' });
     return data;
   },
 
   async logout() {
-    try {
-      await apiRequest<{ success: boolean }>('/auth/logout', { method: 'POST' });
-    } finally {
-      tokenStore.clear();
-    }
+    await dropExistingSession();
   },
 
   me() {
@@ -143,9 +168,7 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
-    if (data.tokens) {
-      tokenStore.set(data.tokens.accessToken, data.tokens.refreshToken);
-    }
+    storeSession(data.tokens);
     return data;
   },
 

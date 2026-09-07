@@ -11,6 +11,7 @@ import {
   hashToken,
   verifyRefreshToken,
 } from '../auth/tokens.js';
+import { clearAuthCookies, setAuthCookies } from '../auth/cookies.js';
 import { createEmailVerification, evaluateVerificationToken, isLegacyAccount } from '../auth/email-verification.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import type { IMechanic } from '../models/Mechanic.js';
@@ -106,30 +107,6 @@ async function issueSession(
   return tokens;
 }
 
-function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
-  // Frontend (roadrescue4u.com) and API (api.roadrescue4u.com) are cross-site.
-  // SameSite=None is required for the browser to accept/send cookies on fetch.
-  const common = {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: (env.COOKIE_SECURE ? 'none' : 'lax') as 'none' | 'lax',
-    path: '/',
-  };
-  res.cookie('accessToken', accessToken, { ...common, maxAge: 15 * 60 * 1000 });
-  res.cookie('refreshToken', refreshToken, { ...common, maxAge: 7 * 24 * 60 * 60 * 1000 });
-}
-
-function clearAuthCookies(res: Response): void {
-  const common = {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: (env.COOKIE_SECURE ? 'none' : 'lax') as 'none' | 'lax',
-    path: '/',
-  };
-  res.clearCookie('accessToken', common);
-  res.clearCookie('refreshToken', common);
-}
-
 export const authService = {
   async registerCustomer(input: RegisterCustomerInput, res: Response) {
     await ensureUniqueIdentity(input.email, input.phone);
@@ -173,6 +150,11 @@ export const authService = {
       });
 
     const tokens = await issueSession(user, res, false);
+    logger.info('auth.registration.success', {
+      event: 'auth.registration.success',
+      userId: user._id.toString(),
+      role: 'customer',
+    });
     return {
       ...registrationPendingResponse(user.email, verification.token),
       requiresSubscription: true,
@@ -320,23 +302,42 @@ export const authService = {
     }
 
     const tokens = await issueSession(user, res, user.emailVerified);
+    logger.info('auth.login.success', {
+      event: 'auth.login.success',
+      userId: user._id.toString(),
+      role: user.role,
+    });
     return { user: await presentAuthUser(user), tokens };
   },
 
-  async logout(userId: string | undefined, res: Response) {
+  async logout(userId: string | undefined, res: Response, requestId?: string) {
+    logger.info('auth.logout.started', { event: 'auth.logout.started', requestId, userId });
     if (userId) {
       const user = await userRepository.findByIdWithSecrets(userId);
       if (user) {
         user.refreshTokenHash = undefined;
         await user.save();
+        logger.info('auth.session.revoked', {
+          event: 'auth.session.revoked',
+          requestId,
+          userId,
+          reason: 'logout',
+        });
       }
     }
     clearAuthCookies(res);
+    logger.info('auth.logout.success', { event: 'auth.logout.success', requestId, userId });
     return { success: true };
   },
 
-  async refresh(refreshToken: string | undefined, res: Response) {
+  async refresh(refreshToken: string | undefined, res: Response, requestId?: string) {
+    logger.info('auth.refresh.started', { event: 'auth.refresh.started', requestId });
     if (!refreshToken) {
+      logger.info('auth.refresh.failed', {
+        event: 'auth.refresh.failed',
+        requestId,
+        reason: 'missing_token',
+      });
       throw new UnauthorizedError('Refresh token required');
     }
 
@@ -344,16 +345,33 @@ export const authService = {
     try {
       payload = verifyRefreshToken(refreshToken);
     } catch {
+      logger.info('auth.refresh.failed', {
+        event: 'auth.refresh.failed',
+        requestId,
+        reason: 'invalid_token',
+      });
       throw new UnauthorizedError('Invalid refresh token');
     }
 
     const user = await userRepository.findByIdWithSecrets(payload.sub);
     if (!user?.refreshTokenHash) {
+      logger.info('auth.refresh.failed', {
+        event: 'auth.refresh.failed',
+        requestId,
+        userId: payload.sub,
+        reason: 'session_expired',
+      });
       throw new UnauthorizedError('Session expired');
     }
 
     const matches = await compareToken(refreshToken, user.refreshTokenHash);
     if (!matches) {
+      logger.info('auth.refresh.failed', {
+        event: 'auth.refresh.failed',
+        requestId,
+        userId: payload.sub,
+        reason: 'token_mismatch',
+      });
       throw new UnauthorizedError('Session expired');
     }
 
@@ -361,6 +379,11 @@ export const authService = {
     user.refreshTokenHash = await hashToken(tokens.refreshToken);
     await user.save();
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    logger.info('auth.refresh.success', {
+      event: 'auth.refresh.success',
+      requestId,
+      userId: user._id.toString(),
+    });
 
     return { user: await presentAuthUser(user), tokens };
   },

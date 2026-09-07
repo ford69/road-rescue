@@ -2,9 +2,15 @@ import type { Request, Response } from 'express';
 import { authService } from '../services/auth.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { UnauthorizedError } from '../utils/errors.js';
+import { logger } from '../config/logger.js';
 
 export const authController = {
   registerCustomer: async (req: Request, res: Response) => {
+    logger.info('auth.registration.started', {
+      event: 'auth.registration.started',
+      requestId: req.requestId,
+      role: 'customer',
+    });
     const data = await authService.registerCustomer(req.body, res);
     return sendSuccess(res, data, 'Complete your Basic subscription to continue.', 201);
   },
@@ -21,6 +27,7 @@ export const authController = {
   },
 
   login: async (req: Request, res: Response) => {
+    logger.info('auth.login.started', { event: 'auth.login.started', requestId: req.requestId });
     const data = await authService.login(req.body, res);
     return sendSuccess(res, data, 'Logged in');
   },
@@ -31,13 +38,13 @@ export const authController = {
   },
 
   logout: async (req: Request, res: Response) => {
-    const data = await authService.logout(req.user?.id, res);
+    const data = await authService.logout(req.user?.id, res, req.requestId);
     return sendSuccess(res, data, 'Logged out');
   },
 
   refresh: async (req: Request, res: Response) => {
     const token = (req.body?.refreshToken as string | undefined) ?? req.cookies?.refreshToken;
-    const data = await authService.refresh(token, res);
+    const data = await authService.refresh(token, res, req.requestId);
     return sendSuccess(res, data, 'Token refreshed');
   },
 

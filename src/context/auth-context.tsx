@@ -3,9 +3,13 @@ import { authApi } from '@/api/auth';
 import type { ApiUser, Role } from '@/api/types';
 import { tokenStore } from '@/api/utils/tokenStore';
 import { ApiClientError } from '@/api/client/http';
+import { shouldRestoreSessionOnPath } from '@/api/client/auth-session';
+
+type AuthStatus = 'initializing' | 'authenticated' | 'unauthenticated';
 
 interface AuthContextValue {
   user: ApiUser | null;
+  status: AuthStatus;
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<ApiUser>;
@@ -18,21 +22,34 @@ interface AuthContextValue {
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<ApiUser | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [user, setUserState] = React.useState<ApiUser | null>(null);
+  const [status, setStatus] = React.useState<AuthStatus>('initializing');
+
+  const setUser = React.useCallback((next: ApiUser | null) => {
+    setUserState(next);
+    setStatus(next ? 'authenticated' : 'unauthenticated');
+  }, []);
 
   const refreshMe = React.useCallback(async () => {
+    const epoch = tokenStore.generation();
     if (!tokenStore.getAccess()) {
-      setUser(null);
+      if (tokenStore.generation() === epoch) {
+        setUserState(null);
+        setStatus('unauthenticated');
+      }
       return;
     }
     try {
       const data = await authApi.me();
-      setUser(data.user);
+      if (tokenStore.generation() !== epoch) return;
+      setUserState(data.user);
+      setStatus('authenticated');
     } catch (error) {
+      if (tokenStore.generation() !== epoch) return;
       if (error instanceof ApiClientError && error.status === 401) {
         tokenStore.clear();
-        setUser(null);
+        setUserState(null);
+        setStatus('unauthenticated');
       }
     }
   }, []);
@@ -40,9 +57,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     void (async () => {
       try {
+        const path = window.location.pathname;
+        if (!shouldRestoreSessionOnPath(path) || !tokenStore.getAccess()) {
+          setStatus('unauthenticated');
+          setUserState(null);
+          return;
+        }
         await refreshMe();
       } finally {
-        setLoading(false);
+        setStatus((current) => (current === 'initializing' ? 'unauthenticated' : current));
       }
     })();
   }, [refreshMe]);
@@ -62,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await authApi.logout();
     setUser(null);
-    // Tokens are cleared in authApi.logout → tokenStore.clear().
     try {
       localStorage.removeItem('rr_active_rescue');
     } catch {
@@ -72,8 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value: AuthContextValue = {
     user,
-    loading,
-    isAuthenticated: Boolean(user),
+    status,
+    loading: status === 'initializing',
+    isAuthenticated: status === 'authenticated' && Boolean(user),
     login,
     loginAdmin,
     logout,
