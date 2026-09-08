@@ -107,7 +107,11 @@ export const authApi = {
     formData.append('address', input.address);
     formData.append('latitude', String(input.latitude));
     formData.append('longitude', String(input.longitude));
-    formData.append('specialties', JSON.stringify(input.specialties));
+    // Repeat the field so current production (and multer) receive a string[].
+    // Do not JSON.stringify — older validators treat that as one invalid enum.
+    for (const specialty of input.specialties) {
+      formData.append('specialties', specialty);
+    }
     if (input.truck) formData.append('truck', input.truck);
 
     const data = await apiRequest<RegisterResult>('/auth/register/mechanic', {

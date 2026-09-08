@@ -101,11 +101,30 @@ describe('mechanic selfie MIME types', () => {
 });
 
 describe('mechanic specialties payload', () => {
-  it('parses a JSON array string from FormData', () => {
+  it('parses repeated multipart values', () => {
     const result = registerMechanicSchema.pick({ specialties: true }).safeParse({
-      specialties: JSON.stringify(['towing', 'battery']),
+      specialties: ['towing', 'battery'],
     });
     expect(result.success).toBe(true);
+    if (result.success) expect(result.data.specialties).toEqual(['towing', 'battery']);
+  });
+
+  it('parses the JSON string the iPhone client accidentally sent in production', () => {
+    const result = registerMechanicSchema.pick({ specialties: true }).safeParse({
+      specialties: '["battery","flat-tire","towing","lockout","accident","other","fuel"]',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.specialties).toEqual([
+        'battery',
+        'flat-tire',
+        'towing',
+        'lockout',
+        'accident',
+        'other',
+        'fuel',
+      ]);
+    }
   });
 });
 

@@ -27,6 +27,41 @@ export const registerCustomerSchema = z.object({
   password: passwordSchema,
 });
 
+export const mechanicSpecialtyValues = [
+  'towing',
+  'flat-tire',
+  'battery',
+  'lockout',
+  'fuel',
+  'accident',
+  'other',
+] as const;
+
+const mechanicSpecialtyEnum = z.enum(mechanicSpecialtyValues);
+
+/** Multipart fields arrive as a string, a JSON string, or a string[]. */
+export function parseMechanicSpecialties(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    if (value.length === 1 && typeof value[0] === 'string' && value[0].trim().startsWith('[')) {
+      return parseMechanicSpecialties(value[0]);
+    }
+    return value.flatMap((item) => {
+      const parsed = parseMechanicSpecialties(item);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    });
+  }
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('[')) {
+    try {
+      return parseMechanicSpecialties(JSON.parse(trimmed));
+    } catch {
+      return [trimmed];
+    }
+  }
+  return [trimmed];
+}
+
 export const registerMechanicSchema = registerCustomerSchema.extend({
   garageName: z.string().min(2).max(100),
   ghanaCardNumber: z
@@ -38,20 +73,10 @@ export const registerMechanicSchema = registerCustomerSchema.extend({
   address: z.string().min(3),
   latitude: z.coerce.number(),
   longitude: z.coerce.number(),
-  specialties: z.preprocess((value) => {
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed.startsWith('[')) {
-        try {
-          return JSON.parse(trimmed) as unknown;
-        } catch {
-          return [trimmed];
-        }
-      }
-      return [trimmed];
-    }
-    return value;
-  }, z.array(z.enum(['towing', 'flat-tire', 'battery', 'lockout', 'fuel', 'accident', 'other'])).min(1)),
+  specialties: z.preprocess(
+    parseMechanicSpecialties,
+    z.array(mechanicSpecialtyEnum).min(1),
+  ),
   truck: z.string().optional(),
 });
 
