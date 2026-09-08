@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import request from 'supertest';
 import { hashToken, createTokenPair } from '../auth/tokens.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { authService } from '../services/auth.service.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import type { Response } from 'express';
+import { createApp } from '../app.js';
 
 vi.mock('../repositories/user.repository.js', () => ({
   userRepository: {
@@ -73,5 +75,14 @@ describe('logout and refresh isolation', () => {
     await authService.logout(undefined, res, 'req-3');
     expect(res.cookie).toHaveBeenCalledWith('accessToken', '', expect.objectContaining({ maxAge: 0 }));
     expect(res.cookie).toHaveBeenCalledWith('refreshToken', '', expect.objectContaining({ maxAge: 0 }));
+  });
+});
+
+describe('POST /api/auth/logout', () => {
+  it('returns 200 without a bearer token or cookie', async () => {
+    const app = createApp();
+    const response = await request(app).post('/api/auth/logout');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
   });
 });

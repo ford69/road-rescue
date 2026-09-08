@@ -73,6 +73,7 @@ router.post(
   asyncHandler(authController.createAdmin),
 );
 
+// Also mounted on createApp() so logout cannot 401 if this router is stale.
 router.post('/logout', optionalAuth, asyncHandler(authController.logout));
 router.post('/refresh', asyncHandler(authController.refresh));
 router.post(

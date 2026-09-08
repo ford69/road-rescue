@@ -11,7 +11,7 @@ import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { requestController } from './controllers/domain.controller.js';
-import { authenticate, authorize } from './middleware/auth.js';
+import { authenticate, authorize, optionalAuth } from './middleware/auth.js';
 import { requireEmailVerification } from './middleware/requireEmailVerification.js';
 import { requireCustomerSubscription } from './middleware/requireCustomerSubscription.js';
 import { validateBody } from './middleware/validate.js';
@@ -21,6 +21,7 @@ import { paymentController } from './controllers/payment.controller.js';
 import { subscriptionController } from './controllers/subscription.controller.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { reportIssueSchema } from './validators/auth.validators.js';
+import { authController } from './controllers/auth.controller.js';
 
 export function createApp() {
   const app = express();
@@ -87,6 +88,15 @@ export function createApp() {
       data: { version: '1.0.0', currency: 'GHS' },
     });
   });
+
+  // Logout must succeed without a bearer/cookie so Safari can clear a leftover
+  // session before a new registration. Mounted on the app so a stale auth
+  // router that still uses authenticate cannot 401 this POST.
+  app.post(
+    '/api/auth/logout',
+    optionalAuth,
+    asyncHandler(authController.logout),
+  );
 
   app.use('/api/auth', authRoutes);
   app.get(
