@@ -11,9 +11,11 @@ import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/context/auth-context';
 import { authApi } from '@/api/auth';
 import { ApiClientError } from '@/api/client/http';
+import { userFacingAuthError } from '@/api/client/parse-response';
 import { useToast } from '@/components/ui/toast';
 import type { ApiUser } from '@/api/types';
 import { postAuthPath, rememberPendingEmail } from '@/lib/auth-gate';
+import { prepareSelfieForUpload } from '@/lib/prepare-selfie';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -271,7 +273,7 @@ export function RegisterScreen() {
               password: values.password,
               garageName: values.garageName || 'My Garage',
               ghanaCardNumber: values.ghanaCardNumber || '',
-              selfie: selfie!,
+              selfie: await prepareSelfieForUpload(selfie!),
               experience: values.experience ?? 0,
               city: values.city || 'Accra',
               address: values.address || 'Accra',
@@ -304,7 +306,7 @@ export function RegisterScreen() {
       toast({
         type: 'error',
         title: 'Registration failed',
-        description: error instanceof ApiClientError ? error.message : 'Unable to register',
+        description: userFacingAuthError(error, 'Unable to register'),
       });
     } finally {
       setSubmitting(false);
@@ -551,12 +553,12 @@ export function RegisterScreen() {
                     {selfie?.name ?? 'Take or upload a clear selfie'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    JPEG, PNG or WebP · maximum 5MB
+                    JPEG, PNG or WebP · we’ll resize large iPhone photos automatically
                   </p>
                 </div>
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                   capture="user"
                   className="sr-only"
                   onChange={(event) => setSelfie(event.target.files?.[0] ?? null)}

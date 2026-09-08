@@ -15,10 +15,16 @@ declare module 'express-serve-static-core' {
   }
 }
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+export function readAccessToken(req: Request): { source: 'bearer' | 'cookie' | null; token?: string } {
   const header = req.headers.authorization;
   const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-  const token = bearer ?? req.cookies?.accessToken;
+  if (bearer) return { source: 'bearer', token: bearer };
+  if (req.cookies?.accessToken) return { source: 'cookie', token: req.cookies.accessToken as string };
+  return { source: null };
+}
+
+export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+  const { token } = readAccessToken(req);
 
   if (!token) {
     next(new UnauthorizedError('Authentication required'));
@@ -34,11 +40,12 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   }
 }
 
+/**
+ * Attach req.user when a valid access token is present. Never 401.
+ * Used for logout so a missing/expired session can still be cleared.
+ */
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-  const token = bearer ?? req.cookies?.accessToken;
-
+  const { token } = readAccessToken(req);
   if (!token) {
     next();
     return;
@@ -48,7 +55,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
     const payload = verifyAccessToken(token);
     req.user = { id: payload.sub, role: payload.role, email: payload.email };
   } catch {
-    // Guest continues without auth
+    // Expired or invalid — caller may still expire cookies.
   }
   next();
 }
@@ -68,9 +75,7 @@ export function authorize(...roles: Role[]) {
 }
 
 export function guestOnly(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-  const token = bearer ?? req.cookies?.accessToken;
+  const { token } = readAccessToken(req);
 
   if (token) {
     try {

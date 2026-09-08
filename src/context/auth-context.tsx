@@ -2,6 +2,7 @@ import * as React from 'react';
 import { authApi } from '@/api/auth';
 import type { ApiUser, Role } from '@/api/types';
 import { tokenStore } from '@/api/utils/tokenStore';
+import { clearAuthState } from '@/api/client/clear-auth-state';
 import { ApiClientError } from '@/api/client/http';
 import { shouldRestoreSessionOnPath } from '@/api/client/auth-session';
 
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (tokenStore.generation() !== epoch) return;
       if (error instanceof ApiClientError && error.status === 401) {
-        tokenStore.clear();
+        clearAuthState();
         setUserState(null);
         setStatus('unauthenticated');
       }
@@ -83,12 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await authApi.logout();
-    setUser(null);
     try {
-      localStorage.removeItem('rr_active_rescue');
-    } catch {
-      // ignore
+      await authApi.logout();
+    } finally {
+      clearAuthState();
+      setUser(null);
     }
   };
 

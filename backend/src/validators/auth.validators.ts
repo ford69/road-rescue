@@ -38,12 +38,20 @@ export const registerMechanicSchema = registerCustomerSchema.extend({
   address: z.string().min(3),
   latitude: z.coerce.number(),
   longitude: z.coerce.number(),
-  specialties: z.preprocess(
-    (value) => (typeof value === 'string' ? [value] : value),
-    z
-      .array(z.enum(['towing', 'flat-tire', 'battery', 'lockout', 'fuel', 'accident', 'other']))
-      .min(1),
-  ),
+  specialties: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.startsWith('[')) {
+        try {
+          return JSON.parse(trimmed) as unknown;
+        } catch {
+          return [trimmed];
+        }
+      }
+      return [trimmed];
+    }
+    return value;
+  }, z.array(z.enum(['towing', 'flat-tire', 'battery', 'lockout', 'fuel', 'accident', 'other'])).min(1)),
   truck: z.string().optional(),
 });
 

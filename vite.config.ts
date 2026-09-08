@@ -68,6 +68,11 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
           runtimeCaching: [
             {
+              urlPattern: ({ url }) =>
+                url.pathname.startsWith('/api') || url.pathname.startsWith('/uploads'),
+              handler: 'NetworkOnly',
+            },
+            {
               urlPattern: ({ request }) =>
                 request.destination === 'style' ||
                 request.destination === 'script' ||

@@ -1,13 +1,41 @@
 import type { CorsOptions } from 'cors';
 import type { NextFunction, Request, Response } from 'express';
 
+function stripTrailingSlash(origin: string): string {
+  return origin.endsWith('/') ? origin.slice(0, -1) : origin;
+}
+
+/** Include www and apex counterparts so Safari/PWA hosts both work. */
+export function expandClientOrigins(origins: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const origin of origins) {
+    const normalized = stripTrailingSlash(origin.trim());
+    if (!normalized) continue;
+    expanded.add(normalized);
+    try {
+      const url = new URL(normalized);
+      if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') continue;
+      if (url.hostname.startsWith('www.')) {
+        url.hostname = url.hostname.slice(4);
+      } else {
+        url.hostname = `www.${url.hostname}`;
+      }
+      expanded.add(url.origin);
+    } catch {
+      // Ignore invalid origin strings from env.
+    }
+  }
+  return [...expanded];
+}
+
 export function parseClientOrigins(value: string): string[] {
   const origins = value
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  return origins.length > 0 ? origins : ['http://localhost:5173'];
+  const parsed = origins.length > 0 ? origins : ['http://localhost:5173'];
+  return expandClientOrigins(parsed);
 }
 
 export function createCorsOptions(allowedOrigins: string[]): CorsOptions {

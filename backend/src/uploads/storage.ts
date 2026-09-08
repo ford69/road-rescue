@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import { env } from '../config/env.js';
 
 const uploadRoot = path.resolve(process.cwd(), env.UPLOAD_DIR);
-const allowedImageTypes = new Map([
+export const allowedSelfieTypes = new Map([
   ['image/jpeg', '.jpg'],
+  ['image/jpg', '.jpg'],
+  ['image/pjpeg', '.jpg'],
   ['image/png', '.png'],
   ['image/webp', '.webp'],
 ]);
@@ -20,7 +22,7 @@ const storage = multer.diskStorage({
   },
   filename: (_req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}${allowedImageTypes.get(file.mimetype) ?? '.jpg'}`);
+    cb(null, `${unique}${allowedSelfieTypes.get(file.mimetype) ?? '.jpg'}`);
   },
 });
 
@@ -28,7 +30,7 @@ export const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!allowedImageTypes.has(file.mimetype)) {
+    if (!allowedSelfieTypes.has(file.mimetype)) {
       cb(new Error('Selfie must be a JPEG, PNG, or WebP image'));
       return;
     }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthCookies, authCookieBase } from '../auth/cookies.js';
 import type { Response } from 'express';
 import { shouldAttemptRefresh, shouldRestoreSessionOnPath } from '../../../src/api/client/auth-session.ts';
+import { tokenStore } from '../../../src/api/utils/tokenStore.ts';
 
 describe('auth cookies', () => {
   it('clears access and refresh cookies with the same attributes used to set them', () => {
@@ -101,3 +102,42 @@ describe('frontend session restore and refresh rules', () => {
     ).toBe(false);
   });
 });
+
+describe('tokenStore session generation', () => {
+  const memory = new Map<string, string>();
+
+  beforeEach(() => {
+    memory.clear();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => memory.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          memory.set(key, value);
+        },
+        removeItem: (key: string) => {
+          memory.delete(key);
+        },
+      },
+    });
+  });
+
+  it('bumps generation on login and logout so an in-flight refresh cannot restore account A', () => {
+    tokenStore.set('access-a', 'refresh-a');
+    const accountA = tokenStore.generation();
+    tokenStore.clear();
+    expect(tokenStore.getAccess()).toBeNull();
+    expect(tokenStore.getRefresh()).toBeNull();
+    expect(tokenStore.generation()).toBeGreaterThan(accountA);
+    tokenStore.set('access-b', 'refresh-b');
+    expect(tokenStore.getAccess()).toBe('access-b');
+    expect(shouldAttemptRefresh({
+      status: 401,
+      retry: true,
+      path: '/auth/me',
+      requestGeneration: accountA,
+      currentGeneration: tokenStore.generation(),
+      hasRefreshToken: true,
+    })).toBe(false);
+  });
+});
+

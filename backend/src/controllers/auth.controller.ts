@@ -16,6 +16,14 @@ export const authController = {
   },
 
   registerMechanic: async (req: Request, res: Response) => {
+    logger.info('auth.registration.started', {
+      event: 'auth.registration.started',
+      requestId: req.requestId,
+      role: 'mechanic',
+      origin: req.get('origin'),
+      userAgent: req.get('user-agent'),
+      authenticated: Boolean(req.user),
+    });
     const data = await authService.registerMechanic(req.body, req.file, res);
     return sendSuccess(res, data, 'Please verify your email address before continuing.', 201);
   },
@@ -38,6 +46,18 @@ export const authController = {
   },
 
   logout: async (req: Request, res: Response) => {
+    const hasBearer = Boolean(req.headers.authorization?.startsWith('Bearer '));
+    const hasAccessCookie = Boolean(req.cookies?.accessToken);
+    logger.info('auth.logout.attempt', {
+      event: 'auth.logout.attempt',
+      requestId: req.requestId,
+      authenticated: Boolean(req.user),
+      userId: req.user?.id,
+      hasBearer,
+      hasAccessCookie,
+      origin: req.get('origin'),
+      userAgent: req.get('user-agent'),
+    });
     const data = await authService.logout(req.user?.id, res, req.requestId);
     return sendSuccess(res, data, 'Logged out');
   },

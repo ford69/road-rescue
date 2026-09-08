@@ -32,9 +32,13 @@ function requestMetadata(req: Request) {
     method: req.method,
     url: safeUrl(req),
     ip: req.ip,
+    origin: req.get('origin'),
     userAgent: req.get('user-agent'),
+    authenticated: Boolean(req.user),
     userId: req.user?.id,
     userRole: req.user?.role,
+    hasBearer: Boolean(req.headers.authorization?.startsWith('Bearer ')),
+    hasAccessCookie: Boolean(req.cookies?.accessToken),
   };
 }
 

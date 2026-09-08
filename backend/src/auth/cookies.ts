@@ -17,13 +17,16 @@ export function setAuthCookies(res: Response, accessToken: string, refreshToken:
 }
 
 export function clearAuthCookies(res: Response): void {
-  const expired = {
-    ...authCookieBase(),
-    maxAge: 0,
-    expires: new Date(0),
-  };
-  // Overwrite with an expired cookie using the same attributes as set.
-  // clearCookie() is unreliable in Safari when SameSite/Secure do not match exactly.
-  res.cookie('accessToken', '', expired);
-  res.cookie('refreshToken', '', expired);
+  const expired = { maxAge: 0, expires: new Date(0) };
+  const variants = [
+    authCookieBase(),
+    // Older deploys may have set Lax / non-Secure cookies; expire those too.
+    { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/' },
+    { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/' },
+    { httpOnly: true, secure: false, sameSite: 'lax' as const, path: '/' },
+  ];
+  for (const common of variants) {
+    res.cookie('accessToken', '', { ...common, ...expired });
+    res.cookie('refreshToken', '', { ...common, ...expired });
+  }
 }

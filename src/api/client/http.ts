@@ -4,6 +4,7 @@ import {
   isPublicAuthPath,
   shouldAttemptRefresh,
 } from './auth-session';
+import { statusFallbackMessage } from './parse-response';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -24,7 +25,18 @@ export class ApiClientError extends Error {
 }
 
 async function parseJson<T>(response: Response): Promise<ApiResponse<T>> {
-  return (await response.json()) as ApiResponse<T>;
+  const text = await response.text();
+  if (!text) {
+    if (!response.ok) {
+      throw new ApiClientError(statusFallbackMessage(response.status), response.status);
+    }
+    return { success: true, message: '', data: undefined as T };
+  }
+  try {
+    return JSON.parse(text) as ApiResponse<T>;
+  } catch {
+    throw new ApiClientError(statusFallbackMessage(response.status), response.status);
+  }
 }
 
 let refreshPromise: Promise<boolean> | null = null;

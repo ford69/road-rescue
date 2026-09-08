@@ -1,3 +1,4 @@
+import { clearAuthState } from '../client/clear-auth-state';
 import { apiRequest } from '../client/http';
 import type { ApiUser, AuthTokens, ServiceType } from '../types';
 import { tokenStore } from '../utils/tokenStore';
@@ -46,24 +47,28 @@ function authLog(event: string, extra?: Record<string, unknown>): void {
 
 /**
  * Always hit logout with credentials so HttpOnly cookies are cleared even when
- * localStorage is already empty. Captures the current bearer before clearing.
+ * localStorage is already empty. Send the current bearer, then clear the client
+ * regardless of 401 (expired session) or network failure.
  */
 async function dropExistingSession(): Promise<void> {
   const access = tokenStore.getAccess();
-  tokenStore.clear();
+  const headers = new Headers();
+  if (access) headers.set('Authorization', `Bearer ${access}`);
+  clearAuthState();
   try {
-    const headers = new Headers({ 'Content-Type': 'application/json' });
-    if (access) headers.set('Authorization', `Bearer ${access}`);
-    authLog('auth.logout.started', { reason: 'replace_session' });
-    await fetch(`${API_BASE}/auth/logout`, {
+    authLog('auth.logout.started', { hasBearer: Boolean(access) });
+    const response = await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
       headers,
     });
-    authLog('auth.logout.success', { reason: 'replace_session' });
+    authLog('auth.logout.completed', {
+      status: response.status,
+      idempotent: response.status === 200 || response.status === 401,
+    });
   } catch {
-    authLog('auth.logout.success', { reason: 'replace_session_client_cleared' });
+    authLog('auth.logout.completed', { status: 0, idempotent: true });
   }
 }
 
@@ -102,7 +107,7 @@ export const authApi = {
     formData.append('address', input.address);
     formData.append('latitude', String(input.latitude));
     formData.append('longitude', String(input.longitude));
-    input.specialties.forEach((specialty) => formData.append('specialties', specialty));
+    formData.append('specialties', JSON.stringify(input.specialties));
     if (input.truck) formData.append('truck', input.truck);
 
     const data = await apiRequest<RegisterResult>('/auth/register/mechanic', {

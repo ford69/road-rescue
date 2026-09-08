@@ -84,5 +84,12 @@ describe('POST /api/auth/logout', () => {
     const response = await request(app).post('/api/auth/logout');
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
+    const setCookie = response.headers['set-cookie'];
+    expect(setCookie).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/accessToken=/),
+        expect.stringMatching(/refreshToken=/),
+      ]),
+    );
   });
 });
