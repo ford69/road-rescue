@@ -188,17 +188,17 @@ export function buildMechanicPendingContent(input: { firstName: string; garageNa
 } {
   const firstName = escapeHtml(input.firstName);
   const garageName = escapeHtml(input.garageName);
-  const subject = 'Mechanic application received';
+  const subject = 'Provider application received';
   const htmlContent = layout(
     subject,
     `<p style="margin:0 0 12px;font-size:16px;">Hi ${firstName},</p>
      <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
-       We received your mechanic application for <strong>${garageName}</strong>.
+       We received your provider application for <strong>${garageName}</strong>.
        Our team will review your documents and notify you once verification is complete.
      </p>
      <p style="margin:0;font-size:13px;color:#6b7280;">You can sign in anytime to check your status.</p>`,
   );
-  const textContent = `Hi ${input.firstName},\n\nWe received your mechanic application for ${input.garageName}. We will notify you after verification.\n`;
+  const textContent = `Hi ${input.firstName},\n\nWe received your provider application for ${input.garageName}. We will notify you after verification.\n`;
   return {
     subject,
     htmlContent,

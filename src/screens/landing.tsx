@@ -1,18 +1,15 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle,
   ArrowRight,
   BatteryCharging,
   CheckCircle2,
   CircleDot,
   Clock,
-  Fuel,
   KeyRound,
   MapPin,
   Shield,
   Sparkles,
-  Truck,
   Users,
   Wrench,
   Zap,
@@ -27,20 +24,12 @@ import { cn } from '@/lib/utils';
 
 const services = [
   {
-    icon: Truck,
-    title: 'Towing',
-    description: 'Safe vehicle recovery when you cannot drive.',
-    accent: 'from-brand-blue/20 to-brand-blue/5',
-    layout: 'sm:col-span-2 lg:col-span-2 lg:row-span-2',
-    featured: true,
-    image: SERVICE_IMAGES.towing,
-  },
-  {
     icon: CircleDot,
     title: 'Flat tyre',
     description: 'Tyre change or puncture repair on-site.',
     accent: 'from-primary/25 to-primary/5',
-    layout: 'lg:col-span-1',
+    layout: 'sm:col-span-2 lg:col-span-2 lg:row-span-2',
+    featured: true,
     image: SERVICE_IMAGES.flatTyre,
   },
   {
@@ -60,20 +49,12 @@ const services = [
     image: SERVICE_IMAGES.lockout,
   },
   {
-    icon: Fuel,
-    title: 'Fuel delivery',
-    description: 'Emergency fuel when you run out.',
+    icon: Wrench,
+    title: 'Engine diagnostics',
+    description: 'On-site help for common breakdowns.',
     accent: 'from-warning/25 to-warning/5',
     layout: 'lg:col-span-1',
-    image: SERVICE_IMAGES.fuelDelivery,
-  },
-  {
-    icon: AlertTriangle,
-    title: 'Accident support',
-    description: 'Rapid roadside response after incidents.',
-    accent: 'from-critical/15 to-critical/5',
-    layout: 'sm:col-span-2 lg:col-span-2',
-    image: SERVICE_IMAGES.accidentSupport,
+    image: SERVICE_IMAGES.battery,
   },
 ];
 
@@ -87,7 +68,7 @@ const steps = [
   {
     step: '02',
     title: 'Get matched',
-    description: 'A nearby verified mechanic accepts your job and drives to you.',
+    description: 'A nearby verified provider accepts your job and drives to you.',
     icon: Users,
   },
   {
@@ -100,28 +81,22 @@ const steps = [
 
 const plans = [
   {
-    name: 'Free',
-    price: 'GHS 0',
-    period: '/month',
-    detail: 'Core app access and standard matching.',
-    features: ['Request roadside help', 'Live job tracking', 'In-app support'],
-    highlighted: false,
-  },
-  {
     name: 'Basic',
-    price: 'Paid',
-    period: ' monthly',
-    detail: 'Member discounts and priority matching.',
-    features: ['Priority dispatch', 'Member discounts', 'Email support'],
+    price: 'Free',
+    period: '',
+    detail: 'Free and available now',
+    features: ['Request roadside help', 'Live job tracking', 'In-app support'],
     highlighted: true,
+    comingSoon: false,
   },
   {
     name: 'Premium',
-    price: 'Paid',
-    period: ' monthly',
-    detail: 'Highest priority, larger discounts, and premium support.',
-    features: ['Top priority matching', 'Largest discounts', 'Premium support'],
+    price: 'Coming Soon',
+    period: '',
+    detail: 'Coming Soon',
+    features: ['Additional services', 'Priority matching', 'Premium support'],
     highlighted: false,
+    comingSoon: true,
   },
 ];
 
@@ -129,7 +104,7 @@ const trustPoints = [
   {
     icon: Shield,
     title: 'Verified providers',
-    description: 'Every mechanic is checked before they can accept your job.',
+    description: 'Every provider is checked before they can accept your job.',
     image: SERVICE_IMAGES.lockout,
   },
   {
@@ -147,8 +122,8 @@ const trustPoints = [
 ];
 
 const galleryImages = [
-  { ...SERVICE_IMAGES.accidentSupport, label: 'Accident support', span: 'lg:col-span-2 lg:row-span-2' },
-  { ...SERVICE_IMAGES.towing, label: 'Heavy recovery', span: 'lg:col-span-1' },
+  { ...SERVICE_IMAGES.accidentSupport, label: 'On-site rescue', span: 'lg:col-span-2 lg:row-span-2' },
+  { ...SERVICE_IMAGES.towing, label: 'Roadside support', span: 'lg:col-span-1' },
   { ...SERVICE_IMAGES.battery, label: 'Battery assistance', span: 'lg:col-span-1' },
   { ...SERVICE_IMAGES.lockout, label: 'Lockout help', span: 'lg:col-span-2' },
   { ...SERVICE_IMAGES.flatTyre, label: 'Flat tyre repair', span: 'lg:col-span-2' },
@@ -156,8 +131,8 @@ const galleryImages = [
 
 const heroStats = [
   { value: '24/7', label: 'Always on call' },
-  { value: '6+', label: 'Service types' },
-  { value: '100%', label: 'Verified mechanics' },
+  { value: '4+', label: 'Service types' },
+  { value: '100%', label: 'Verified providers' },
 ];
 
 export function LandingPage() {
@@ -196,7 +171,7 @@ export function LandingPage() {
       >
         Skip to main content
       </a>
-      <SiteNav onRequestHelp={requestHelp} />
+      <SiteNav />
 
       <main id="main-content">
         {/* Hero */}
@@ -229,7 +204,7 @@ export function LandingPage() {
                 <span className="block text-primary">Help is one tap away.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-white sm:text-xl">
-                Request a verified mechanic in under a minute. Track them live
+                Request a verified provider in under a minute. Track them live
                 and get moving again — available 24/7 across Ghana.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -295,7 +270,7 @@ export function LandingPage() {
             <div className="text-center">
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary">On the ground</p>
               <p className="mt-2 font-display text-2xl font-bold text-white sm:text-4xl">
-                Real help. Real mechanics. Right when you need it.
+                Real help. Real providers. Right when you need it.
               </p>
             </div>
           </div>
@@ -306,7 +281,7 @@ export function LandingPage() {
           id="services"
           eyebrow="What we offer"
           title="Complete roadside coverage"
-          description="From flat tyres to accident support — verified mechanics for every common emergency."
+          description="From flat tyres to lockouts — verified providers for every common emergency."
           variant="muted"
         >
           <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
@@ -374,18 +349,15 @@ export function LandingPage() {
             </div>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 lg:grid-cols-2">
             {plans.map((plan) => (
               <PlanCard
                 key={plan.name}
                 {...plan}
-                onChoose={() => navigate('/auth/register')}
+                onChoose={plan.comingSoon ? undefined : () => navigate('/auth/register')}
               />
             ))}
           </div>
-          <p className="mt-6 text-center text-sm font-medium text-foreground/80">
-            Membership is optional — you can still request roadside help on the free plan.
-          </p>
         </Section>
 
         {/* Gallery */}
@@ -422,7 +394,7 @@ export function LandingPage() {
         {/* Providers */}
         <Section
           id="about"
-          eyebrow="For mechanics"
+          eyebrow="For providers"
           title="Grow your rescue business"
           description="Connect with drivers who need help. Accept jobs on your schedule and build your reputation with every rescue."
           variant="dark"
@@ -444,7 +416,7 @@ export function LandingPage() {
                 More jobs, less hassle
               </h3>
               <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/85">
-                Road Rescue helps verified mechanics find customers faster. Focus on the rescue —
+                Road Rescue helps verified providers find customers faster. Focus on the rescue —
                 we handle matching, notifications, and job coordination in the app.
               </p>
               <ul className="mt-6 space-y-3">
@@ -480,9 +452,9 @@ export function LandingPage() {
                 variant="primary"
                 size="lg"
                 className="w-full"
-                onClick={() => navigate('/auth/register?role=mechanic')}
+                onClick={() => navigate('/auth/register?role=provider')}
               >
-                Become a provider
+                Become a Provider
               </Button>
             </div>
           </div>
@@ -492,7 +464,7 @@ export function LandingPage() {
         <Section
           id="payments"
           eyebrow="Why choose us"
-          title="Built for drivers and mechanics"
+          title="Built for drivers and providers"
           description="Road Rescue connects people who need help with professionals who can deliver it — simply and reliably."
         >
           <div className="grid items-stretch gap-8 lg:grid-cols-2">
@@ -506,7 +478,7 @@ export function LandingPage() {
               {[
                 {
                   title: 'Fast matching',
-                  text: 'Share your location and get connected to a verified mechanic without long phone calls.',
+                  text: 'Share your location and get connected to a verified provider without long phone calls.',
                 },
                 {
                   title: 'Live tracking',
@@ -514,7 +486,7 @@ export function LandingPage() {
                 },
                 {
                   title: 'Membership perks',
-                  text: 'Optional plans add priority matching and support — roadside help is always available on Free.',
+                  text: 'Basic is free and available now. Premium is coming soon.',
                 },
               ].map((item) => (
                 <div key={item.title} className="marketing-card border-l-4 border-l-primary p-6">
@@ -832,6 +804,7 @@ function PlanCard({
   detail,
   features,
   highlighted,
+  comingSoon,
   onChoose,
 }: {
   name: string;
@@ -840,6 +813,7 @@ function PlanCard({
   detail: string;
   features: string[];
   highlighted: boolean;
+  comingSoon?: boolean;
   onChoose?: () => void;
 }) {
   return (
@@ -868,14 +842,20 @@ function PlanCard({
           </li>
         ))}
       </ul>
-      {onChoose && (
-        <Button
-          variant={highlighted ? 'primary' : 'outline'}
-          className="mt-6 w-full min-h-11"
-          onClick={onChoose}
-        >
-          {name === 'Free' ? 'Start for free' : `Choose ${name}`}
+      {comingSoon ? (
+        <Button variant="outline" className="mt-6 w-full min-h-11" disabled>
+          Coming Soon
         </Button>
+      ) : (
+        onChoose && (
+          <Button
+            variant={highlighted ? 'primary' : 'outline'}
+            className="mt-6 w-full min-h-11"
+            onClick={onChoose}
+          >
+            Get started
+          </Button>
+        )
       )}
     </div>
   );

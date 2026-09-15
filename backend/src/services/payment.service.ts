@@ -55,13 +55,13 @@ function serializePayment(payment: {
 export const paymentService = {
   async initialize(_userId: string, _requestId: string) {
     throw new ValidationError(
-      'Road Rescue does not process payments for mechanic services. Pay your provider directly outside the app.',
+      'Road Rescue does not process payments for provider services. Pay your provider directly outside the app.',
     );
   },
 
   async verify(_userId: string, _reference: string) {
     throw new ValidationError(
-      'Road Rescue does not process payments for mechanic services.',
+      'Road Rescue does not process payments for provider services.',
     );
   },
 
@@ -77,14 +77,14 @@ export const paymentService = {
 
   async listForMechanic(userId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     const payments = await paymentRepository.findByMechanic(mechanic._id.toString());
     return payments.map(serializePayment);
   },
 
   async getMechanicPayoutInfo(userId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     return provider.getProviderPayoutStatus(mechanic.paystackSubaccountCode);
   },
 

@@ -13,7 +13,7 @@ const navLinks = [
   { href: '#contact', label: 'Contact' },
 ] as const;
 
-export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
+export function SiteNav() {
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
@@ -66,12 +66,7 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
         )}
       >
         <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-4 px-4 lg:h-[4.75rem] lg:px-8">
-          <Logo
-            variant="dark"
-            size="lg"
-            to="/"
-            className="max-w-[180px] sm:max-w-[220px]"
-          />
+          <Logo variant="icon" size="md" to="/" />
 
           <nav
             className="hidden items-center rounded-full border border-white/15 bg-white/10 p-1 lg:flex"
@@ -102,20 +97,12 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
               Login
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              className="border-white/35 bg-white/5 text-white hover:bg-white/15 hover:text-white"
-              onClick={() => navigate('/auth/register')}
-            >
-              Get Started
-            </Button>
-            <Button
               variant="primary"
               size="sm"
               className="shadow-[0_4px_20px_-4px_rgba(255,204,0,0.55)]"
-              onClick={onRequestHelp}
+              onClick={() => navigate('/auth/register')}
             >
-              Get help now
+              Get Started
             </Button>
           </div>
 
@@ -150,7 +137,7 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
           )}
         >
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <Logo variant="dark" size="md" to="/" onClick={close} />
+            <Logo variant="icon" size="md" to="/" onClick={close} />
             <button
               type="button"
               className="rounded-full p-2 text-white hover:bg-white/10"
@@ -186,16 +173,13 @@ export function SiteNav({ onRequestHelp }: { onRequestHelp: () => void }) {
             >
               Login
             </Button>
-            <Button variant="primary" fullWidth onClick={() => { close(); navigate('/auth/register'); }}>
-              Get Started
-            </Button>
             <Button
-              variant="secondary"
+              variant="primary"
               fullWidth
-              className="bg-white/10 text-white hover:bg-white/20"
-              onClick={() => { close(); onRequestHelp(); }}
+              className="shadow-[0_4px_20px_-4px_rgba(255,204,0,0.55)]"
+              onClick={() => { close(); navigate('/auth/register'); }}
             >
-              Get help now
+              Get Started
             </Button>
           </div>
         </div>

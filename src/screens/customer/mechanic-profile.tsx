@@ -38,7 +38,7 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
   React.useEffect(() => {
     if (!mechanicId) {
       setLoading(false);
-      setError('Mechanic not found');
+      setError('Provider not found');
       return;
     }
     let cancelled = false;
@@ -59,7 +59,7 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof ApiClientError ? err.message : 'Could not load mechanic profile');
+        setError(err instanceof ApiClientError ? err.message : 'Could not load provider profile');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -70,12 +70,12 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
   }, [mechanicId, reviewPage]);
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading mechanic profile…</p>;
+    return <p className="text-sm text-muted-foreground">Loading provider profile…</p>;
   }
   if (error || !profile) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-critical">{error ?? 'Mechanic not found'}</p>
+        <p className="text-sm text-critical">{error ?? 'Provider not found'}</p>
         <Button variant="outline" onClick={() => navigate('/customer/home')}>Back</Button>
       </div>
     );

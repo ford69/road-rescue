@@ -25,8 +25,8 @@ describe('requireCustomerSubscription', () => {
 
   it('blocks customers without an active Basic plan', async () => {
     vi.mocked(entitlementService.getCustomerEntitlements).mockResolvedValue({
-      planSlug: 'free',
-      status: 'active',
+      planSlug: 'basic',
+      status: 'expired',
       features: [],
       allowedServiceTypes: [],
       restrictedServiceTypes: [],

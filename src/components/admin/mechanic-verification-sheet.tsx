@@ -41,7 +41,7 @@ export function MechanicVerificationSheet({
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent side="bottom" className="max-h-[92vh]">
         <SheetHeader
-          title="Mechanic verification"
+          title="Provider verification"
           description="Review application details before approving or rejecting."
           onClose={onClose}
         />
@@ -138,7 +138,7 @@ export function MechanicVerificationSheet({
                       rel="noopener noreferrer"
                       className="image-frame aspect-square overflow-hidden"
                     >
-                      <img src={url} alt="Mechanic verification" className="h-full w-full object-cover" />
+                      <img src={url} alt="Provider verification" className="h-full w-full object-cover" />
                     </a>
                   ))}
                 </div>
@@ -151,7 +151,7 @@ export function MechanicVerificationSheet({
                   Reject application
                 </Button>
                 <Button disabled={busy} onClick={onApprove}>
-                  {busy ? 'Saving…' : 'Approve mechanic'}
+                  {busy ? 'Saving…' : 'Approve provider'}
                 </Button>
               </div>
             )}

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import type { Role, ServiceType } from '@/api/types';
 import { EMAIL_NOT_VERIFIED_EVENT, SUBSCRIPTION_REQUIRED_EVENT } from '@/api/client/http';
 import { useAuth } from '@/context/auth-context';
+import { useNotifications } from '@/hooks/useApi';
 
 import { MechanicProfilePage } from '@/screens/customer/mechanic-profile';
 import { CustomerHome } from '@/screens/customer/home';
@@ -137,6 +138,8 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
+  const notifications = useNotifications();
+  const unreadCount = notifications.data.filter((item) => !item.read).length;
 
   React.useEffect(() => {
     if (!isRole(roleParam) || !isScreen(screenParam)) {
@@ -167,7 +170,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
     toast({
       type: 'success',
       title: 'Rescue requested',
-      description: 'Nearby mechanics can accept your request now.',
+      description: 'Nearby providers can accept your request now.',
     });
   };
 
@@ -195,7 +198,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       earnings: 'Payments & Earnings',
       support: 'Help & Support',
       users: 'User Management',
-      mechanics: role === 'customer' ? 'Mechanic profile' : 'Mechanics',
+      mechanics: role === 'customer' ? 'Provider profile' : 'Providers',
       payments: 'Payments',
       reports: 'Reports',
       settings: 'Settings',
@@ -249,7 +252,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
             onOpenMenu={() => setMobileMenuOpen(true)}
             onOpenSearch={() => setSearchOpen(true)}
             title={getPageTitle()}
-            notificationCount={2}
+            notificationCount={unreadCount}
             onOpenNotifications={() => setNotifOpen(true)}
           />
         )}
@@ -287,7 +290,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               navigate('/customer/history');
             }} />
           )}
-          {role === 'customer' && screen === 'alerts' && <Notifications />}
+          {role === 'customer' && screen === 'alerts' && <Notifications controller={notifications} />}
           {role === 'customer' && screen === 'profile' && <Profile onSignOut={onLogout} />}
           {role === 'customer' && screen === 'subscription' && <CustomerSubscriptionPage />}
           {role === 'customer' && screen === 'support' && <HelpSupport />}
@@ -300,7 +303,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           )}
           {role === 'mechanic' && screen === 'history' && <MechanicJobHistory />}
           {role === 'mechanic' && screen === 'earnings' && <MechanicEarnings />}
-          {role === 'mechanic' && screen === 'alerts' && <Notifications />}
+          {role === 'mechanic' && screen === 'alerts' && <Notifications controller={notifications} />}
           {role === 'mechanic' && screen === 'profile' && <Profile onSignOut={onLogout} />}
           {role === 'mechanic' && screen === 'support' && <HelpSupport />}
 
@@ -313,7 +316,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           {role === 'admin' && (screen === 'settings' || screen === 'profile') && (
             <AdminSettings onSignOut={onLogout} />
           )}
-          {role === 'admin' && screen === 'alerts' && <Notifications />}
+          {role === 'admin' && screen === 'alerts' && <Notifications controller={notifications} />}
           {role === 'admin' && screen === 'support' && <HelpSupport />}
         </main>
       </div>
@@ -340,11 +343,11 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
         <SheetContent>
           <SheetHeader
             title="Notifications"
-            description="2 unread alerts"
+            description={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
             onClose={() => setNotifOpen(false)}
           />
           <SheetBody>
-            <Notifications />
+            <Notifications unreadOnly controller={notifications} />
           </SheetBody>
         </SheetContent>
       </Sheet>
@@ -355,11 +358,10 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
 function SearchContent() {
   const [query, setQuery] = React.useState('');
   const suggestions = [
-    'Request towing',
     'Battery jump-start',
     'Flat tyre repair',
     'View service history',
-    'Nearby mechanics',
+    'Nearby providers',
     'Payment methods',
     'Emergency contacts',
   ];

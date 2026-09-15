@@ -126,7 +126,7 @@ export function AdminLiveJobs() {
                           {serviceTypeConfig[job.serviceType]?.label ?? job.serviceType}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {job.mechanic ? mechanicDisplayName(job.mechanic) : 'Awaiting mechanic'}
+                          {job.mechanic ? mechanicDisplayName(job.mechanic) : 'Awaiting provider'}
                         </p>
                       </div>
                     </div>
@@ -217,7 +217,7 @@ export function AdminMechanics() {
       setSelectedMechanic(null);
       toast({
         type: 'success',
-        title: status === 'verified' ? 'Mechanic approved' : 'Application rejected',
+        title: status === 'verified' ? 'Provider approved' : 'Application rejected',
       });
     } catch (error) {
       toast({
@@ -241,8 +241,8 @@ export function AdminMechanics() {
         return (
           <div className="space-y-5 pb-4">
             <PageHeader
-              title="Mechanics"
-              description={`${data.kpis.mechanics} mechanics registered on the platform.`}
+              title="Providers"
+              description={`${data.kpis.mechanics} providers registered on the platform.`}
             />
             <div className="flex gap-2">
               {(['all', 'online', 'pending'] as const).map((item) => (
@@ -420,7 +420,7 @@ export function AdminReports() {
             />
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <SummaryCard icon={<Users />} label="Customers" value={String(data.kpis.customers)} />
-              <SummaryCard icon={<Wrench />} label="Mechanics" value={String(data.kpis.mechanics)} />
+              <SummaryCard icon={<Wrench />} label="Providers" value={String(data.kpis.mechanics)} />
               <SummaryCard icon={<BarChart3 />} label="Revenue" value={formatGhs(data.kpis.revenueGhs)} />
               <SummaryCard icon={<CreditCard />} label="Avg. payment" value={formatGhs(averagePayment)} />
             </div>

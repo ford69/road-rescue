@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/empty-state';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useApi';
 import { useAuth } from '@/context/auth-context';
+import { useToast } from '@/components/ui/toast';
 import type { NotificationDto } from '@/api/types';
 
 const iconMap: Record<NotificationDto['type'], React.ReactNode> = {
@@ -31,11 +32,19 @@ function relativeTime(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export function Notifications() {
+export function Notifications({
+  unreadOnly = false,
+  controller,
+}: {
+  unreadOnly?: boolean;
+  controller: ReturnType<typeof useNotifications>;
+}) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error, reload, markAllRead } = useNotifications();
+  const { toast } = useToast();
+  const { data, loading, error, markAllRead, markRead } = controller;
   const unreadCount = data.filter((n) => !n.read).length;
+  const visible = unreadOnly ? data.filter((n) => !n.read) : data;
 
   const openNotification = (n: NotificationDto) => {
     if (n.meta?.requestId || /confirm|completion|issue/i.test(`${n.title} ${n.body}`)) {
@@ -49,9 +58,21 @@ export function Notifications() {
     }
   };
 
+  const onMarkRead = async (event: React.MouseEvent, id: string) => {
+    event.stopPropagation();
+    try {
+      await markRead(id);
+    } catch {
+      toast({ type: 'error', title: 'Could not mark as read', description: 'Please try again.' });
+    }
+  };
+
   const onMarkAll = async () => {
-    await markAllRead();
-    await reload();
+    try {
+      await markAllRead();
+    } catch {
+      toast({ type: 'error', title: 'Could not mark as read', description: 'Please try again.' });
+    }
   };
 
   if (loading) {
@@ -72,7 +93,7 @@ export function Notifications() {
     <div className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl font-bold tracking-tight">Notifications</h2>
+          {!unreadOnly && <h2 className="font-display text-xl font-bold tracking-tight">Notifications</h2>}
           {unreadCount > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">{unreadCount} unread</p>
           )}
@@ -85,15 +106,19 @@ export function Notifications() {
         )}
       </div>
 
-      {data.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyState
           icon={<Bell className="h-10 w-10" />}
-          title="No notifications"
-          description="You're all caught up. New alerts will appear here."
+          title={unreadOnly ? 'No unread notifications' : 'No notifications'}
+          description={
+            unreadOnly
+              ? 'You are all caught up. Read alerts stay in Notifications.'
+              : "You're all caught up. New alerts will appear here."
+          }
         />
       ) : (
         <div className="space-y-2">
-          {data.map((n) => (
+          {visible.map((n) => (
             <Card
               key={n._id}
               interactive
@@ -116,6 +141,16 @@ export function Notifications() {
                   </div>
                   <p className="text-sm text-muted-foreground mt-0.5">{n.body}</p>
                   <p className="text-xs text-muted-foreground mt-1.5">{relativeTime(n.createdAt)}</p>
+                  {!n.read && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 h-8 px-2 text-xs"
+                      onClick={(event) => void onMarkRead(event, n._id)}
+                    >
+                      Mark as Read
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>

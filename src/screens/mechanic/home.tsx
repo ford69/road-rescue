@@ -205,7 +205,7 @@ export function MechanicHome({
             <div>
               <h2 className="font-display text-xl font-bold">Verification pending</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your selfie, Ghana Card, and mechanic details are being reviewed. You can go online
+                Your selfie, Ghana Card, and provider details are being reviewed. You can go online
                 and accept jobs after approval.
               </p>
             </div>
@@ -553,7 +553,7 @@ export function MechanicEarnings() {
           <EmptyState
             icon={<DollarSign className="h-10 w-10" />}
             title="No in-app job payments"
-            description="Customers pay you directly. Road Rescue does not collect mechanic service payments."
+            description="Customers pay you directly. Road Rescue does not collect provider service payments."
           />
         ) : (
           <div className="space-y-2">

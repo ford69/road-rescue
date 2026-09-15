@@ -60,7 +60,7 @@ const adminSidebar: NavItem[] = [
   { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'track', label: 'Live Jobs', icon: Map },
   { id: 'users', label: 'Users', icon: Users },
-  { id: 'mechanics', label: 'Mechanics', icon: Briefcase },
+  { id: 'mechanics', label: 'Providers', icon: Briefcase },
   { id: 'payments', label: 'Payments', icon: BarChart3 },
   { id: 'reports', label: 'Reports', icon: Clock },
   { id: 'settings', label: 'Settings', icon: Settings },

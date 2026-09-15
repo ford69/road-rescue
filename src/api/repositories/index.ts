@@ -229,6 +229,9 @@ export const notificationsApi = {
   list() {
     return apiRequest<NotificationDto[]>('/notifications');
   },
+  markRead(id: string) {
+    return apiRequest<NotificationDto>(`/notifications/${id}/read`, { method: 'POST' });
+  },
   markAllRead() {
     return apiRequest<{ success: boolean }>('/notifications/read-all', { method: 'POST' });
   },

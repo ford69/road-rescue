@@ -35,7 +35,7 @@ export function RateProviderSheet({
 
   if (!request) return null;
 
-  const mechanicName = request.mechanic ? mechanicDisplayName(request.mechanic) : 'your mechanic';
+  const mechanicName = request.mechanic ? mechanicDisplayName(request.mechanic) : 'your provider';
   const serviceLabel = serviceTypeConfig[request.serviceType]?.label ?? request.serviceType;
 
   const submit = async () => {
@@ -104,7 +104,7 @@ export function RateProviderSheet({
               onChange={(event) => setReview(event.target.value)}
               maxLength={1000}
               disabled={submitting}
-              placeholder="The mechanic was professional and arrived quickly."
+              placeholder="The provider was professional and arrived quickly."
             />
           </div>
           <Button fullWidth size="lg" disabled={submitting || stars < 1} onClick={() => void submit()}>

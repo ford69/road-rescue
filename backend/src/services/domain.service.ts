@@ -172,7 +172,7 @@ export const requestService = {
 
     await notificationRepository.create({
       title: 'Rescue requested',
-      body: `We are matching a nearby mechanic for ${service.name} near ${input.pickupAddress}.`,
+      body: `We are matching a nearby provider for ${service.name} near ${input.pickupAddress}.`,
       recipient: customer.userId,
       type: 'info',
     });
@@ -188,7 +188,7 @@ export const requestService = {
     }
     if (role === 'mechanic') {
       const mechanic = await mechanicRepository.findByUserId(userId);
-      if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+      if (!mechanic) throw new NotFoundError('Provider profile not found');
       return attachCustomerRatings(await requestRepository.findByMechanic(mechanic._id.toString()));
     }
     return attachCustomerRatings(await requestRepository.findAll());
@@ -231,7 +231,7 @@ export const requestService = {
     paging: { page: number; limit: number; skip: number; q: string },
   ) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     const { items, total } = await requestRepository.findByMechanicPaged(mechanic._id.toString(), {
       statuses: ['completed'],
       skip: paging.skip,
@@ -262,18 +262,18 @@ export const requestService = {
 
   async listAvailableJobs(userId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     if (mechanic.verificationStatus !== 'verified') {
-      throw new ForbiddenError('Your mechanic application must be verified before viewing jobs');
+      throw new ForbiddenError('Your provider application must be verified before viewing jobs');
     }
     return requestRepository.findOpenForMechanics();
   },
 
   async accept(userId: string, requestId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     if (mechanic.verificationStatus !== 'verified') {
-      throw new ForbiddenError('Your mechanic application must be verified before accepting jobs');
+      throw new ForbiddenError('Your provider application must be verified before accepting jobs');
     }
     if (!mechanic.availability) {
       throw new ValidationError('Go online before accepting jobs');
@@ -302,7 +302,7 @@ export const requestService = {
     const customer = await customerRepository.findById(refId(request.customer));
     if (customer) {
       await notificationRepository.create({
-        title: 'Mechanic assigned',
+        title: 'Provider assigned',
         body: `${mechanic.garageName} accepted your rescue request and is preparing to depart.`,
         recipient: customer.userId,
         type: 'success',
@@ -362,13 +362,13 @@ export const requestService = {
     if (customer) {
       const statusMessages: Partial<Record<string, { title: string; body: string; type: 'info' | 'success' | 'warning' }>> = {
         enroute: {
-          title: 'Mechanic en route',
-          body: 'Your mechanic is on the way to your location.',
+          title: 'Provider en route',
+          body: 'Your provider is on the way to your location.',
           type: 'info',
         },
         arrived: {
-          title: 'Mechanic arrived',
-          body: 'Your mechanic has arrived at the pickup location.',
+          title: 'Provider arrived',
+          body: 'Your provider has arrived at the pickup location.',
           type: 'success',
         },
         inprogress: {
@@ -403,7 +403,7 @@ export const requestService = {
 
   async requestConfirmation(userId: string, requestId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
     if (!request) throw new NotFoundError('Rescue request not found');
     if (!request.mechanic || refId(request.mechanic) !== mechanic._id.toString()) {
@@ -430,7 +430,7 @@ export const requestService = {
     if (customer) {
       await notificationRepository.create({
         title: 'Service Completed',
-        body: 'Your mechanic has indicated that your service has been completed. Please review the service and confirm that the work is complete.',
+        body: 'Your provider has indicated that your service has been completed. Please review the service and confirm that the work is complete.',
         recipient: customer.userId,
         type: 'info',
         meta: { requestId, action: 'review' },
@@ -512,7 +512,7 @@ export const requestService = {
       );
     }
     if (!request.mechanic) {
-      throw new ValidationError('This service has no assigned mechanic to rate');
+      throw new ValidationError('This service has no assigned provider to rate');
     }
 
     const existing = await ratingRepository.findByRequest(requestId);
@@ -669,9 +669,9 @@ function assertMechanicTransition(current: string, next: string): void {
 export const mechanicService = {
   async setAvailability(userId: string, input: UpdateAvailabilityInput) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     if (input.availability && mechanic.verificationStatus !== 'verified') {
-      throw new ForbiddenError('Your mechanic application must be verified before going online');
+      throw new ForbiddenError('Your provider application must be verified before going online');
     }
     mechanic.availability = input.availability;
     await mechanic.save();
@@ -680,7 +680,7 @@ export const mechanicService = {
 
   async updateLocation(userId: string, input: UpdateLocationInput) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     if (input.requestId) {
       const request = await requestRepository.findById(
         assertObjectId(input.requestId, 'request id'),
@@ -757,7 +757,7 @@ export const mechanicService = {
     const mechanic = await mechanicRepository
       .findById(assertObjectId(mechanicId, 'mechanic id'))
       .populate('userId', 'firstName lastName avatar');
-    if (!mechanic) throw new NotFoundError('Mechanic not found');
+    if (!mechanic) throw new NotFoundError('Provider not found');
     const user = mechanic.userId as unknown as {
       firstName?: string;
       lastName?: string;
@@ -784,7 +784,7 @@ export const mechanicService = {
     paging: { page: number; limit: number; skip: number },
   ) {
     const mechanic = await mechanicRepository.findById(assertObjectId(mechanicId, 'mechanic id'));
-    if (!mechanic) throw new NotFoundError('Mechanic not found');
+    if (!mechanic) throw new NotFoundError('Provider not found');
     const { items, total } = await ratingRepository.findByMechanicPaged(mechanic._id.toString(), {
       skip: paging.skip,
       limit: paging.limit,
@@ -809,7 +809,7 @@ export const mechanicService = {
 
   async earnings(userId: string) {
     const mechanic = await mechanicRepository.findByUserId(userId);
-    if (!mechanic) throw new NotFoundError('Mechanic profile not found');
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
     const [completed, payments] = await Promise.all([
       requestRepository.findByMechanic(mechanic._id.toString(), ['completed']),
       paymentRepository.findByMechanic(mechanic._id.toString()),
@@ -850,14 +850,17 @@ export const notificationService = {
     return notificationRepository.markAllRead(userId);
   },
   markRead(userId: string, id: string) {
-    return notificationRepository.markRead(id, userId);
+    return notificationRepository.markRead(id, userId).then((updated) => {
+      if (!updated) throw new NotFoundError('Notification not found');
+      return updated;
+    });
   },
 };
 
 export const adminService = {
   async verifyMechanic(mechanicId: string, status: 'verified' | 'rejected') {
     const mechanic = await mechanicRepository.findById(assertObjectId(mechanicId, 'mechanic id'));
-    if (!mechanic) throw new NotFoundError('Mechanic not found');
+    if (!mechanic) throw new NotFoundError('Provider not found');
 
     mechanic.verificationStatus = status;
     if (status === 'rejected') mechanic.availability = false;
@@ -868,11 +871,11 @@ export const adminService = {
       user.status = status === 'verified' ? 'active' : 'inactive';
       await user.save();
       await notificationRepository.create({
-        title: status === 'verified' ? 'Mechanic application approved' : 'Mechanic application rejected',
+        title: status === 'verified' ? 'Provider application approved' : 'Provider application rejected',
         body:
           status === 'verified'
             ? 'Your account is verified. You can now go online and accept rescue jobs.'
-            : 'Your mechanic application was not approved. Contact support for assistance.',
+            : 'Your provider application was not approved. Contact support for assistance.',
         recipient: user._id,
         type: status === 'verified' ? 'success' : 'warning',
       });

@@ -7,9 +7,9 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-4 py-14 lg:px-8 lg:py-16">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="space-y-5 lg:col-span-5">
-            <Logo variant="dark" size="xl" to="/" className="max-w-[260px]" />
+            <Logo variant="icon" size="lg" to="/" />
             <p className="max-w-md text-sm leading-relaxed text-white/70">
-              Road Rescue connects drivers with trusted mechanics for emergency roadside assistance
+              Road Rescue connects drivers with trusted providers for emergency roadside assistance
               across Ghana. Professional service, clear communication, when you need us most.
             </p>
             <p className="text-sm font-semibold text-white">
@@ -30,7 +30,7 @@ export function SiteFooter() {
                 <li><a href="#services" className="hover:text-white">Breakdown assistance</a></li>
                 <li><a href="#services" className="hover:text-white">Battery jump start</a></li>
                 <li><a href="#services" className="hover:text-white">Tire assistance</a></li>
-                <li><a href="#services" className="hover:text-white">Towing & recovery</a></li>
+                <li><a href="#services" className="hover:text-white">Lockout help</a></li>
               </ul>
             </div>
             <div>
@@ -46,7 +46,7 @@ export function SiteFooter() {
               <ul className="mt-4 space-y-2.5 text-sm text-white/75">
                 <li><Link to="/auth/login" className="hover:text-white">Login</Link></li>
                 <li><Link to="/auth/register" className="hover:text-white">Sign up</Link></li>
-                <li><Link to="/auth/register?role=mechanic" className="hover:text-white">Become a mechanic</Link></li>
+                <li><Link to="/auth/register?role=provider" className="hover:text-white">Become a Provider</Link></li>
               </ul>
             </div>
           </div>

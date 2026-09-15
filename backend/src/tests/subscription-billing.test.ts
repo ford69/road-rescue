@@ -111,17 +111,9 @@ describe('subscription billing', () => {
     expect(initializePaystackSubscription).not.toHaveBeenCalled();
   });
 
-  it('initializes Basic checkout from server configuration', async () => {
-    const result = await subscriptionService.checkout(userId, 'basic');
-    expect(initializePaystackSubscription).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: 'customer@example.com',
-        amountGhs: 49,
-        planCode: 'PLN_basic_test',
-      }),
-    );
-    expect(result.authorizationUrl).toContain('paystack');
-    expect(result.planSlug).toBe('basic');
+  it('rejects Basic checkout because Basic is free', async () => {
+    await expect(subscriptionService.checkout(userId, 'basic')).rejects.toBeInstanceOf(ValidationError);
+    expect(initializePaystackSubscription).not.toHaveBeenCalled();
   });
 
   it('activates Basic once even if the same charge is fulfilled twice', async () => {

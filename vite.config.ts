@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
           name: 'Road Rescue',
           short_name: 'Road Rescue',
           description:
-            'Road Rescue Ghana — premium roadside assistance. Request help, track mechanics, and get support 24/7.',
+            'Road Rescue Ghana — roadside assistance. Request help, track providers, and get support 24/7.',
           theme_color: '#111111',
           background_color: '#111111',
           display: 'standalone',

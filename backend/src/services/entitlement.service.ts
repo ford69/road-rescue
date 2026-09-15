@@ -41,21 +41,21 @@ export const entitlementService = {
     const customer = await customerRepository.findByUserId(userId);
     if (!customer) {
       return {
-        planSlug: 'free',
-        features: [],
+        planSlug: 'basic',
+        features: this.getEntitlementsForPlan('basic'),
         status: 'active',
-        allowedServiceTypes: allowedServicesForPlan('free', 'active'),
+        allowedServiceTypes: allowedServicesForPlan('basic', 'active'),
         restrictedServiceTypes: ['towing', 'fuel', 'accident'],
       };
     }
     const subscription = await subscriptionRepository.findByCustomer(customer._id.toString());
-    const planSlug = subscription?.planSlug ?? 'free';
+    const planSlug = subscription?.planSlug === 'free' ? 'basic' : subscription?.planSlug ?? 'basic';
     const status = subscription?.status ?? 'active';
     const active = status === 'active' || status === 'non_renewing';
     const allowedServiceTypes = allowedServicesForPlan(planSlug, status);
     return {
       planSlug,
-      features: active ? this.getEntitlementsForPlan(planSlug) : this.getEntitlementsForPlan('free'),
+      features: active ? this.getEntitlementsForPlan(planSlug) : this.getEntitlementsForPlan('basic'),
       status,
       allowedServiceTypes,
       restrictedServiceTypes: ['towing', 'fuel', 'accident'].filter(
@@ -73,7 +73,7 @@ export const entitlementService = {
     const entitlements = await this.getCustomerEntitlements(userId);
     if (planAllowsService(entitlements.planSlug, entitlements.status, serviceType)) return;
     throw new ForbiddenError(
-      `${serviceType} is not included in your ${entitlements.planSlug} plan. Upgrade to Premium to access this service.`,
+      `${serviceType} is not available on the Basic plan. Premium services are coming soon.`,
       AuthErrorCode.PLAN_FEATURE_NOT_AVAILABLE,
     );
   },

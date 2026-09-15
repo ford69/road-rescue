@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/input';
 import { MapView } from '@/components/map-view';
 import { EmptyState } from '@/components/empty-state';
 import { serviceTypeConfig } from '@/lib/service-config';
+import { BASIC_INCLUDED_SERVICES } from '@/lib/plan-services';
 import {
   DEFAULT_PICKUP_LOCATION,
   GHANA_PICKUP_LOCATIONS,
@@ -89,7 +90,11 @@ export function RequestFlow({
 
   React.useEffect(() => {
     const serviceParam = searchParams.get('service');
-    if (isServiceType(serviceParam) && !restricted.has(serviceParam)) {
+    if (
+      isServiceType(serviceParam) &&
+      BASIC_INCLUDED_SERVICES.includes(serviceParam) &&
+      !restricted.has(serviceParam)
+    ) {
       setSelectedService(serviceParam);
     }
   }, [restricted, searchParams]);
@@ -405,10 +410,10 @@ function ProblemStep({
   onDescriptionChange: (value: string) => void;
   goNext: () => void;
 }) {
-  const services = Object.entries(serviceTypeConfig) as [
+  const services = (Object.entries(serviceTypeConfig) as [
     ServiceType,
     (typeof serviceTypeConfig)[ServiceType],
-  ][];
+  ][]).filter(([type]) => BASIC_INCLUDED_SERVICES.includes(type));
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -449,7 +454,7 @@ function ProblemStep({
               </div>
               {locked && (
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {config.label} is not included in your Basic plan. Upgrade to Premium to access this service.
+                  {config.label} is not available on Basic. Premium is coming soon.
                 </p>
               )}
             </button>
@@ -500,7 +505,7 @@ function ConfirmStep({
     <div className="space-y-4 animate-fade-in-up">
       <div>
         <h2 className="font-display text-xl font-bold tracking-tight">Confirm request</h2>
-        <p className="text-sm text-muted-foreground mt-1">We'll notify nearby Ghana mechanics.</p>
+        <p className="text-sm text-muted-foreground mt-1">We'll notify nearby Ghana providers.</p>
       </div>
 
       <Card>
@@ -563,7 +568,7 @@ function SubmittedScreen({
         <h2 className="font-display text-2xl font-bold">Request submitted</h2>
         <p className="text-sm text-muted-foreground">
           Your {serviceTypeConfig[request.serviceType].label.toLowerCase()} request is live near{' '}
-          {pickup.address}. Nearby mechanics can accept it now.
+          {pickup.address}. Nearby providers can accept it now.
         </p>
       </div>
 
@@ -572,7 +577,7 @@ function SubmittedScreen({
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Status</span>
             <Badge variant="primary" dot>
-              Waiting for mechanic
+              Waiting for provider
             </Badge>
           </div>
           <div className="flex justify-between gap-3">

@@ -1,11 +1,11 @@
 /** Shared brand assets and color tokens for marketing surfaces. */
 export const BRAND_ASSETS = {
-  heroImage: '/images/road-rescue-2.jpg',
+  heroImage: '/images/road-rescue-1.jpg',
   roadRescue: '/images/road-rescue.jpg',
   accraRoadNight: '/images/accra-road-night.jpg',
   logoLight: '/images/road-rescue-logo-item/RoadRescue_Primary_WhiteBackground.png',
   logoDark: '/images/road-rescue-logo-item/RoadRescue_Primary_Transparent.png',
-  icon: '/images/road-rescue-logo-item/RoadRescue_Icon_WhiteBackground.png',
+  icon: '/icons/icon-512.png',
   brandOverview: '/images/road-rescue-logo-item/RoadRescue_Brand_Overview.png',
   iconTransparent: '/images/road-rescue-logo-item/RoadRescue_Icon_Transparent.png',
 } as const;

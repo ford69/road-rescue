@@ -80,7 +80,7 @@ export function AdminDashboard() {
       setSelectedMechanic(null);
       toast({
         type: 'success',
-        title: status === 'verified' ? 'Mechanic approved' : 'Application rejected',
+        title: status === 'verified' ? 'Provider approved' : 'Application rejected',
       });
     } catch (error) {
       toast({
@@ -132,7 +132,7 @@ export function AdminDashboard() {
           color="success"
         />
         <KPICard
-          label="Online Mechanics"
+          label="Online Providers"
           value={String(onlineMechanics)}
           change={`${data.kpis.mechanics} total`}
           trend="up"
@@ -177,7 +177,7 @@ export function AdminDashboard() {
                           Service
                         </th>
                         <th className="pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          Mechanic
+                          Provider
                         </th>
                         <th className="pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Status
@@ -251,7 +251,7 @@ export function AdminDashboard() {
         <Card className="overflow-hidden">
           <div className="p-5">
             <h3 className="font-display text-base font-bold mb-1">Live Map</h3>
-            <p className="text-sm text-muted-foreground mb-3">Active technicians across Accra</p>
+            <p className="text-sm text-muted-foreground mb-3">Active providers across Accra</p>
             <MapView
               className="h-64 min-h-[16rem] w-full rounded-xl border border-border landscape:h-[40dvh] landscape:min-h-[12rem]"
               markers={mechanics.slice(0, 4).map((m) => ({
@@ -270,7 +270,7 @@ export function AdminDashboard() {
         <div className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-display text-base font-bold">Mechanic Onboarding</h3>
+              <h3 className="font-display text-base font-bold">Provider Onboarding</h3>
               <p className="text-sm text-muted-foreground">
                 Review identity and service applications.
               </p>
@@ -284,7 +284,7 @@ export function AdminDashboard() {
             <div className="flex items-center gap-3 rounded-xl bg-accent/50 p-4">
               <ShieldCheck className="h-5 w-5 text-success" />
               <p className="text-sm text-muted-foreground">
-                All mechanic applications have been reviewed.
+                All provider applications have been reviewed.
               </p>
             </div>
           ) : (
@@ -345,7 +345,7 @@ export function AdminDashboard() {
 
       <Card>
         <div className="p-5">
-          <h3 className="font-display text-base font-bold mb-4">Mechanics</h3>
+          <h3 className="font-display text-base font-bold mb-4">Providers</h3>
           <div className="space-y-2">
             {mechanics.slice(0, 6).map((m) => {
               const name = mechanicDisplayName(m);

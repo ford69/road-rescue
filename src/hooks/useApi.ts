@@ -109,11 +109,39 @@ export function useNotifications() {
     }
   }, []);
 
+  const markRead = useCallback(async (id: string) => {
+    let snapshot: NotificationDto[] = [];
+    setData((list) => {
+      snapshot = list;
+      return list.map((item) => (item._id === id ? { ...item, read: true } : item));
+    });
+    try {
+      await notificationsApi.markRead(id);
+    } catch (err) {
+      setData(snapshot);
+      throw err;
+    }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    let snapshot: NotificationDto[] = [];
+    setData((list) => {
+      snapshot = list;
+      return list.map((item) => ({ ...item, read: true }));
+    });
+    try {
+      await notificationsApi.markAllRead();
+    } catch (err) {
+      setData(snapshot);
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { data, loading, error, reload, markAllRead: notificationsApi.markAllRead };
+  return { data, loading, error, reload, markRead, markAllRead };
 }
 
 export function useNearbyMechanics(lat = 5.6037, lng = -0.187) {
@@ -128,7 +156,7 @@ export function useNearbyMechanics(lat = 5.6037, lng = -0.187) {
         setData(ensureArray(await mechanicsApi.nearby(lat, lng)));
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load mechanics');
+        setError(err instanceof Error ? err.message : 'Failed to load providers');
       } finally {
         setLoading(false);
       }

@@ -49,7 +49,7 @@ export function mechanicDisplayName(mechanic: {
   if (mechanic.userId?.firstName) {
     return `${mechanic.userId.firstName} ${mechanic.userId.lastName ?? ''}`.trim();
   }
-  return mechanic.garageName ?? 'Mechanic';
+  return mechanic.garageName ?? 'Provider';
 }
 
 export function mechanicInitials(name: string): string {

@@ -164,6 +164,11 @@ export const notificationController = {
     await notificationService.markAllRead(req.user.id);
     return sendSuccess(res, { success: true }, 'Notifications marked as read');
   },
+  markRead: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await notificationService.markRead(req.user.id, paramId(req));
+    return sendSuccess(res, data, 'Notification marked as read');
+  },
 };
 
 export const adminController = {
@@ -173,7 +178,7 @@ export const adminController = {
   },
   verifyMechanic: async (req: Request, res: Response) => {
     const data = await adminService.verifyMechanic(paramId(req), req.body.status);
-    return sendSuccess(res, data, `Mechanic ${req.body.status}`);
+    return sendSuccess(res, data, `Provider ${req.body.status}`);
   },
 };
 

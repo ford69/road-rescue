@@ -15,6 +15,7 @@ import { userFacingAuthError } from '@/api/client/parse-response';
 import { useToast } from '@/components/ui/toast';
 import type { ApiUser } from '@/api/types';
 import { postAuthPath, rememberPendingEmail } from '@/lib/auth-gate';
+import { parseRegisterRoleParam, registerRoleQuery, roleLabel } from '@/lib/role-labels';
 import { prepareSelfieForUpload } from '@/lib/prepare-selfie';
 
 const loginSchema = z.object({
@@ -185,18 +186,20 @@ export function RegisterScreen() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { setUser } = useAuth();
+  const [search, setSearch] = useSearchParams();
   const [submitting, setSubmitting] = React.useState(false);
-  const [basicSelected, setBasicSelected] = React.useState(false);
+  const [basicSelected, setBasicSelected] = React.useState(true);
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [selfie, setSelfie] = React.useState<File | null>(null);
   const [specialties, setSpecialties] = React.useState<(typeof mechanicSpecialties)[number][]>([
     'battery',
     'flat-tire',
   ]);
+  const initialRole = parseRegisterRoleParam(search.get('role'));
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'customer',
+      role: initialRole,
       firstName: '',
       lastName: '',
       email: '',
@@ -214,6 +217,15 @@ export function RegisterScreen() {
   const role = form.watch('role');
   const password = form.watch('password');
   const totalSteps = role === 'mechanic' ? 3 : 2;
+  const roleParam = search.get('role');
+
+  React.useEffect(() => {
+    const next = parseRegisterRoleParam(roleParam);
+    if (form.getValues('role') !== next) {
+      form.setValue('role', next);
+      setStep(1);
+    }
+  }, [form, roleParam]);
 
   const advanceStep = async () => {
     const fields =
@@ -288,9 +300,11 @@ export function RegisterScreen() {
         toast({
           type: 'success',
           title: 'Account created',
-          description: 'Complete your Basic subscription to continue.',
+          description: 'Please verify your email address before continuing.',
         });
-        navigate('/auth/complete-subscription?checkout=1', { replace: true });
+        navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || values.email)}`, {
+          replace: true,
+        });
         return;
       }
       setUser(null);
@@ -324,13 +338,13 @@ export function RegisterScreen() {
 
   return (
     <AuthShell
-      title={role === 'customer' ? 'Create your Road Rescue account' : 'Create account'}
+      title={role === 'mechanic' ? 'Create your provider account' : 'Create your Road Rescue account'}
       subtitle={
         role === 'customer'
           ? step === 1
             ? 'Enter your account details to get started'
-            : 'Choose your plan'
-          : 'Join Road Rescue Ghana as a customer or mechanic'
+            : 'Your plan — Basic is free'
+          : 'Join Road Rescue Ghana as a provider'
       }
       footer={
         <p className="text-sm text-muted-foreground">
@@ -379,12 +393,14 @@ export function RegisterScreen() {
               onClick={() => {
                 form.setValue('role', option);
                 setStep(1);
+                const query = registerRoleQuery(option);
+                setSearch(query ? { role: query } : {}, { replace: true });
               }}
-              className={`rounded-xl border px-3 py-2 text-sm font-semibold capitalize ${
+              className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
                 role === option ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
               }`}
             >
-              {option}
+              {roleLabel(option)}
             </button>
           ))}
           </div>
@@ -425,7 +441,8 @@ export function RegisterScreen() {
         {role === 'customer' && step === 2 && (
           <div className="space-y-3 pt-2">
             <div>
-              <h3 className="font-display text-lg font-bold">Choose your plan</h3>
+              <h3 className="font-display text-lg font-bold">Your plan</h3>
+              <p className="text-sm text-muted-foreground">Basic is free and available now. No payment required.</p>
             </div>
             <button
               type="button"
@@ -437,12 +454,13 @@ export function RegisterScreen() {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
                 <p className="font-semibold">BASIC</p>
+                <span className="ml-auto text-sm font-semibold text-primary">Free</span>
               </div>
               <ul className="space-y-1.5">
                 {[
-                  'Mechanic assistance',
-                  'Mechanic discovery',
-                  'Mechanic profiles',
+                  'Provider assistance',
+                  'Provider discovery',
+                  'Provider profiles',
                   'Ratings & reviews',
                   'Customer uploads',
                 ].map((item) => (
@@ -452,9 +470,7 @@ export function RegisterScreen() {
                   </li>
                 ))}
               </ul>
-              <p className="text-sm font-semibold text-primary">
-                {basicSelected ? 'Basic selected' : 'Select Basic'}
-              </p>
+              <p className="text-sm font-semibold text-primary">Free and available now</p>
             </button>
             <div className="rounded-xl border border-border p-4 opacity-80">
               <div className="flex items-center gap-2">

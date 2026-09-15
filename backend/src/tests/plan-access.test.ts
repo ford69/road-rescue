@@ -34,8 +34,8 @@ describe('plan service access', () => {
     );
   });
 
-  it('treats only paid active plans as dashboard-eligible', () => {
-    expect(isPaidCustomerPlan('free', 'active')).toBe(false);
+  it('treats active Basic, Premium, and legacy Free records as dashboard-eligible', () => {
+    expect(isPaidCustomerPlan('free', 'active')).toBe(true);
     expect(isPaidCustomerPlan('basic', 'incomplete')).toBe(false);
     expect(isPaidCustomerPlan('basic', 'active')).toBe(true);
     expect(isPaidCustomerPlan('basic', 'non_renewing')).toBe(true);

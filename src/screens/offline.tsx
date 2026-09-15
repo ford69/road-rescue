@@ -28,7 +28,7 @@ export function OfflineScreen() {
         </p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
           Road Rescue needs internet for requesting help, live location, payments, authentication,
-          and mechanic assignment. Emergency roadside services are not available offline.
+          and provider assignment. Emergency roadside services are not available offline.
         </p>
         <div className="mt-6 flex flex-col gap-2">
           <Button type="button" onClick={() => window.location.reload()}>

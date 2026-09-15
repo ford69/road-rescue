@@ -4,8 +4,8 @@ import { entitlementService } from '../services/entitlement.service.js';
 import { isPaidCustomerPlan } from '../services/plan-access.js';
 
 /**
- * Customers must have an active paid plan (Basic/Premium) to use product APIs.
- * Mechanics and admins are not gated.
+ * Customers must have an active Basic (free) or Premium plan to use product APIs.
+ * Providers and admins are not gated.
  */
 export async function requireCustomerSubscription(
   req: Request,
@@ -29,7 +29,7 @@ export async function requireCustomerSubscription(
     }
     next(
       new ForbiddenError(
-        'An active Basic subscription is required to use Road Rescue.',
+        'An active Basic plan is required to use Road Rescue.',
         AuthErrorCode.SUBSCRIPTION_REQUIRED,
       ),
     );

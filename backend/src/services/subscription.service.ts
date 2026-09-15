@@ -7,38 +7,12 @@ import {
   subscriptionPlanRepository,
   subscriptionRepository,
 } from '../repositories/subscription.repository.js';
-import { userRepository } from '../repositories/user.repository.js';
-import {
-  initializePaystackSubscription,
-  isPaystackConfigured,
-  verifyPaystackPayment,
-} from '../payments/paystack.js';
+import { verifyPaystackPayment } from '../payments/paystack.js';
 import { entitlementService } from './entitlement.service.js';
-import { ApiError, ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
 import type { SubscriptionPlanSlug, SubscriptionStatus } from '../types/index.js';
 
 const BASIC_PLAN: SubscriptionPlanSlug = 'basic';
-
-function frontendSubscriptionReturnUrl(): string {
-  const fallback = `${env.PRIMARY_CLIENT_ORIGIN}/auth/complete-subscription`;
-  const configured = env.PAYSTACK_CALLBACK_URL;
-  if (!configured) return fallback;
-  try {
-    const url = new URL(configured);
-    if (url.pathname.includes('/api/')) return fallback;
-    return configured;
-  } catch {
-    return fallback;
-  }
-}
-
-function subscriptionCallbackUrl(): string {
-  return frontendSubscriptionReturnUrl();
-}
-
-function basicPlanCode(): string {
-  return env.PAYSTACK_BASIC_PLAN_CODE ?? '';
-}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -68,19 +42,33 @@ function isSubscriptionCharge(data: Record<string, unknown>, reference?: string)
 export const subscriptionService = {
   async listPlans() {
     const plans = await subscriptionPlanRepository.findAll();
-    if (plans.length > 0) return plans;
-    await seedSubscriptionPlans();
-    return subscriptionPlanRepository.findAll();
+    if (plans.length === 0) {
+      await seedSubscriptionPlans();
+    }
+    const next = await subscriptionPlanRepository.findAll();
+    return next.filter((plan) => plan.slug !== 'free');
   },
 
   async ensureFreePlanForCustomer(userId: string) {
+    return this.ensureBasicPlanForCustomer(userId);
+  },
+
+  async ensureBasicPlanForCustomer(userId: string) {
     const customer = await customerRepository.findByUserId(userId);
     if (!customer) return null;
     const existing = await subscriptionRepository.findByCustomer(customer._id.toString());
-    if (existing) return existing;
+    if (existing) {
+      if (existing.planSlug === 'free') {
+        existing.planSlug = 'basic';
+        existing.status = 'active';
+        if (!existing.provider) existing.provider = 'none';
+        await existing.save();
+      }
+      return existing;
+    }
     return subscriptionRepository.create({
       customer: customer._id,
-      planSlug: 'free',
+      planSlug: 'basic',
       status: 'active',
       provider: 'none',
       currentPeriodStart: new Date(),
@@ -92,8 +80,8 @@ export const subscriptionService = {
     if (!customer) throw new NotFoundError('Customer profile not found');
     const subscription =
       (await subscriptionRepository.findByCustomer(customer._id.toString())) ??
-      (await this.ensureFreePlanForCustomer(userId));
-    const plan = await subscriptionPlanRepository.findBySlug(subscription?.planSlug ?? 'free');
+      (await this.ensureBasicPlanForCustomer(userId));
+    const plan = await subscriptionPlanRepository.findBySlug(subscription?.planSlug ?? 'basic');
     const entitlements = await entitlementService.getCustomerEntitlements(userId);
     return {
       subscription,
@@ -104,94 +92,21 @@ export const subscriptionService = {
       allowedServiceTypes: entitlements.allowedServiceTypes,
       restrictedServiceTypes: entitlements.restrictedServiceTypes,
       memberDiscountPercent: entitlementService.getMemberDiscountPercent(
-        subscription?.planSlug ?? 'free',
+        subscription?.planSlug ?? 'basic',
       ),
     };
   },
 
   async checkout(userId: string, requestedPlan?: string) {
+    void userId;
     const planSlug = (requestedPlan ?? BASIC_PLAN) as SubscriptionPlanSlug;
     if (planSlug === 'premium') {
       throw new ValidationError('Premium is coming soon and is not available for purchase yet.');
     }
-    if (planSlug !== BASIC_PLAN) {
-      throw new ValidationError('Only the Basic plan can be purchased.');
+    if (planSlug === BASIC_PLAN) {
+      throw new ValidationError('Basic is free and does not require payment.');
     }
-    if (!isPaystackConfigured() || !basicPlanCode()) {
-      throw new ApiError(
-        503,
-        'Subscription billing is not configured yet. Contact support or try again later.',
-      );
-    }
-
-    const user = await userRepository.findById(userId);
-    if (!user) throw new NotFoundError('Customer account not found');
-    let customer = await customerRepository.findByUserId(userId);
-    if (!customer) {
-      customer = await customerRepository.create({ userId: user._id, emergencyContacts: [] });
-    }
-    await seedSubscriptionPlans();
-
-    const existing = await subscriptionRepository.findByCustomer(customer._id.toString());
-    if (existing?.planSlug === 'basic' && existing.status === 'active') {
-      throw new ConflictError('Your Basic subscription is already active.');
-    }
-
-    const amountGhs = env.SUBSCRIPTION_BASIC_PRICE_GHS;
-    const reference = `RR_SUB_${customer._id.toString()}_${Date.now()}`;
-    const callbackUrl = subscriptionCallbackUrl();
-
-    logger.info('Initializing subscription checkout', {
-      event: 'subscription.checkout.initialized',
-      customerId: customer._id.toString(),
-      planSlug: BASIC_PLAN,
-      reference,
-    });
-
-    const initialized = await initializePaystackSubscription({
-      email: user.email,
-      amountGhs,
-      reference,
-      planCode: basicPlanCode(),
-      callbackUrl,
-      metadata: {
-        purpose: 'subscription',
-        planSlug: BASIC_PLAN,
-        customerId: customer._id.toString(),
-      },
-    });
-
-    await subscriptionCheckoutRepository.create({
-      customer: customer._id,
-      user: user._id,
-      planSlug: BASIC_PLAN,
-      provider: 'paystack',
-      providerPlanCode: basicPlanCode(),
-      reference: initialized.reference,
-      amountGhs,
-      amountPesewas: Math.round(amountGhs * 100),
-      currency: 'GHS',
-      status: 'pending',
-      authorizationUrl: initialized.authorizationUrl,
-      accessCode: initialized.accessCode,
-    });
-
-    await subscriptionRepository.upsertForCustomer(customer._id.toString(), {
-      customer: customer._id,
-      planSlug: existing?.planSlug === 'basic' ? 'basic' : existing?.planSlug ?? 'free',
-      status: existing?.status === 'active' && existing.planSlug === 'basic' ? 'active' : 'incomplete',
-      provider: 'paystack',
-      providerPlanCode: basicPlanCode(),
-      lastTransactionReference: initialized.reference,
-    });
-
-    return {
-      authorizationUrl: initialized.authorizationUrl,
-      reference: initialized.reference,
-      callbackUrl,
-      publicKey: env.PAYSTACK_PUBLIC_KEY,
-      planSlug: BASIC_PLAN,
-    };
+    throw new ValidationError('This plan is not available for purchase.');
   },
 
   /** @deprecated Use checkout. Kept so older clients posting /subscriptions/upgrade still work. */
@@ -485,7 +400,7 @@ export async function seedSubscriptionPlans(): Promise<void> {
     slug: 'basic',
     name: 'Basic',
     description:
-      'Roadside help for common issues, mechanic discovery, profiles, and ratings. Towing, fuel delivery, and accident services are reserved for Premium.',
+      'Roadside help for common issues, provider discovery, profiles, and ratings.',
     monthlyPriceGhs: env.SUBSCRIPTION_BASIC_PRICE_GHS,
     features: [
       'mechanic_discovery',

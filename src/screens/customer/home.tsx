@@ -21,10 +21,10 @@ import { Avatar } from '@/components/ui/avatar';
 import { StatusChip } from '@/components/ui/status-chip';
 import { EmptyState } from '@/components/empty-state';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
+import { BASIC_INCLUDED_SERVICES } from '@/lib/plan-services';
 import { DEFAULT_PICKUP_LOCATION } from '@/lib/locations';
-import { useNearbyMechanics, useRequests, useServiceTypes, useSubscription } from '@/hooks/useApi';
+import { useNearbyMechanics, useRequests, useServiceTypes } from '@/hooks/useApi';
 import type { RescueRequestDto, ServiceType } from '@/api/types';
-import { useToast } from '@/components/ui/toast';
 import { ensureArray } from '@/lib/ensure-array';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -56,20 +56,12 @@ export function CustomerHome({
     DEFAULT_PICKUP_LOCATION.longitude,
   );
   const { data: serviceTypeList } = useServiceTypes();
-  const { data: membership } = useSubscription();
-  const { toast } = useToast();
   const requests = ensureArray(requestList);
   const mechanics = ensureArray(mechanicList);
   const serviceTypes = ensureArray(serviceTypeList);
-  const restricted = new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']);
 
   const requestService = (type?: ServiceType) => {
-    if (type && restricted.has(type)) {
-      toast({
-        type: 'info',
-        title: `${serviceTypeConfig[type].label} is not included in your Basic plan.`,
-        description: 'Upgrade to Premium to access this service. Premium is coming soon.',
-      });
+    if (type && !BASIC_INCLUDED_SERVICES.includes(type)) {
       return;
     }
     onRequestHelp(type);
@@ -79,10 +71,11 @@ export function CustomerHome({
   const activeRequest =
     latestRequest && ACTIVE_STATUSES.has(latestRequest.status) ? latestRequest : undefined;
   const recent = requests.slice(0, 5);
-  const quickServices = (serviceTypes.length
+  const catalogServices = (serviceTypes.length
     ? serviceTypes.map((s) => s.slug)
-    : (['towing', 'flat-tire', 'battery', 'lockout', 'fuel', 'accident', 'other'] as ServiceType[])
-  );
+    : BASIC_INCLUDED_SERVICES
+  ).filter((type) => BASIC_INCLUDED_SERVICES.includes(type));
+  const quickServices = catalogServices;
 
   const primaryServices = quickServices.slice(0, 4);
   const secondaryServices = quickServices.slice(4);
@@ -141,9 +134,6 @@ export function CustomerHome({
                   <Icon className="h-6 w-6" />
                 </div>
                 <span className="text-xs font-semibold text-center leading-tight">{config.label}</span>
-                {restricted.has(type) && (
-                  <span className="text-[10px] font-semibold text-muted-foreground">Premium</span>
-                )}
               </button>
             );
           })}
@@ -187,12 +177,12 @@ export function CustomerHome({
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {activeRequest.status === 'awaiting_confirmation'
-                  ? 'Your mechanic requested confirmation. Review the service and confirm or report an issue.'
+                  ? 'Your provider requested confirmation. Review the service and confirm or report an issue.'
                   : activeRequest.status === 'issue_reported'
                     ? 'Your issue report is open. This service stays active until it is resolved.'
                     : activeRequest.mechanic
                       ? `${mechanicDisplayName(activeRequest.mechanic)} · ${activeRequest.pickupLocation.address}`
-                      : `Matching mechanic near ${activeRequest.pickupLocation.address}`}
+                      : `Matching provider near ${activeRequest.pickupLocation.address}`}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -202,15 +192,15 @@ export function CustomerHome({
 
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
-          <h2 className="font-display text-base font-bold">Nearby Mechanics</h2>
+          <h2 className="font-display text-base font-bold">Nearby Providers</h2>
         </div>
         {mechanicsLoading ? (
-          <p className="text-sm text-muted-foreground px-1">Loading mechanics…</p>
+          <p className="text-sm text-muted-foreground px-1">Loading providers…</p>
         ) : mechanics.length === 0 ? (
           <EmptyState
             icon={<Wrench className="h-10 w-10" />}
-            title="No nearby mechanics"
-            description="Available mechanics in Accra will appear here."
+            title="No nearby providers"
+            description="Available providers in Accra will appear here."
           />
         ) : (
           <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">

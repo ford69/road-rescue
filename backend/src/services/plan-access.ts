@@ -17,7 +17,9 @@ export function isPaidCustomerPlan(
   planSlug: SubscriptionPlanSlug,
   status: string,
 ): boolean {
-  return (planSlug === 'basic' || planSlug === 'premium') && isSubscriptionActive(status);
+  if (!isSubscriptionActive(status)) return false;
+  // Legacy `free` records are treated as Basic (the free customer tier).
+  return planSlug === 'basic' || planSlug === 'premium' || planSlug === 'free';
 }
 
 export function planAllowsService(

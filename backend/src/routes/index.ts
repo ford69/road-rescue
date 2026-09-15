@@ -167,6 +167,7 @@ router.get('/mechanics/:id/reviews', asyncHandler(mechanicController.publicRevie
 router.get('/mechanics/:id', asyncHandler(mechanicController.publicProfile));
 
 router.get('/notifications', asyncHandler(notificationController.list));
+router.post('/notifications/:id/read', asyncHandler(notificationController.markRead));
 router.post('/notifications/read-all', asyncHandler(notificationController.markAllRead));
 
 router.post(

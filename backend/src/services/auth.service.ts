@@ -128,10 +128,10 @@ export const authService = {
     });
 
     await customerRepository.create({ userId: user._id, emergencyContacts: [] });
-    await subscriptionService.ensureFreePlanForCustomer(user._id.toString());
+    await subscriptionService.ensureBasicPlanForCustomer(user._id.toString());
     await notificationRepository.create({
       title: 'Welcome to Road Rescue Ghana',
-      body: 'Verify your email and complete Basic membership to start requesting roadside help.',
+      body: 'Verify your email to start requesting roadside help. You are on the Basic plan at no charge.',
       recipient: user._id,
       type: 'success',
     });
@@ -157,7 +157,7 @@ export const authService = {
     });
     return {
       ...registrationPendingResponse(user.email, verification.token),
-      requiresSubscription: true,
+      requiresSubscription: false,
       user: await presentAuthUser(user),
       tokens,
     };
@@ -216,15 +216,15 @@ export const authService = {
           throw conflict;
         }
         throw new ConflictError(
-          'Registration was interrupted by a stale mechanic record. Please submit the form again.',
+          'Registration was interrupted by a stale provider record. Please submit the form again.',
         );
       }
       throw error;
     }
 
     await notificationRepository.create({
-      title: 'Mechanic application received',
-      body: 'Your Road Rescue Ghana mechanic profile is pending verification.',
+      title: 'Provider application received',
+      body: 'Your Road Rescue Ghana provider profile is pending verification.',
       recipient: user._id,
       type: 'info',
     });

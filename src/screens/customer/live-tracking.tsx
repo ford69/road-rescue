@@ -139,7 +139,7 @@ export function LiveTracking({
   const displayStatus = liveStatus ?? active.status;
   const phase = toPhase(displayStatus);
   const mechanic = active.mechanic;
-  const name = mechanic ? mechanicDisplayName(mechanic) : 'Waiting for mechanic';
+  const name = mechanic ? mechanicDisplayName(mechanic) : 'Waiting for provider';
   const phone = mechanic?.userId?.phone;
   const serviceLabel = serviceTypeConfig[active.serviceType]?.label ?? active.serviceType;
   const canCancel = displayStatus === 'requested';
@@ -155,13 +155,13 @@ export function LiveTracking({
       icon: <CheckCircle2 className="h-5 w-5" />,
     },
     {
-      title: mechanic ? 'Mechanic assigned' : 'Waiting for mechanic',
+      title: mechanic ? 'Provider assigned' : 'Waiting for provider',
       time: mechanic ? 'Just now' : 'Live',
       status: mechanic ? ('done' as const) : ('current' as const),
       icon: <CheckCircle2 className="h-5 w-5" />,
     },
     {
-      title: mechanic ? `${name.split(' ')[0]} is on the way` : 'Mechanic en route',
+      title: mechanic ? `${name.split(' ')[0]} is on the way` : 'Provider en route',
       time: phase === 'enroute' ? 'Now' : undefined,
       status:
         phase === 'enroute'
@@ -172,7 +172,7 @@ export function LiveTracking({
       icon: <Navigation2 className="h-5 w-5" />,
     },
     {
-      title: 'Mechanic arrived',
+      title: 'Provider arrived',
       status:
         phase === 'arrived'
           ? ('current' as const)
@@ -235,7 +235,7 @@ export function LiveTracking({
       toast({
         type: 'error',
         title: 'Phone unavailable',
-        description: 'The mechanic has not provided a contact number.',
+        description: 'The provider has not provided a contact number.',
       });
       return;
     }
@@ -285,7 +285,7 @@ export function LiveTracking({
       await requestsApi.reportIssue(active._id, issueReason.trim());
       await reload();
       setIssueOpen(false);
-      toast({ type: 'success', title: 'Issue reported', description: 'Support and your mechanic have been notified.' });
+      toast({ type: 'success', title: 'Issue reported', description: 'Support and your provider have been notified.' });
     } catch (error) {
       toast({
         type: 'error',
@@ -385,7 +385,7 @@ export function LiveTracking({
                 {phase === 'waiting' ? 'Status' : phase === 'enroute' ? 'Next update' : 'Status'}
               </p>
               <p className="font-display text-2xl font-bold capitalize">
-                {phase === 'waiting' ? 'Waiting for mechanic' : phase}
+                {phase === 'waiting' ? 'Waiting for provider' : phase}
               </p>
             </div>
             <button onClick={() => setSheetExpanded((p) => !p)} className="rounded-xl p-2 hover:bg-accent">
@@ -404,7 +404,7 @@ export function LiveTracking({
                     {mechanic.rating.toFixed(1)} ({mechanic.reviewCount})
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nearby mechanics can accept this job</p>
+                  <p className="text-sm text-muted-foreground">Nearby providers can accept this job</p>
                 )}
               </div>
               {mechanic && (
@@ -455,7 +455,7 @@ export function LiveTracking({
                 <div className="space-y-3 rounded-xl border border-border bg-accent/50 p-4">
                   <p className="font-semibold">Service Completed</p>
                   <p className="text-sm text-muted-foreground">
-                    Your mechanic has requested confirmation that the service has been completed.
+                    Your provider has requested confirmation that the service has been completed.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {serviceLabel} · {new Date(active.createdAt).toLocaleString('en-GH')}
@@ -488,7 +488,7 @@ export function LiveTracking({
               {phase === 'completed' && (
                 <div className="space-y-2">
                   <p className="rounded-xl bg-accent px-4 py-3 text-sm">
-                    This service is complete. Any payment to your mechanic happens outside Road Rescue.
+                    This service is complete. Any payment to your provider happens outside Road Rescue.
                   </p>
                   <Button
                     fullWidth

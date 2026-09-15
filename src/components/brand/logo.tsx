@@ -35,16 +35,46 @@ export function Logo({
   const resolvedHeight = height ?? sizeHeights[size];
   const src = logoSources[variant];
 
+  const isIcon = variant === 'icon';
   const image = (
     <img
       src={src}
-      alt="Road Rescue"
-      className={cn('w-auto max-w-[min(100%,280px)] object-contain object-left', className)}
-      style={{ height: resolvedHeight }}
+      alt={isIcon ? '' : 'Road Rescue'}
+      className={cn(
+        'object-contain',
+        isIcon
+          ? 'shrink-0 rounded-lg'
+          : 'w-auto max-w-[min(100%,280px)] object-left',
+        className,
+      )}
+      style={
+        isIcon
+          ? { height: resolvedHeight, width: resolvedHeight }
+          : { height: resolvedHeight }
+      }
       height={resolvedHeight}
+      width={isIcon ? resolvedHeight : undefined}
       loading="eager"
       decoding="async"
     />
+  );
+
+  const mark = isIcon ? (
+    <span className="inline-flex items-center gap-2.5">
+      {image}
+      <span
+        className={cn(
+          'font-display font-bold lowercase tracking-tight text-white',
+          size === 'sm' && 'text-base',
+          size === 'md' && 'text-lg',
+          (size === 'lg' || size === 'xl') && 'text-2xl',
+        )}
+      >
+        roadrescue
+      </span>
+    </span>
+  ) : (
+    image
   );
 
   if (to) {
@@ -55,10 +85,10 @@ export function Logo({
         className="inline-flex shrink-0 items-center"
         aria-label="Road Rescue home"
       >
-        {image}
+        {mark}
       </Link>
     );
   }
 
-  return image;
+  return mark;
 }
