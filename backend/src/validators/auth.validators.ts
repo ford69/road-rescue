@@ -78,6 +78,12 @@ export const registerMechanicSchema = registerCustomerSchema.extend({
     z.array(mechanicSpecialtyEnum).min(1),
   ),
   truck: z.string().optional(),
+  planSlug: z.enum([
+    'provider_monthly',
+    'provider_quarterly',
+    'provider_semiannual',
+    'provider_annual',
+  ]),
 });
 
 export const loginSchema = z.object({
@@ -92,6 +98,10 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   token: z.string().min(10),
   password: passwordSchema,
+});
+
+export const completeMechanicRegistrationSchema = z.object({
+  reference: z.string().min(8),
 });
 
 export const verifyEmailSchema = z.object({

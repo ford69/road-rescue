@@ -11,10 +11,9 @@ import {
   Settings,
   User,
   Wrench,
-  CreditCard,
-  DollarSign,
   Moon,
   Sun,
+  Sparkles,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +29,8 @@ import { mechanicsApi, subscriptionsApi, vehiclesApi } from '@/api/repositories'
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import { SubscriptionPlanPicker } from '@/components/subscriptions/plan-picker';
-import type { MechanicDto, ProviderPayoutInfoDto } from '@/api/types';
+import type { MechanicDto } from '@/api/types';
+import { DISPLAY_RATING } from '@/lib/ratings';
 import { serviceTypeConfig } from '@/lib/service-config';
 import { ensureArray } from '@/lib/ensure-array';
 
@@ -63,7 +63,6 @@ export function Profile({
   const [showVehicleForm, setShowVehicleForm] = React.useState(false);
   const [vehicleForm, setVehicleForm] = React.useState(emptyVehicleForm);
   const [addingVehicle, setAddingVehicle] = React.useState(false);
-  const [payoutInfo, setPayoutInfo] = React.useState<ProviderPayoutInfoDto | null>(null);
   const [mechanicProfile, setMechanicProfile] = React.useState<MechanicDto | null>(null);
   const [membershipLabel, setMembershipLabel] = React.useState('Member');
   const [activePanel, setActivePanel] = React.useState<ProfilePanel>(
@@ -82,7 +81,6 @@ export function Profile({
 
   React.useEffect(() => {
     if (user?.role !== 'mechanic') return;
-    void mechanicsApi.payoutInfo().then(setPayoutInfo).catch(() => undefined);
     void mechanicsApi.profile().then(setMechanicProfile).catch(() => undefined);
   }, [user?.role]);
 
@@ -143,25 +141,23 @@ export function Profile({
   return (
     <div className="space-y-4 pb-4">
       <Card className="overflow-hidden border-0">
-        <div className="h-24 bg-gradient-to-br from-foreground to-foreground/80 dark:from-zinc-800 dark:to-zinc-900" />
+        <div className="h-24 bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-zinc-800 dark:to-zinc-900" />
         <div className="px-5 pb-5">
-          <div className="-mt-10 flex items-end gap-4">
-            <Avatar
-              src={avatarSrc}
-              alt={fullName}
-              fallback={initials}
-              size="xl"
-              className="ring-4 ring-card"
-            />
-            <div className="pb-1">
-              <h2 className="font-display text-xl font-bold tracking-tight">{fullName}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="primary">
-                  <Star className="h-3 w-3 fill-current" />
-                  {roleLabel}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{user?.phone ?? '+233'}</span>
-              </div>
+          <Avatar
+            src={avatarSrc}
+            alt={fullName}
+            fallback={initials}
+            size="xl"
+            className="-mt-10 ring-4 ring-card"
+          />
+          <div className="mt-3">
+            <h2 className="font-display text-xl font-bold tracking-tight text-foreground">{fullName}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <Badge variant="primary">
+                <Star className="h-3 w-3 fill-current" />
+                {roleLabel}
+              </Badge>
+              <span className="text-sm text-muted-foreground">{user?.phone ?? '+233'}</span>
             </div>
           </div>
         </div>
@@ -188,7 +184,7 @@ export function Profile({
           <div className="p-4 text-center">
             <p className="font-display text-2xl font-bold">
               {user?.role === 'mechanic'
-                ? `⭐ ${(mechanicProfile?.rating ?? 0).toFixed(1)}`
+                ? `⭐ ${DISPLAY_RATING.toFixed(1)}`
                 : completedCount}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -348,27 +344,9 @@ export function Profile({
                 onClick={() => setActivePanel('service')}
               />
               <SettingRow
-                icon={<CreditCard className="h-5 w-5" />}
-                label="Payment information"
-                value={payoutInfo?.configured ? 'Configured' : 'Pending'}
-                onClick={() => {
-                  if (payoutInfo?.managementUrl) {
-                    window.open(payoutInfo.managementUrl, '_blank', 'noopener,noreferrer');
-                    return;
-                  }
-                  toast({
-                    type: 'info',
-                    title: 'Payment account',
-                    description:
-                      payoutInfo?.message ??
-                      'Your payments are settled through our payment provider. Payout management will be available once your payment account is configured.',
-                  });
-                }}
-              />
-              <SettingRow
-                icon={<DollarSign className="h-5 w-5" />}
-                label="Earnings & payments"
-                onClick={() => navigate('/mechanic/earnings')}
+                icon={<Sparkles className="h-5 w-5" />}
+                label="Subscription"
+                onClick={() => navigate('/mechanic/subscription')}
               />
               <SettingRow
                 icon={<HelpCircle className="h-5 w-5" />}
@@ -419,7 +397,7 @@ export function Profile({
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        Road Rescue Ghana v1.0.0 · ₵ Cedis
+        Road Rescue Ghana v1.0.0
       </p>
 
       <Sheet open={activePanel !== null} onOpenChange={(open) => !open && setActivePanel(null)}>

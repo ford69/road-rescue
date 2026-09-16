@@ -19,6 +19,7 @@ import { StatusChip } from '@/components/ui/status-chip';
 import { MapView, MapFloatingCard } from '@/components/map-view';
 import { Timeline } from '@/components/timeline';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
+import { DISPLAY_RATING, DISPLAY_REVIEW_COUNT } from '@/lib/ratings';
 import { useRequests } from '@/hooks/useApi';
 import { requestsApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
@@ -401,7 +402,7 @@ export function LiveTracking({
                 {mechanic ? (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                    {mechanic.rating.toFixed(1)} ({mechanic.reviewCount})
+                    {DISPLAY_RATING.toFixed(1)} ({DISPLAY_REVIEW_COUNT})
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Nearby providers can accept this job</p>

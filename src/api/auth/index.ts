@@ -1,6 +1,6 @@
 import { clearAuthState } from '../client/clear-auth-state';
 import { apiRequest } from '../client/http';
-import type { ApiUser, AuthTokens, ServiceType } from '../types';
+import type { ApiUser, AuthTokens, ProviderPlanSlug, ServiceType } from '../types';
 import { tokenStore } from '../utils/tokenStore';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
@@ -14,6 +14,13 @@ export interface AuthResult {
 export interface RegisterResult {
   requiresEmailVerification: boolean;
   requiresSubscription?: boolean;
+  requiresAccount?: boolean;
+  authorizationUrl?: string;
+  reference?: string;
+  accessCode?: string;
+  publicKey?: string;
+  callbackUrl?: string;
+  planSlug?: string;
   email?: string;
   emailVerificationToken?: string;
   user?: ApiUser;
@@ -39,6 +46,7 @@ export interface RegisterMechanicInput extends RegisterCustomerInput {
   longitude: number;
   specialties: ServiceType[];
   truck?: string;
+  planSlug: ProviderPlanSlug;
 }
 
 function authLog(event: string, extra?: Record<string, unknown>): void {
@@ -113,10 +121,20 @@ export const authApi = {
       formData.append('specialties', specialty);
     }
     if (input.truck) formData.append('truck', input.truck);
+    formData.append('planSlug', input.planSlug);
 
     const data = await apiRequest<RegisterResult>('/auth/register/mechanic', {
       method: 'POST',
       body: formData,
+    });
+    authLog('auth.registration.checkout.started', { role: 'mechanic' });
+    return data;
+  },
+
+  async completeMechanicRegistration(reference: string) {
+    const data = await apiRequest<RegisterResult>('/auth/register/mechanic/complete', {
+      method: 'POST',
+      body: JSON.stringify({ reference }),
     });
     authLog('auth.registration.success', { role: 'mechanic' });
     return data;

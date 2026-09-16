@@ -76,11 +76,13 @@ export const emailService = {
     email: string;
     firstName: string;
     token: string;
+    audience?: 'customer' | 'mechanic';
   }): Promise<SendEmailResult> {
     const actionUrl = buildAuthActionUrl('/auth/verify-email', input.token);
     const content = buildVerifyEmailContent({
       firstName: input.firstName,
       actionUrl,
+      audience: input.audience,
     });
 
     try {

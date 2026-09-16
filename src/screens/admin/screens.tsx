@@ -28,6 +28,7 @@ import { useToast } from '@/components/ui/toast';
 import { adminApi } from '@/api/repositories';
 import { formatGhs } from '@/lib/currency';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
+import { DISPLAY_RATING } from '@/lib/ratings';
 import type { AdminDashboardDto, MechanicDto } from '@/api/types';
 import { MechanicVerificationSheet } from '@/components/admin/mechanic-verification-sheet';
 
@@ -305,7 +306,7 @@ export function AdminMechanics() {
                       <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
                         <span className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-warning text-warning" />
-                          {mechanic.rating.toFixed(1)} · {mechanic.completedJobs} jobs
+                          {DISPLAY_RATING.toFixed(1)} · {mechanic.completedJobs} jobs
                         </span>
                         <Badge variant={mechanic.availability ? 'primary' : 'subtle'} dot={mechanic.availability}>
                           {mechanic.availability ? 'Online' : 'Offline'}
@@ -328,69 +329,6 @@ export function AdminMechanics() {
                 selectedMechanic && void reviewMechanic(selectedMechanic._id, 'rejected', reload)
               }
             />
-          </div>
-        );
-      }}
-    </AdminState>
-  );
-}
-
-export function AdminPayments() {
-  return (
-    <AdminState>
-      {(data) => {
-        const paid = data.payments.filter((payment) => payment.status === 'paid');
-        const pending = data.payments.filter((payment) => payment.status === 'pending');
-        return (
-          <div className="space-y-5 pb-4">
-            <PageHeader
-              title="Payments"
-              description="Review service transactions and payment status."
-              action={
-                <Button variant="outline" size="md">
-                  <Download className="h-4 w-4" />
-                  Export
-                </Button>
-              }
-            />
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              <SummaryCard icon={<CreditCard />} label="Total paid" value={formatGhs(paid.reduce((sum, item) => sum + item.amount, 0))} />
-              <SummaryCard icon={<CheckCircle2 />} label="Paid transactions" value={String(paid.length)} />
-              <SummaryCard icon={<Clock />} label="Pending" value={String(pending.length)} />
-            </div>
-            <Card className="divide-y divide-border overflow-hidden">
-              {data.payments.length === 0 ? (
-                <p className="p-8 text-center text-sm text-muted-foreground">No payments recorded.</p>
-              ) : (
-                data.payments.map((payment) => (
-                  <div key={payment._id} className="grid gap-2 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-                    <div>
-                      <p className="font-mono text-sm font-semibold">
-                        {payment.transactionReference ?? payment._id.slice(-10).toUpperCase()}
-                      </p>
-                      <p className="text-xs capitalize text-muted-foreground">
-                        {payment.paymentMethod.replace('_', ' ')} ·{' '}
-                        {new Date(payment.createdAt).toLocaleDateString('en-GH')}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        payment.status === 'paid'
-                          ? 'success'
-                          : payment.status === 'failed'
-                            ? 'critical'
-                            : payment.status === 'refunded'
-                              ? 'warning'
-                              : 'subtle'
-                      }
-                    >
-                      {payment.status}
-                    </Badge>
-                    <p className="font-display text-lg font-bold">{formatGhs(payment.amount)}</p>
-                  </div>
-                ))
-              )}
-            </Card>
           </div>
         );
       }}

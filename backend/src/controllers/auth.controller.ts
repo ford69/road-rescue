@@ -25,6 +25,12 @@ export const authController = {
       authenticated: Boolean(req.user),
     });
     const data = await authService.registerMechanic(req.body, req.file, res);
+    return sendSuccess(res, data, 'Authenticate your card to create your provider account.', 201);
+  },
+
+  completeMechanicRegistration: async (req: Request, res: Response) => {
+    const reference = typeof req.body?.reference === 'string' ? req.body.reference : '';
+    const data = await authService.completeMechanicRegistration(reference, res);
     return sendSuccess(res, data, 'Please verify your email address before continuing.', 201);
   },
 

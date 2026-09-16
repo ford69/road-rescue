@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { HelpCircle, Mail, MessageSquareWarning, Phone } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Mail, MessageSquareWarning, Phone } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input, Textarea } from '@/components/ui/input';
@@ -20,6 +21,7 @@ type SupportCategory = (typeof categories)[number]['value'];
 
 export function HelpSupport() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [category, setCategory] = React.useState<SupportCategory>('complaint');
   const [subject, setSubject] = React.useState('');
@@ -70,6 +72,20 @@ export function HelpSupport() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-4">
+      <button
+        type="button"
+        onClick={() => {
+          if (user?.role === 'admin') {
+            navigate('/admin/home');
+            return;
+          }
+          navigate(`/${user?.role ?? 'customer'}/profile`);
+        }}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
       <div>
         <div className="flex items-center gap-2">
           <HelpCircle className="h-5 w-5 text-primary-700" />

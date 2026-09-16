@@ -17,6 +17,9 @@ import type { ApiUser } from '@/api/types';
 import { postAuthPath, rememberPendingEmail } from '@/lib/auth-gate';
 import { parseRegisterRoleParam, registerRoleQuery, roleLabel } from '@/lib/role-labels';
 import { prepareSelfieForUpload } from '@/lib/prepare-selfie';
+import { subscriptionsApi } from '@/api/repositories';
+import { formatGhs } from '@/lib/currency';
+import type { ProviderPlanDto, ProviderPlanSlug } from '@/api/types';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -177,8 +180,6 @@ const mechanicSpecialties = [
   'flat-tire',
   'battery',
   'lockout',
-  'fuel',
-  'accident',
   'other',
 ] as const;
 
@@ -188,9 +189,12 @@ export function RegisterScreen() {
   const { setUser } = useAuth();
   const [search, setSearch] = useSearchParams();
   const [submitting, setSubmitting] = React.useState(false);
+  const [completingPaystack, setCompletingPaystack] = React.useState(false);
   const [basicSelected, setBasicSelected] = React.useState(true);
-  const [step, setStep] = React.useState<1 | 2 | 3>(1);
+  const [step, setStep] = React.useState<1 | 2 | 3 | 4>(1);
   const [selfie, setSelfie] = React.useState<File | null>(null);
+  const [selectedPlan, setSelectedPlan] = React.useState<ProviderPlanSlug>('provider_annual');
+  const [providerPlans, setProviderPlans] = React.useState<ProviderPlanDto[]>([]);
   const [specialties, setSpecialties] = React.useState<(typeof mechanicSpecialties)[number][]>([
     'battery',
     'flat-tire',
@@ -216,8 +220,10 @@ export function RegisterScreen() {
   });
   const role = form.watch('role');
   const password = form.watch('password');
-  const totalSteps = role === 'mechanic' ? 3 : 2;
+  const totalSteps = role === 'mechanic' ? 4 : 2;
   const roleParam = search.get('role');
+  const paystackReference = search.get('reference') || search.get('trxref');
+  const chosenPlan = providerPlans.find((plan) => plan.slug === selectedPlan);
 
   React.useEffect(() => {
     const next = parseRegisterRoleParam(roleParam);
@@ -227,18 +233,107 @@ export function RegisterScreen() {
     }
   }, [form, roleParam]);
 
+  React.useEffect(() => {
+    if (role !== 'mechanic') return;
+    let cancelled = false;
+    void subscriptionsApi
+      .providerPlans()
+      .then((plans) => {
+        if (!cancelled) setProviderPlans(plans);
+      })
+      .catch(() => {
+        /* catalog still has hardcoded fallbacks on review */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  React.useEffect(() => {
+    if (!paystackReference || parseRegisterRoleParam(roleParam) !== 'mechanic') return;
+    let cancelled = false;
+    setCompletingPaystack(true);
+    void (async () => {
+      try {
+        const result = await authApi.completeMechanicRegistration(paystackReference);
+        if (cancelled) return;
+        rememberPendingEmail(result.email || '');
+        toast({
+          type: 'success',
+          title: 'Card authenticated',
+          description: 'Check your email to verify your Road Rescue Provider account.',
+        });
+        navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || '')}`, {
+          replace: true,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        toast({
+          type: 'error',
+          title: 'Could not finish registration',
+          description: userFacingAuthError(error, 'Card authentication could not be confirmed.'),
+        });
+        setCompletingPaystack(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, paystackReference, roleParam, toast]);
+
   const advanceStep = async () => {
-    const fields =
-      step === 1
-        ? (['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'] as const)
-        : (['garageName', 'experience', 'city', 'address'] as const);
-    const valid = await form.trigger(fields);
-    if (!valid || (step === 1 && !isValidPassword(password))) return;
     if (role === 'customer') {
+      const valid = await form.trigger([
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'password',
+        'confirmPassword',
+      ]);
+      if (!valid || !isValidPassword(password)) return;
       setStep(2);
       return;
     }
-    setStep((current) => (current === 1 ? 2 : 3));
+    if (step === 1) {
+      const valid = await form.trigger([
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'password',
+        'confirmPassword',
+        'ghanaCardNumber',
+      ]);
+      if (!valid || !isValidPassword(password)) return;
+      if (!selfie) {
+        toast({
+          type: 'error',
+          title: 'Selfie required',
+          description: 'Upload a clear photo of your face for identity verification.',
+        });
+        return;
+      }
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
+      const valid = await form.trigger(['garageName', 'experience', 'city', 'address']);
+      if (!valid) return;
+      if (specialties.length === 0) {
+        toast({
+          type: 'error',
+          title: 'Select a specialty',
+          description: 'Choose at least one roadside service.',
+        });
+        return;
+      }
+      setStep(3);
+      return;
+    }
+    if (step === 3) {
+      setStep(4);
+    }
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -293,6 +388,7 @@ export function RegisterScreen() {
               longitude: -0.187,
               specialties,
               truck: values.truck || undefined,
+              planSlug: selectedPlan,
             });
       rememberPendingEmail(result.email || values.email);
       if (values.role === 'customer') {
@@ -307,14 +403,14 @@ export function RegisterScreen() {
         });
         return;
       }
-      setUser(null);
+      if (result.authorizationUrl) {
+        window.location.assign(result.authorizationUrl);
+        return;
+      }
       toast({
-        type: 'success',
-        title: 'Account created',
-        description: 'Please verify your email address before continuing.',
-      });
-      navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || values.email)}`, {
-        replace: true,
+        type: 'error',
+        title: 'Checkout unavailable',
+        description: 'Paystack did not return a payment page.',
       });
     } catch (error) {
       toast({
@@ -338,13 +434,21 @@ export function RegisterScreen() {
 
   return (
     <AuthShell
-      title={role === 'mechanic' ? 'Create your provider account' : 'Create your Road Rescue account'}
+      title={role === 'mechanic' ? 'Become a Road Rescue Provider' : 'Create your Road Rescue account'}
       subtitle={
         role === 'customer'
           ? step === 1
             ? 'Enter your account details to get started'
             : 'Your plan — Basic is free'
-          : 'Join Road Rescue Ghana as a provider'
+          : completingPaystack
+            ? 'Confirming your card with Paystack'
+            : step === 1
+              ? 'Provider information'
+              : step === 2
+                ? 'Business details'
+                : step === 3
+                  ? 'Select subscription'
+                  : 'Review'
       }
       footer={
         <p className="text-sm text-muted-foreground">
@@ -356,13 +460,19 @@ export function RegisterScreen() {
       }
     >
       <form className="space-y-4" onSubmit={handleRegistrationSubmit}>
+        {completingPaystack && (
+          <p className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+            Authenticating your card with Paystack and creating your account. Do not close this page.
+          </p>
+        )}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
             {role === 'mechanic' ? (
               <>
-                <span>Personal</span>
+                <span>Provider info</span>
                 <span>Business</span>
-                <span>Verification</span>
+                <span>Plan</span>
+                <span>Review</span>
               </>
             ) : (
               <>
@@ -371,7 +481,7 @@ export function RegisterScreen() {
               </>
             )}
           </div>
-          <div className={`grid gap-2 ${role === 'customer' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-2 ${role === 'customer' ? 'grid-cols-2' : 'grid-cols-4'}`}>
             {Array.from({ length: totalSteps }, (_, index) => index + 1).map((item) => (
               <div
                 key={item}
@@ -436,6 +546,47 @@ export function RegisterScreen() {
                 {...form.register('confirmPassword')}
               />
             </Field>
+            {role === 'mechanic' && (
+              <>
+                <Field
+                  label="Ghana Card number"
+                  error={form.formState.errors.ghanaCardNumber?.message}
+                >
+                  <Input
+                    placeholder="GHA-123456789-0"
+                    autoComplete="off"
+                    {...form.register('ghanaCardNumber', {
+                      onChange: (event) => {
+                        event.target.value = event.target.value.toUpperCase();
+                      },
+                    })}
+                  />
+                </Field>
+                <div>
+                  <p className="mb-2 text-sm font-medium">Verification selfie</p>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-4 transition-colors hover:bg-accent">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent">
+                      <Camera className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">
+                        {selfie?.name ?? 'Take or upload a clear selfie'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        JPEG, PNG or WebP · we’ll resize large iPhone photos automatically
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                      capture="user"
+                      className="sr-only"
+                      onChange={(event) => setSelfie(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
           </>
         )}
         {role === 'customer' && step === 2 && (
@@ -506,30 +657,6 @@ export function RegisterScreen() {
             <Field label="Address" error={form.formState.errors.address?.message}>
               <Input placeholder="Spintex Road" {...form.register('address')} />
             </Field>
-          </>
-        )}
-        {role === 'mechanic' && step === 3 && (
-          <>
-            <div>
-              <h3 className="font-display text-lg font-bold">Identity verification</h3>
-              <p className="text-sm text-muted-foreground">
-                These details are reviewed securely before you can accept jobs.
-              </p>
-            </div>
-            <Field
-              label="Ghana Card number"
-              error={form.formState.errors.ghanaCardNumber?.message}
-            >
-              <Input
-                placeholder="GHA-123456789-0"
-                autoComplete="off"
-                {...form.register('ghanaCardNumber', {
-                  onChange: (event) => {
-                    event.target.value = event.target.value.toUpperCase();
-                  },
-                })}
-              />
-            </Field>
             <div>
               <p className="mb-2 text-sm font-medium">Services offered</p>
               <div className="grid grid-cols-2 gap-2">
@@ -558,30 +685,126 @@ export function RegisterScreen() {
                 })}
               </div>
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium">Verification selfie</p>
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-4 transition-colors hover:bg-accent">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent">
-                  <Camera className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
-                    {selfie?.name ?? 'Take or upload a clear selfie'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    JPEG, PNG or WebP · we’ll resize large iPhone photos automatically
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                  capture="user"
-                  className="sr-only"
-                  onChange={(event) => setSelfie(event.target.files?.[0] ?? null)}
-                />
-              </label>
-            </div>
           </>
+        )}
+        {role === 'mechanic' && step === 3 && (
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-display text-lg font-bold">Select subscription</h3>
+              <p className="text-sm font-semibold text-foreground">
+                30-day free trial. Your selected plan will be charged after your trial ends.
+              </p>
+            </div>
+            {(providerPlans.length > 0
+              ? providerPlans
+              : [
+                  {
+                    slug: 'provider_monthly' as const,
+                    name: 'Monthly',
+                    intervalLabel: 'month',
+                    priceGhs: 49.99,
+                    equivalentMonthlyGhs: 49.99,
+                    trialDays: 30,
+                    description: '',
+                    sortOrder: 1,
+                    currency: 'GHS' as const,
+                    intervalMonths: 1,
+                  },
+                  {
+                    slug: 'provider_quarterly' as const,
+                    name: '3 months',
+                    intervalLabel: '3 months',
+                    priceGhs: 129.99,
+                    equivalentMonthlyGhs: 43.33,
+                    trialDays: 30,
+                    description: '',
+                    sortOrder: 2,
+                    currency: 'GHS' as const,
+                    intervalMonths: 3,
+                  },
+                  {
+                    slug: 'provider_semiannual' as const,
+                    name: '6 months',
+                    intervalLabel: '6 months',
+                    priceGhs: 229.99,
+                    equivalentMonthlyGhs: 38.33,
+                    trialDays: 30,
+                    description: '',
+                    sortOrder: 3,
+                    currency: 'GHS' as const,
+                    intervalMonths: 6,
+                  },
+                  {
+                    slug: 'provider_annual' as const,
+                    name: 'Yearly',
+                    intervalLabel: 'year',
+                    priceGhs: 429.99,
+                    equivalentMonthlyGhs: 35.83,
+                    trialDays: 30,
+                    description: '',
+                    sortOrder: 4,
+                    currency: 'GHS' as const,
+                    intervalMonths: 12,
+                  },
+                ]
+            ).map((plan) => (
+              <button
+                key={plan.slug}
+                type="button"
+                onClick={() => setSelectedPlan(plan.slug)}
+                className={`w-full rounded-xl border p-4 text-left space-y-1 ${
+                  selectedPlan === plan.slug ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">{plan.name}</p>
+                  <p className="text-sm font-semibold">
+                    {formatGhs(plan.priceGhs, 2)}
+                    <span className="font-medium text-muted-foreground"> / {plan.intervalLabel}</span>
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        {role === 'mechanic' && step === 4 && (
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-display text-lg font-bold">Review</h3>
+              <p className="text-sm text-muted-foreground">
+                Confirm your details before Paystack card authentication.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border p-4 space-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Name: </span>
+                {form.getValues('firstName')} {form.getValues('lastName')}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Email: </span>
+                {form.getValues('email')}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Garage: </span>
+                {form.getValues('garageName')}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Plan: </span>
+                {chosenPlan
+                  ? `${chosenPlan.name} · ${formatGhs(chosenPlan.priceGhs, 2)} / ${chosenPlan.intervalLabel}`
+                  : selectedPlan}
+              </p>
+            </div>
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+              <p className="text-sm font-semibold">
+                30-day free trial. Your selected plan will be charged after your trial ends.
+              </p>
+              <p className="text-sm text-foreground">
+                No subscription payment today. A small temporary card verification/tokenization charge
+                may apply and will be refunded.
+              </p>
+            </div>
+          </div>
         )}
         <div className="flex gap-2">
           {step > 1 && (
@@ -591,7 +814,7 @@ export function RegisterScreen() {
               className="flex-1"
               disabled={submitting}
               onClick={() =>
-                setStep((current) => (current === 3 ? 2 : 1))
+                setStep((current) => (current > 1 ? ((current - 1) as typeof current) : 1))
               }
             >
               Back
@@ -602,20 +825,23 @@ export function RegisterScreen() {
             className={step > 1 ? 'flex-[2]' : 'w-full'}
             disabled={
               submitting ||
+              completingPaystack ||
               (step === 1 && !isValidPassword(password)) ||
               (role === 'customer' && step === 2 && !basicSelected)
             }
             onClick={step < totalSteps ? () => void advanceStep() : undefined}
           >
-            {submitting
-              ? role === 'mechanic'
-                ? 'Submitting…'
-                : 'Creating…'
-              : step < totalSteps
-                ? 'Continue'
-                : role === 'mechanic'
-                  ? 'Submit application'
-                  : 'Create Account & Continue'}
+            {completingPaystack
+              ? 'Finishing…'
+              : submitting
+                ? role === 'mechanic'
+                  ? 'Opening Paystack…'
+                  : 'Creating…'
+                : step < totalSteps
+                  ? 'Continue'
+                  : role === 'mechanic'
+                    ? 'Authenticate card'
+                    : 'Create Account & Continue'}
           </Button>
         </div>
       </form>
@@ -747,7 +973,7 @@ function AuthShell({
           </div>
           <div>
             <p className="font-display text-xl font-bold leading-none">Road Rescue</p>
-            <p className="text-xs text-muted-foreground">Ghana · ₵ Cedis</p>
+            <p className="text-xs text-muted-foreground">Ghana</p>
           </div>
         </div>
         <Card className="p-6 space-y-2">

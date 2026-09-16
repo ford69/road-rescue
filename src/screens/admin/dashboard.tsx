@@ -28,6 +28,7 @@ import { MapView } from '@/components/map-view';
 import { EmptyState } from '@/components/empty-state';
 import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
+import { DISPLAY_RATING } from '@/lib/ratings';
 import { useAdminDashboard } from '@/hooks/useApi';
 import { adminApi } from '@/api/repositories';
 import { useToast } from '@/components/ui/toast';
@@ -361,7 +362,7 @@ export function AdminDashboard() {
                   <div className="text-right">
                     <div className="flex items-center gap-1 justify-end">
                       <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                      <span className="text-sm font-bold">{m.rating.toFixed(1)}</span>
+                      <span className="text-sm font-bold">{DISPLAY_RATING.toFixed(1)}</span>
                     </div>
                     <Badge variant={m.availability ? 'success' : 'subtle'}>
                       {m.availability ? 'Online' : 'Offline'}

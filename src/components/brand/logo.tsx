@@ -64,13 +64,13 @@ export function Logo({
       {image}
       <span
         className={cn(
-          'font-display font-bold lowercase tracking-tight text-white',
+          'font-display font-bold tracking-tight text-white',
           size === 'sm' && 'text-base',
           size === 'md' && 'text-lg',
           (size === 'lg' || size === 'xl') && 'text-2xl',
         )}
       >
-        roadrescue
+        Road Rescue
       </span>
     </span>
   ) : (

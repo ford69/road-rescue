@@ -56,6 +56,20 @@ vi.mock('../services/entitlement.service.js', () => ({
   },
 }));
 
+vi.mock('../services/provider-onboarding.service.js', () => ({
+  isProviderOnboardingReference: (reference?: string) => Boolean(reference?.startsWith('RR_PONB_')),
+  providerOnboardingService: { complete: vi.fn() },
+}));
+
+vi.mock('../services/provider-subscription.service.js', () => ({
+  isProviderSubscriptionReference: (reference?: string) => Boolean(reference?.startsWith('RR_PSUB_')),
+  providerSubscriptionService: {
+    fulfillCardAuthorization: vi.fn(),
+    handleRecurringCharge: vi.fn(),
+    attachPaystackSubscriptionCode: vi.fn(),
+  },
+}));
+
 import { initializePaystackSubscription, verifyPaystackPayment } from '../payments/paystack.js';
 import { customerRepository } from '../repositories/customer.repository.js';
 import { userRepository } from '../repositories/user.repository.js';

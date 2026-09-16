@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
+import { DISPLAY_RATING } from '@/lib/ratings';
 import { resolveMediaUrl } from '@/lib/user-display';
 
 export function MechanicVerificationSheet({
@@ -101,7 +102,7 @@ export function MechanicVerificationSheet({
                 value={
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-4 w-4 fill-warning text-warning" />
-                    {mechanic.rating.toFixed(1)} · {mechanic.completedJobs} jobs
+                    {DISPLAY_RATING.toFixed(1)} · {mechanic.completedJobs} jobs
                   </span>
                 }
               />

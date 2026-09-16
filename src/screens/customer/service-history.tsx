@@ -19,8 +19,6 @@ import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
-import { StarRatingDisplay } from '@/components/ratings/star-rating';
-import { RateProviderSheet } from '@/components/ratings/rate-provider-sheet';
 import { PaginationBar } from '@/components/ui/pagination';
 import { requestsApi } from '@/api/repositories';
 import type { RescueRequestDto } from '@/api/types';
@@ -54,7 +52,6 @@ export function ServiceHistory({
   const [counts, setCounts] = React.useState({ total: 0, completed: 0, cancelled: 0 });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [ratingRequest, setRatingRequest] = React.useState<RescueRequestDto | null>(null);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -202,31 +199,6 @@ export function ServiceHistory({
                           Review Service
                         </Button>
                       )}
-                      {req.status === 'completed' && (
-                        <div className="mt-3 space-y-1">
-                          {req.customerRating ? (
-                            <>
-                              <StarRatingDisplay stars={req.customerRating.stars} />
-                              {req.customerRating.review && (
-                                <p className="text-xs text-muted-foreground">
-                                  Your review: “{req.customerRating.review}”
-                                </p>
-                              )}
-                            </>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setRatingRequest(req);
-                              }}
-                            >
-                              Rate Provider
-                            </Button>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -243,14 +215,6 @@ export function ServiceHistory({
           />
         </div>
       )}
-      <RateProviderSheet
-        request={ratingRequest}
-        open={Boolean(ratingRequest)}
-        onOpenChange={(open) => {
-          if (!open) setRatingRequest(null);
-        }}
-        onRated={() => void reload()}
-      />
     </div>
   );
 }

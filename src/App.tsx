@@ -24,13 +24,13 @@ import { Profile } from '@/screens/customer/profile';
 import { CustomerSubscriptionPage } from '@/screens/customer/subscription';
 import { Notifications } from '@/screens/customer/notifications';
 import { HelpSupport } from '@/screens/help-support';
-import { MechanicHome, MechanicEarnings, MechanicJobHistory } from '@/screens/mechanic/home';
+import { MechanicHome, MechanicJobHistory } from '@/screens/mechanic/home';
+import { ProviderSubscriptionPage } from '@/screens/mechanic/subscription';
 import { MechanicActiveJob } from '@/screens/mechanic/active-job';
 import { AdminDashboard } from '@/screens/admin/dashboard';
 import {
   AdminLiveJobs,
   AdminMechanics,
-  AdminPayments,
   AdminReports,
   AdminSettings,
   AdminUsers,
@@ -94,7 +94,11 @@ function ProtectedApp() {
     };
     const onSubscriptionRequired = () => {
       if (location.pathname.startsWith('/auth/complete-subscription')) return;
-      navigate('/auth/complete-subscription', { replace: true });
+      if (location.pathname.startsWith('/mechanic/subscription')) return;
+      navigate(
+        user?.role === 'mechanic' ? '/mechanic/subscription' : '/auth/complete-subscription',
+        { replace: true },
+      );
     };
     window.addEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
     window.addEventListener(SUBSCRIPTION_REQUIRED_EVENT, onSubscriptionRequired);
@@ -102,7 +106,7 @@ function ProtectedApp() {
       window.removeEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
       window.removeEventListener(SUBSCRIPTION_REQUIRED_EVENT, onSubscriptionRequired);
     };
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, user?.role]);
 
   if (loading) {
     return (
@@ -116,12 +120,18 @@ function ProtectedApp() {
     return <Navigate to={`/auth/login?next=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
+  if (!user.emailVerified) {
+    return <Navigate to="/auth/verify-email" replace />;
+  }
+
   if (user.role === 'customer' && !user.hasActiveSubscription) {
     return <Navigate to={`/auth/complete-subscription${location.search}`} replace />;
   }
 
-  if (!user.emailVerified) {
-    return <Navigate to="/auth/verify-email" replace />;
+  if (user.role === 'mechanic' && !user.hasActiveSubscription) {
+    if (!location.pathname.startsWith('/mechanic/subscription')) {
+      return <Navigate to="/mechanic/subscription" replace />;
+    }
   }
 
   return <AppShell onLogout={() => void logout()} />;
@@ -152,6 +162,12 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
     }
     if (roleParam === 'customer' && screenParam === 'mechanics' && !idParam) {
       navigate('/customer/home', { replace: true });
+    }
+    if (roleParam === 'mechanic' && screenParam === 'earnings') {
+      navigate('/mechanic/profile', { replace: true });
+    }
+    if (roleParam === 'admin' && screenParam === 'payments') {
+      navigate('/admin/home', { replace: true });
     }
   }, [idParam, navigate, roleParam, screenParam, user]);
 
@@ -301,8 +317,8 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               onOpenJob={handleOpenMechanicJob}
             />
           )}
+          {role === 'mechanic' && screen === 'subscription' && <ProviderSubscriptionPage />}
           {role === 'mechanic' && screen === 'history' && <MechanicJobHistory />}
-          {role === 'mechanic' && screen === 'earnings' && <MechanicEarnings />}
           {role === 'mechanic' && screen === 'alerts' && <Notifications controller={notifications} />}
           {role === 'mechanic' && screen === 'profile' && <Profile onSignOut={onLogout} />}
           {role === 'mechanic' && screen === 'support' && <HelpSupport />}
@@ -311,7 +327,6 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           {role === 'admin' && screen === 'track' && <AdminLiveJobs />}
           {role === 'admin' && screen === 'users' && <AdminUsers />}
           {role === 'admin' && screen === 'mechanics' && <AdminMechanics />}
-          {role === 'admin' && screen === 'payments' && <AdminPayments />}
           {role === 'admin' && (screen === 'reports' || screen === 'history') && <AdminReports />}
           {role === 'admin' && (screen === 'settings' || screen === 'profile') && (
             <AdminSettings onSignOut={onLogout} />

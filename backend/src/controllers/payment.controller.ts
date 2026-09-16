@@ -13,7 +13,16 @@ export const paymentController = {
       const value = req.query[key];
       if (typeof value === 'string' && value) params.set(key, value);
     }
-    const target = new URL(`${env.PRIMARY_CLIENT_ORIGIN}/auth/complete-subscription`);
+    const reference =
+      (typeof req.query.reference === 'string' && req.query.reference) ||
+      (typeof req.query.trxref === 'string' && req.query.trxref) ||
+      '';
+    const path = reference.startsWith('RR_PONB_')
+      ? '/auth/register?role=provider'
+      : reference.startsWith('RR_PSUB_')
+        ? '/mechanic/subscription'
+        : '/auth/complete-subscription';
+    const target = new URL(`${env.PRIMARY_CLIENT_ORIGIN}${path}`);
     params.forEach((value, key) => target.searchParams.set(key, value));
     res.redirect(302, target.toString());
   },

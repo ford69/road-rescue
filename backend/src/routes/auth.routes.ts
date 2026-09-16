@@ -16,6 +16,7 @@ import {
   loginSchema,
   registerCustomerSchema,
   registerMechanicSchema,
+  completeMechanicRegistrationSchema,
   resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
@@ -63,6 +64,12 @@ router.post(
   upload.single('selfie'),
   validateBody(registerMechanicSchema),
   asyncHandler(authController.registerMechanic),
+);
+
+router.post(
+  '/register/mechanic/complete',
+  validateBody(completeMechanicRegistrationSchema),
+  asyncHandler(authController.completeMechanicRegistration),
 );
 
 router.post(

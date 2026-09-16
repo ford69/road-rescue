@@ -14,6 +14,7 @@ import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { paymentController } from '../controllers/payment.controller.js';
 import { subscriptionController } from '../controllers/subscription.controller.js';
+import { providerSubscriptionController } from '../controllers/provider-subscription.controller.js';
 import { chatController } from '../controllers/chat.controller.js';
 import { supportController } from '../controllers/support.controller.js';
 import {
@@ -37,6 +38,10 @@ router.get('/health', (_req, res) => {
 
 router.get('/service-types', asyncHandler(catalogController.serviceTypes));
 router.get('/subscriptions/plans', asyncHandler(subscriptionController.listPlans));
+router.get(
+  '/subscriptions/provider/plans',
+  asyncHandler(providerSubscriptionController.listPlans),
+);
 
 router.use(authenticate);
 router.get(
@@ -63,6 +68,21 @@ router.post(
   '/subscriptions/downgrade',
   authorize('customer'),
   asyncHandler(subscriptionController.downgradeToFree),
+);
+router.get(
+  '/subscriptions/provider/me',
+  authorize('mechanic'),
+  asyncHandler(providerSubscriptionController.current),
+);
+router.post(
+  '/subscriptions/provider/checkout',
+  authorize('mechanic'),
+  asyncHandler(providerSubscriptionController.checkout),
+);
+router.get(
+  '/subscriptions/provider/verify/:reference',
+  authorize('mechanic'),
+  asyncHandler(providerSubscriptionController.verify),
 );
 
 router.use(requireEmailVerification);

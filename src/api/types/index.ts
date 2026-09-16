@@ -21,6 +21,12 @@ export type SettlementStatus = 'pending' | 'processing' | 'settled' | 'failed';
 
 export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
 
+export type ProviderPlanSlug =
+  | 'provider_monthly'
+  | 'provider_quarterly'
+  | 'provider_semiannual'
+  | 'provider_annual';
+
 export type SubscriptionStatus =
   | 'active'
   | 'non_renewing'
@@ -282,6 +288,50 @@ export interface SubscriptionCheckoutDto {
   callbackUrl: string;
   publicKey?: string;
   planSlug: SubscriptionPlanSlug;
+}
+
+export interface ProviderPlanDto {
+  slug: ProviderPlanSlug;
+  name: string;
+  intervalLabel: string;
+  intervalMonths: number;
+  priceGhs: number;
+  equivalentMonthlyGhs: number;
+  trialDays: number;
+  description: string;
+  sortOrder: number;
+  currency: 'GHS';
+}
+
+export interface ProviderSubscriptionDto {
+  _id: string;
+  planSlug: ProviderPlanSlug;
+  status: SubscriptionStatus;
+  trialUsed?: boolean;
+    trialEndsAt?: string;
+  billingStartsAt?: string;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  plan?: ProviderPlanDto | null;
+}
+
+export interface ProviderSubscriptionSummaryDto {
+  subscription: ProviderSubscriptionDto | null;
+  plans: ProviderPlanDto[];
+  hasActiveSubscription: boolean;
+  paystackConfigured: boolean;
+}
+
+export interface ProviderSubscriptionCheckoutDto {
+  trialStarted: boolean;
+  authorizationUrl: string | null;
+  reference: string | null;
+  accessCode?: string;
+  publicKey?: string;
+  callbackUrl?: string;
+  planSlug: ProviderPlanSlug;
+  hasActiveSubscription: boolean;
+  subscription?: ProviderSubscriptionDto | null;
 }
 
 export interface PaymentInitializationDto {

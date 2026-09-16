@@ -14,7 +14,6 @@ import {
 import { clearAuthCookies, setAuthCookies } from '../auth/cookies.js';
 import { createEmailVerification, evaluateVerificationToken, isLegacyAccount } from '../auth/email-verification.js';
 import { customerRepository } from '../repositories/customer.repository.js';
-import type { IMechanic } from '../models/Mechanic.js';
 import { mechanicRepository } from '../repositories/mechanic.repository.js';
 import { notificationRepository } from '../repositories/misc.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -36,11 +35,11 @@ import type {
   resetPasswordSchema,
 } from '../validators/auth.validators.js';
 import type { z } from 'zod';
-import { getPublicUploadPath } from '../uploads/storage.js';
 import { emailService } from '../email/index.js';
 import { subscriptionService } from './subscription.service.js';
 import { entitlementService } from './entitlement.service.js';
 import { isPaidCustomerPlan } from './plan-access.js';
+import { providerOnboardingService } from './provider-onboarding.service.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -80,8 +79,12 @@ function sanitizeUser(user: {
 
 async function presentAuthUser(user: Parameters<typeof sanitizeUser>[0] & { role: Role; _id: { toString(): string } }) {
   const base = sanitizeUser(user);
-  if (user.role !== 'customer') {
+  if (user.role === 'admin') {
     return { ...base, hasActiveSubscription: true as const };
+  }
+  if (user.role === 'mechanic') {
+    const hasActiveSubscription = await providerSubscriptionService.hasAccess(user._id.toString());
+    return { ...base, hasActiveSubscription };
   }
   const entitlements = await entitlementService.getCustomerEntitlements(user._id.toString());
   return {
@@ -168,87 +171,11 @@ export const authService = {
     selfie: Express.Multer.File | undefined,
     res: Response,
   ) {
-    if (!selfie) {
-      throw new ValidationError('A clear selfie photo is required');
-    }
-    await ensureUniqueIdentity(input.email, input.phone);
-    await resolveGhanaCardConflict(input.ghanaCardNumber, input.email);
-    const password = await hashPassword(input.password);
-    const verification = createEmailVerification();
-    const selfiePath = getPublicUploadPath(selfie.filename);
+    return providerOnboardingService.start(input, selfie, res);
+  },
 
-    const user = await userRepository.create({
-      firstName: input.firstName,
-      lastName: input.lastName,
-      email: input.email.toLowerCase(),
-      phone: input.phone,
-      password,
-      role: 'mechanic',
-      avatar: selfiePath,
-      status: 'pending',
-      emailVerified: false,
-      emailVerifiedAt: null,
-      emailVerificationToken: verification.tokenHash,
-      emailVerificationExpires: verification.expiresAt,
-    });
-
-    try {
-      await mechanicRepository.create({
-        userId: user._id,
-        garageName: input.garageName,
-        ghanaCardNumber: input.ghanaCardNumber,
-        experience: input.experience,
-        location: { city: input.city, address: input.address },
-        latitude: input.latitude,
-        longitude: input.longitude,
-        specialties: input.specialties,
-        availability: false,
-        verificationStatus: 'pending',
-        truck: input.truck,
-        documents: [selfiePath],
-      });
-    } catch (error) {
-      await userRepository.deleteById(user._id.toString());
-      if (isDuplicateGhanaCardError(error)) {
-        try {
-          await handleGhanaCardConflict(input.ghanaCardNumber, input.email);
-        } catch (conflict) {
-          throw conflict;
-        }
-        throw new ConflictError(
-          'Registration was interrupted by a stale provider record. Please submit the form again.',
-        );
-      }
-      throw error;
-    }
-
-    await notificationRepository.create({
-      title: 'Provider application received',
-      body: 'Your Road Rescue Ghana provider profile is pending verification.',
-      recipient: user._id,
-      type: 'info',
-    });
-
-    void Promise.all([
-      emailService.sendVerificationEmail({
-        email: user.email,
-        firstName: user.firstName,
-        token: verification.token,
-      }),
-      emailService.sendMechanicApplicationReceivedEmail({
-        email: user.email,
-        firstName: user.firstName,
-        garageName: input.garageName,
-      }),
-    ]).catch((error: unknown) => {
-      logger.error('Mechanic registration email flow failed', {
-        email: user.email,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-
-    clearAuthCookies(res);
-    return registrationPendingResponse(user.email, verification.token);
+  async completeMechanicRegistration(reference: string, res: Response) {
+    return providerOnboardingService.complete(reference, res);
   },
 
   async createAdmin(input: CreateAdminInput, actorRole: Role) {
@@ -512,6 +439,7 @@ export const authService = {
       email: user.email,
       firstName: user.firstName,
       token: verification.token,
+      audience: user.role === 'mechanic' ? 'mechanic' : 'customer',
     });
     if (!emailed.sent) {
       logger.error('Resend verification email was not sent', {
@@ -570,55 +498,4 @@ function registrationPendingResponse(email: string, token: string) {
     email,
     emailVerificationToken: env.NODE_ENV === 'production' ? undefined : token,
   };
-}
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain) return email;
-  return `${local.slice(0, 1)}***@${domain}`;
-}
-
-function isDuplicateGhanaCardError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: number }).code === 11000 &&
-    'keyPattern' in error &&
-    typeof (error as { keyPattern?: Record<string, unknown> }).keyPattern === 'object' &&
-    Boolean((error as { keyPattern?: Record<string, unknown> }).keyPattern?.ghanaCardNumber)
-  );
-}
-
-async function resolveGhanaCardConflict(ghanaCardNumber: string, email: string): Promise<void> {
-  const existing = await mechanicRepository.findByGhanaCardNumber(ghanaCardNumber);
-  if (!existing) return;
-  await handleGhanaCardConflict(ghanaCardNumber, email, existing);
-}
-
-async function handleGhanaCardConflict(
-  ghanaCardNumber: string,
-  email: string,
-  existing?: IMechanic | null,
-): Promise<void> {
-  const mechanic = existing ?? (await mechanicRepository.findByGhanaCardNumber(ghanaCardNumber));
-  if (!mechanic) return;
-
-  const linkedUser = await userRepository.findById(mechanic.userId.toString());
-  if (!linkedUser) {
-    await mechanicRepository.deleteById(mechanic._id.toString());
-    logger.warn('Removed orphan mechanic record blocking registration', {
-      mechanicId: mechanic._id.toString(),
-      ghanaCardPrefix: ghanaCardNumber.slice(0, 7),
-    });
-    return;
-  }
-
-  if (linkedUser.email.toLowerCase() === email.toLowerCase()) {
-    throw new ConflictError('An account with this email already exists. Please sign in instead.');
-  }
-
-  throw new ConflictError(
-    `This Ghana Card is already linked to another account (${maskEmail(linkedUser.email)}). Sign in with that email or contact support.`,
-  );
 }

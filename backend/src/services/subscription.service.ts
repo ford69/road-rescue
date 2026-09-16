@@ -9,6 +9,14 @@ import {
 } from '../repositories/subscription.repository.js';
 import { verifyPaystackPayment } from '../payments/paystack.js';
 import { entitlementService } from './entitlement.service.js';
+import {
+  isProviderSubscriptionReference,
+  providerSubscriptionService,
+} from './provider-subscription.service.js';
+import {
+  isProviderOnboardingReference,
+  providerOnboardingService,
+} from './provider-onboarding.service.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import type { SubscriptionPlanSlug, SubscriptionStatus } from '../types/index.js';
 
@@ -245,6 +253,49 @@ export const subscriptionService = {
     });
 
     if (event === 'charge.success') {
+      if (isProviderOnboardingReference(reference)) {
+        try {
+          await providerOnboardingService.complete(reference);
+        } catch (error) {
+          logger.warn('Provider onboarding webhook complete failed', {
+            event: 'provider.onboarding.webhook.failed',
+            reference,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return;
+      }
+      if (isProviderSubscriptionReference(reference)) {
+        await providerSubscriptionService.fulfillCardAuthorization({
+          reference,
+          amountPesewas: typeof data.amount === 'number' ? data.amount : -1,
+          currency: typeof data.currency === 'string' ? data.currency : '',
+          paidAt: typeof data.paid_at === 'string' ? data.paid_at : undefined,
+          customerCode: typeof asRecord(data.customer).customer_code === 'string'
+            ? (asRecord(data.customer).customer_code as string)
+            : undefined,
+          providerEventId: eventId,
+        });
+        return;
+      }
+      const subscriptionPayload = asRecord(data.subscription);
+      const providerSubCode =
+        typeof subscriptionPayload.subscription_code === 'string'
+          ? subscriptionPayload.subscription_code
+          : undefined;
+      if (providerSubCode) {
+        const handled = await providerSubscriptionService.handleRecurringCharge({
+          subscriptionCode: providerSubCode,
+          customerCode:
+            typeof asRecord(data.customer).customer_code === 'string'
+              ? (asRecord(data.customer).customer_code as string)
+              : undefined,
+          reference,
+          paidAt: typeof data.paid_at === 'string' ? data.paid_at : undefined,
+          amountPesewas: typeof data.amount === 'number' ? data.amount : 0,
+        });
+        if (handled) return;
+      }
       if (!isSubscriptionCharge(data, reference) || !reference) {
         logger.info('Ignoring service-payment Paystack charge', {
           event: 'subscription.payment.webhook.received',
@@ -276,6 +327,11 @@ export const subscriptionService = {
       const customerCode =
         typeof customer.customer_code === 'string' ? customer.customer_code : undefined;
       if (!code) return;
+      const providerSub = await providerSubscriptionService.attachPaystackSubscriptionCode(
+        code,
+        customerCode,
+      );
+      if (providerSub) return;
       let subscription = await subscriptionRepository.findByPaystackSubscriptionCode(code);
       if (!subscription && customerCode) {
         // Match the most recent incomplete/basic record by customer code after first charge.

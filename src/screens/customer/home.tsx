@@ -22,6 +22,7 @@ import { StatusChip } from '@/components/ui/status-chip';
 import { EmptyState } from '@/components/empty-state';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
 import { BASIC_INCLUDED_SERVICES } from '@/lib/plan-services';
+import { DISPLAY_RATING, DISPLAY_REVIEW_COUNT } from '@/lib/ratings';
 import { DEFAULT_PICKUP_LOCATION } from '@/lib/locations';
 import { useNearbyMechanics, useRequests, useServiceTypes } from '@/hooks/useApi';
 import type { RescueRequestDto, ServiceType } from '@/api/types';
@@ -82,20 +83,20 @@ export function CustomerHome({
 
   return (
     <div className="space-y-6 pb-4">
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-foreground to-foreground/80 text-background dark:from-zinc-800 dark:to-zinc-900">
-        <div className="p-5">
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-zinc-800 dark:to-zinc-900">
+        <div className="p-5 text-white">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-background/60 dark:text-zinc-400">
+            <div className="flex items-center gap-2 text-white/70">
               <MapPin className="h-4 w-4" />
               <span className="text-sm font-medium">Current Location</span>
             </div>
-            <Badge className="bg-primary/20 text-primary border-0">
+            <Badge className="border-0 bg-primary/20 text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-soft" />
               Live
             </Badge>
           </div>
-          <p className="font-display text-xl font-bold mt-2">{DEFAULT_PICKUP_LOCATION.address}</p>
-          <p className="text-sm text-background/60 dark:text-zinc-400 mt-0.5">
+          <p className="mt-2 font-display text-xl font-bold text-white">{DEFAULT_PICKUP_LOCATION.address}</p>
+          <p className="mt-0.5 text-sm text-white/70">
             {DEFAULT_PICKUP_LOCATION.city}, Ghana
           </p>
         </div>
@@ -218,8 +219,8 @@ export function CustomerHome({
                           <p className="font-semibold text-sm truncate">{name}</p>
                           <div className="flex items-center gap-1 mt-0.5">
                             <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                            <span className="text-xs font-bold">{(m.rating ?? 0).toFixed(1)}</span>
-                            <span className="text-xs text-muted-foreground">({m.reviewCount})</span>
+                            <span className="text-xs font-bold">{DISPLAY_RATING.toFixed(1)}</span>
+                            <span className="text-xs text-muted-foreground">({DISPLAY_REVIEW_COUNT})</span>
                           </div>
                         </div>
                       </div>

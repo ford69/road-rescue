@@ -86,19 +86,25 @@ export function getBrevoTemplateId(key: EmailTemplateKey): number | undefined {
   }
 }
 
-export function buildVerifyEmailContent(input: EmailLinkParams): {
+export function buildVerifyEmailContent(input: EmailLinkParams & { audience?: 'customer' | 'mechanic' }): {
   subject: string;
   htmlContent: string;
   textContent: string;
   params: Record<string, string>;
 } {
   const firstName = escapeHtml(input.firstName);
-  const subject = 'Verify your email address';
+  const isProvider = input.audience === 'mechanic';
+  const subject = isProvider
+    ? 'Verify your Road Rescue Provider account'
+    : 'Verify your email address';
+  const intro = isProvider
+    ? 'Thanks for starting your Road Rescue Provider registration.'
+    : 'Thanks for creating your Road Rescue account.';
   const htmlContent = layout(
     subject,
     `<p style="margin:0 0 12px;font-size:16px;">Hi ${firstName},</p>
      <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
-       Thanks for creating your Road Rescue account.
+       ${intro}
      </p>
      <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
        Please verify your email address by clicking the button below.
@@ -109,7 +115,7 @@ export function buildVerifyEmailContent(input: EmailLinkParams): {
        If you did not create this account, you can safely ignore this email.
      </p>`,
   );
-  const textContent = `Hi ${input.firstName},\n\nThanks for creating your Road Rescue account.\n\nVerify your email address: ${input.actionUrl}\n\nThis link expires in 24 hours.\n\nIf you did not create this account, you can safely ignore this email.\n\nRoad Rescue`;
+  const textContent = `Hi ${input.firstName},\n\n${intro}\n\nVerify your email address: ${input.actionUrl}\n\nThis link expires in 24 hours.\n\nIf you did not create this account, you can safely ignore this email.\n\nRoad Rescue`;
   return {
     subject,
     htmlContent,

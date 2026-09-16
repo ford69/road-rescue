@@ -40,7 +40,9 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/auth/complete-subscription" element={<CompleteSubscriptionScreen />} />
               <Route path="/registration/complete" element={<CompleteSubscriptionScreen />} />
               <Route path="/offline" element={<OfflineScreen />} />
-              <Route path="/provider/earnings" element={<Navigate to="/mechanic/earnings" replace />} />
+              <Route path="/provider/earnings" element={<Navigate to="/mechanic/profile" replace />} />
+              <Route path="/mechanic/earnings" element={<Navigate to="/mechanic/profile" replace />} />
+              <Route path="/admin/payments" element={<Navigate to="/admin/home" replace />} />
               <Route path="/:role/:screen/:id" element={<App />} />
               <Route path="/:role/:screen" element={<App />} />
               <Route path="*" element={<Navigate to="/" replace />} />

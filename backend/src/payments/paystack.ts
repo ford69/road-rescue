@@ -36,19 +36,27 @@ export async function initializePaystackPayment(input: {
   email: string;
   amountGhs: number;
   reference: string;
-  requestId: string;
+  requestId?: string;
+  callbackUrl?: string;
+  metadata?: Record<string, string>;
   providerSubaccountCode?: string;
   platformFeePercent: number;
+  channels?: Array<'card' | 'mobile_money'>;
 }): Promise<{ authorizationUrl: string; accessCode: string; reference: string }> {
+  const metadata: Record<string, string> = { ...(input.metadata ?? {}) };
+  if (input.requestId) metadata.requestId = input.requestId;
+
   const body: Record<string, unknown> = {
     email: input.email,
     amount: Math.round(input.amountGhs * 100),
     currency: 'GHS',
     reference: input.reference,
-    channels: ['card', 'mobile_money'],
+    channels: input.channels ?? ['card', 'mobile_money'],
     callback_url:
-      env.PAYSTACK_CALLBACK_URL ?? `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
-    metadata: { requestId: input.requestId },
+      input.callbackUrl ??
+      env.PAYSTACK_CALLBACK_URL ??
+      `${env.PRIMARY_CLIENT_ORIGIN}/customer/history`,
+    metadata,
   };
 
   if (input.providerSubaccountCode) {
@@ -88,7 +96,49 @@ export async function verifyPaystackPayment(reference: string) {
     currency: string;
     paid_at?: string;
     channel?: string;
+    authorization?: {
+      authorization_code?: string;
+      reusable?: boolean;
+      channel?: string;
+      card_type?: string;
+      last4?: string;
+      bank?: string;
+    };
+    customer?: {
+      customer_code?: string;
+      email?: string;
+    };
   }>(`/transaction/verify/${encodeURIComponent(reference)}`);
+}
+
+export async function refundPaystackTransaction(input: {
+  reference: string;
+  merchantNote?: string;
+}): Promise<{ status: string; transaction?: { reference?: string } }> {
+  return paystackRequest('/refund', {
+    method: 'POST',
+    body: JSON.stringify({
+      transaction: input.reference,
+      merchant_note: input.merchantNote ?? 'Card verification / tokenization refund',
+    }),
+  });
+}
+
+export async function createPaystackSubscription(input: {
+  customer: string;
+  planCode: string;
+  authorizationCode: string;
+  startDate: Date;
+}): Promise<{ subscription_code: string; email_token?: string; status?: string }> {
+  return paystackRequest('/subscription', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer: input.customer,
+      plan: input.planCode,
+      authorization: input.authorizationCode,
+      start_date: input.startDate.toISOString(),
+    }),
+  });
 }
 
 export function verifyPaystackSignature(rawBody: Buffer, signature?: string): boolean {

@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Wrench,
   MapPin,
-  DollarSign,
   Check,
   X,
   Navigation2,
@@ -24,9 +23,7 @@ import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/status-chip';
 import { EmptyState } from '@/components/empty-state';
 import { Input } from '@/components/ui/input';
-import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig } from '@/lib/service-config';
-import { StarRatingDisplay } from '@/components/ratings/star-rating';
 import { PaginationBar } from '@/components/ui/pagination';
 import { useAvailableJobs, useRequests } from '@/hooks/useApi';
 import { mechanicsApi, requestsApi } from '@/api/repositories';
@@ -222,7 +219,7 @@ export function MechanicHome({
         className={cn(
           'overflow-hidden border-0 transition-colors',
           online
-            ? 'bg-gradient-to-br from-foreground to-foreground/80 text-background dark:from-zinc-800 dark:to-zinc-900'
+            ? 'bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-zinc-800 dark:to-zinc-900'
             : 'bg-muted text-muted-foreground',
         )}
       >
@@ -243,10 +240,15 @@ export function MechanicHome({
                 )}
               </div>
               <div>
-                <p className="font-display text-lg font-bold">
+                <p
+                  className={cn(
+                    'font-display text-lg font-bold',
+                    online && 'text-white',
+                  )}
+                >
                   {online ? "You're Online" : "You're Offline"}
                 </p>
-                <p className={cn('text-sm', online ? 'text-background/60 dark:text-zinc-400' : 'opacity-80')}>
+                <p className={cn('text-sm', online ? 'text-white/70' : 'opacity-80')}>
                   {online ? 'Receiving job requests' : 'Tap to go online'}
                 </p>
               </div>
@@ -269,18 +271,18 @@ export function MechanicHome({
             </button>
           </div>
           {online && (
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-3 gap-3 text-white">
               <div>
                 <p className="text-2xl font-bold">{visibleAvailable.length}</p>
-                <p className="text-xs text-background/60 dark:text-zinc-400">Available jobs</p>
+                <p className="text-xs text-white/70">Available jobs</p>
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeJobs.length}</p>
-                <p className="text-xs text-background/60 dark:text-zinc-400">Active jobs</p>
+                <p className="text-xs text-white/70">Active jobs</p>
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeJobs.length ? 'Live' : 'Idle'}</p>
-                <p className="text-xs text-background/60 dark:text-zinc-400">Queue status</p>
+                <p className="text-xs text-white/70">Queue status</p>
               </div>
             </div>
           )}
@@ -478,115 +480,6 @@ export function MechanicHome({
   );
 }
 
-export function MechanicEarnings() {
-  const [earnings, setEarnings] = React.useState<Awaited<ReturnType<typeof mechanicsApi.earnings>> | null>(null);
-  const [earningsLoading, setEarningsLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    void (async () => {
-      try {
-        setEarnings(await mechanicsApi.earnings());
-      } finally {
-        setEarningsLoading(false);
-      }
-    })();
-  }, []);
-
-  if (earningsLoading) {
-    return <p className="text-sm text-muted-foreground py-8 text-center">Loading payments & earnings…</p>;
-  }
-
-  const payoutInfo = earnings?.payoutInfo;
-
-  return (
-    <div className="space-y-4 pb-4">
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-foreground to-foreground/80 text-background dark:from-zinc-800 dark:to-zinc-900">
-        <div className="p-5 space-y-4">
-          <div>
-            <p className="text-sm text-background/60 dark:text-zinc-400">Payments & Earnings</p>
-            <p className="font-display text-3xl font-bold mt-1">{formatGhs(earnings?.totalEarnings ?? 0)}</p>
-            <p className="text-sm text-background/60 dark:text-zinc-400 mt-1">
-              {earnings?.completedJobs ?? 0} completed services · ⭐ {earnings?.rating != null ? earnings.rating.toFixed(1) : '—'}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-background/10 p-3">
-              <p className="text-xs text-background/60 dark:text-zinc-400">Pending settlement</p>
-              <p className="font-semibold mt-1">{formatGhs(earnings?.pendingPayments ?? 0)}</p>
-            </div>
-            <div className="rounded-xl bg-background/10 p-3">
-              <p className="text-xs text-background/60 dark:text-zinc-400">Settled payments</p>
-              <p className="font-semibold mt-1">{formatGhs(earnings?.settledPayments ?? 0)}</p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="border-border bg-accent/30">
-        <div className="p-4 space-y-3">
-          <p className="text-sm text-muted-foreground">{earnings?.disclaimer}</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-semibold text-sm">Payment account</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{payoutInfo?.message}</p>
-            </div>
-            {payoutInfo?.configured && payoutInfo.managementUrl ? (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => window.open(payoutInfo.managementUrl, '_blank', 'noopener,noreferrer')}
-              >
-                Manage payouts
-              </Button>
-            ) : (
-              <Button variant="outline" size="md" disabled>
-                Payment account
-              </Button>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      <div>
-        <h3 className="font-display text-base font-bold mb-3 px-1">Recent payments</h3>
-        {(earnings?.recentPayments?.length ?? 0) === 0 ? (
-          <EmptyState
-            icon={<DollarSign className="h-10 w-10" />}
-            title="No in-app job payments"
-            description="Customers pay you directly. Road Rescue does not collect provider service payments."
-          />
-        ) : (
-          <div className="space-y-2">
-            {earnings?.recentPayments?.map((payment) => (
-              <Card key={payment.id}>
-                <div className="p-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm">Service payment</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString('en-GH', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge variant="outline">Payment: {formatPaymentStatus(payment.paymentStatus)}</Badge>
-                      <Badge variant="outline">
-                        Settlement: {formatSettlementStatus(payment.settlementStatus)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <p className="font-bold text-success shrink-0">{formatGhs(payment.providerAmount)}</p>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function MechanicJobHistory() {
   const [jobs, setJobs] = React.useState<RescueRequestDto[]>([]);
   const [page, setPage] = React.useState(1);
@@ -670,7 +563,6 @@ export function MechanicJobHistory() {
       ) : (
         <div className="space-y-3">
           {jobs.map((job) => {
-            const rating = job.customerRating;
             return (
               <Card key={job._id}>
                 <div className="p-4 space-y-3">
@@ -697,19 +589,6 @@ export function MechanicJobHistory() {
                       year: 'numeric',
                     })}
                   </p>
-                  <div className="border-t border-border pt-3">
-                    <p className="text-sm font-semibold mb-1">Customer Rating</p>
-                    {rating ? (
-                      <div className="space-y-1">
-                        <StarRatingDisplay stars={rating.stars} />
-                        {rating.review && (
-                          <p className="text-sm text-muted-foreground">“{rating.review}”</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Not yet rated</p>
-                    )}
-                  </div>
                 </div>
               </Card>
             );
@@ -726,12 +605,4 @@ export function MechanicJobHistory() {
       )}
     </div>
   );
-}
-
-function formatPaymentStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function formatSettlementStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
 }

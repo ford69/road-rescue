@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation } from 'react-router-dom';
 
 type Theme = 'light' | 'dark';
 
@@ -17,6 +18,8 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const forceDark = location.pathname === '/';
   const [theme, setThemeState] = React.useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light';
     const stored = localStorage.getItem('rr-theme') as Theme | null;
@@ -28,13 +31,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (forceDark || theme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('rr-theme', theme);
-  }, [theme]);
+    if (!forceDark) {
+      localStorage.setItem('rr-theme', theme);
+    }
+  }, [theme, forceDark]);
 
   const setTheme = React.useCallback((t: Theme) => setThemeState(t), []);
   const toggleTheme = React.useCallback(
@@ -43,7 +48,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme: forceDark ? 'dark' : theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

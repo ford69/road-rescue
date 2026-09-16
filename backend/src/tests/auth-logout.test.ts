@@ -38,6 +38,11 @@ vi.mock('../services/entitlement.service.js', () => ({
   entitlementService: { getCustomerEntitlements: vi.fn() },
 }));
 
+vi.mock('../services/provider-subscription.service.js', () => ({
+  providerSubscriptionService: { hasAccess: vi.fn().mockResolvedValue(false) },
+  isProviderSubscriptionReference: (reference?: string) => Boolean(reference?.startsWith('RR_PSUB_')),
+}));
+
 function cookieRes() {
   return { cookie: vi.fn() } as unknown as Response;
 }

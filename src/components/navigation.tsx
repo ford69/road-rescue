@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   LogOut,
   Sparkles,
+  CreditCard,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,18 @@ const mechanicNav: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
+const customerSidebar: NavItem[] = [
+  ...customerNav.slice(0, 4),
+  { id: 'subscription', label: 'Subscription', icon: CreditCard },
+  customerNav[4],
+];
+
+const mechanicSidebar: NavItem[] = [
+  ...mechanicNav.slice(0, 4),
+  { id: 'subscription', label: 'Subscription', icon: CreditCard },
+  mechanicNav[4],
+];
+
 const adminNav: NavItem[] = [
   { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'track', label: 'Live Jobs', icon: Map },
@@ -61,7 +74,6 @@ const adminSidebar: NavItem[] = [
   { id: 'track', label: 'Live Jobs', icon: Map },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'mechanics', label: 'Providers', icon: Briefcase },
-  { id: 'payments', label: 'Payments', icon: BarChart3 },
   { id: 'reports', label: 'Reports', icon: Clock },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -70,6 +82,12 @@ function getNavItems(role: Role): NavItem[] {
   if (role === 'mechanic') return mechanicNav;
   if (role === 'admin') return adminNav;
   return customerNav;
+}
+
+function getSidebarItems(role: Role): NavItem[] {
+  if (role === 'mechanic') return mechanicSidebar;
+  if (role === 'admin') return adminSidebar;
+  return customerSidebar;
 }
 
 /* Mobile Bottom Navigation */
@@ -166,7 +184,7 @@ export function DesktopSidebar({
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {
-  const items = role === 'admin' ? adminSidebar : getNavItems(role);
+  const items = getSidebarItems(role);
 
   return (
     <aside
@@ -433,7 +451,7 @@ export function MobileMenu({
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const items = getNavItems(role);
+  const items = getSidebarItems(role);
   const initials = getUserInitials(user);
   const avatarSrc = resolveMediaUrl(user?.avatar);
   const fullName = user ? `${user.firstName} ${user.lastName}` : 'Road Rescue user';

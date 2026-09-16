@@ -20,7 +20,7 @@ import {
   ConflictError,
   AuthErrorCode,
 } from '../utils/errors.js';
-import { assertObjectId, refId } from '../utils/objectId.js';
+import { providerSubscriptionService } from './provider-subscription.service.js';
 import type {
   createRequestSchema,
   createVehicleSchema,
@@ -33,6 +33,7 @@ import { emitToRequest } from '../sockets/index.js';
 import { paymentService } from './payment.service.js';
 import { entitlementService } from './entitlement.service.js';
 import { paginationMeta } from '../utils/pagination.js';
+import { assertObjectId, refId } from '../utils/objectId.js';
 
 type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 type CreateRequestInput = z.infer<typeof createRequestSchema>;
@@ -278,6 +279,7 @@ export const requestService = {
     if (!mechanic.availability) {
       throw new ValidationError('Go online before accepting jobs');
     }
+    await providerSubscriptionService.assertAccess(userId);
 
     const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
     if (!request) throw new NotFoundError('Rescue request not found');
@@ -673,6 +675,9 @@ export const mechanicService = {
     if (input.availability && mechanic.verificationStatus !== 'verified') {
       throw new ForbiddenError('Your provider application must be verified before going online');
     }
+    if (input.availability) {
+      await providerSubscriptionService.assertAccess(userId);
+    }
     mechanic.availability = input.availability;
     await mechanic.save();
     return mechanic;
@@ -910,7 +915,9 @@ export const adminService = {
       mechanics: await mechanicRepository.findAll(),
       customers: await customerRepository.findAll(),
       payments,
-      serviceTypes: await serviceTypeRepository.findAll(),
+      serviceTypes: (await serviceTypeRepository.findAll()).filter(
+        (type) => type.slug !== 'fuel' && type.slug !== 'accident',
+      ),
     };
   },
 };
@@ -918,7 +925,9 @@ export const adminService = {
 export const catalogService = {
   async serviceTypes() {
     const types = await serviceTypeRepository.findAll();
-    return types.map((type) => ({
+    return types
+      .filter((type) => type.slug !== 'fuel' && type.slug !== 'accident')
+      .map((type) => ({
       _id: type._id,
       slug: type.slug,
       name: type.name,

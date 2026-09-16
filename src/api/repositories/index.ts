@@ -16,6 +16,10 @@ import type {
   SubscriptionPlanDto,
   SubscriptionPlanSlug,
   SubscriptionSummaryDto,
+  ProviderPlanDto,
+  ProviderPlanSlug,
+  ProviderSubscriptionCheckoutDto,
+  ProviderSubscriptionSummaryDto,
   VehicleDto,
   PaginatedDto,
   CustomerHistoryDto,
@@ -269,6 +273,23 @@ export const subscriptionsApi = {
   },
   downgradeToFree() {
     return apiRequest<SubscriptionSummaryDto>('/subscriptions/downgrade', { method: 'POST' });
+  },
+  providerPlans() {
+    return apiRequest<ProviderPlanDto[]>('/subscriptions/provider/plans');
+  },
+  providerCurrent() {
+    return apiRequest<ProviderSubscriptionSummaryDto>('/subscriptions/provider/me');
+  },
+  providerCheckout(planSlug: ProviderPlanSlug) {
+    return apiRequest<ProviderSubscriptionCheckoutDto>('/subscriptions/provider/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ planSlug }),
+    });
+  },
+  providerVerify(reference: string) {
+    return apiRequest<ProviderSubscriptionSummaryDto>(
+      `/subscriptions/provider/verify/${encodeURIComponent(reference)}`,
+    );
   },
 };
 
