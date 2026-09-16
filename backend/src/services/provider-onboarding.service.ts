@@ -12,6 +12,7 @@ import { notificationRepository } from '../repositories/misc.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { providerRegistrationIntentRepository } from '../repositories/provider-registration-intent.repository.js';
 import { emailService } from '../email/index.js';
+import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { ProviderRegistrationIntent } from '../models/ProviderRegistrationIntent.js';
 import type { registerMechanicSchema } from '../validators/auth.validators.js';
 import type { z } from 'zod';
@@ -42,7 +43,7 @@ function registrationPendingResponse(email: string, token: string) {
   };
 }
 
-export function isProviderOnboardingReference(reference?: string): boolean {
+export function isProviderOnboardingReference(reference?: string): reference is string {
   return Boolean(reference && reference.startsWith(ONBOARDING_REFERENCE_PREFIX));
 }
 

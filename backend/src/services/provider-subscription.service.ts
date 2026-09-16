@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Types } from 'mongoose';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { getPaymentProvider } from '../payments/payment-provider.impl.js';
@@ -178,8 +179,8 @@ export async function startAuthorizedTrial(input: {
   }
 
   const subscription = await providerSubscriptionRepository.upsertForMechanic(input.mechanicId, {
-    mechanic: input.mechanicId,
-    user: input.userId,
+    mechanic: new Types.ObjectId(input.mechanicId),
+    user: new Types.ObjectId(input.userId),
     planSlug: input.planSlug,
     status: 'trialing',
     provider: 'paystack',
@@ -306,7 +307,7 @@ export const providerSubscriptionService = {
         provider: 'paystack',
         providerPlanCode: planCode,
         lastTransactionReference: initialized.reference,
-        trialUsed: Boolean(existing?.trialUsed),
+        trialUsed: false,
       });
     }
 
@@ -486,6 +487,6 @@ export const providerSubscriptionService = {
   },
 };
 
-export function isProviderSubscriptionReference(reference?: string): boolean {
+export function isProviderSubscriptionReference(reference?: string): reference is string {
   return Boolean(reference && reference.startsWith(REFERENCE_PREFIX));
 }

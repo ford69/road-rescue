@@ -2,8 +2,6 @@ import * as React from 'react';
 import {
   Activity,
   BarChart3,
-  CheckCircle2,
-  Clock,
   CreditCard,
   Download,
   MapPin,

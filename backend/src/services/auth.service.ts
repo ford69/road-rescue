@@ -40,6 +40,7 @@ import { subscriptionService } from './subscription.service.js';
 import { entitlementService } from './entitlement.service.js';
 import { isPaidCustomerPlan } from './plan-access.js';
 import { providerOnboardingService } from './provider-onboarding.service.js';
+import { providerSubscriptionService } from './provider-subscription.service.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
