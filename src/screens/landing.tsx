@@ -269,8 +269,8 @@ export function LandingPage() {
         {/* Full-bleed image strip */}
         <section className="relative h-56 overflow-hidden sm:h-72 lg:h-80" aria-label="Road Rescue in action">
           <MarketingPhoto
-            src={MARKETING_IMAGES.onTheGround.src}
-            position={MARKETING_IMAGES.onTheGround.position}
+            src={SERVICE_IMAGES.lockout.src}
+            position={SERVICE_IMAGES.lockout.position}
             overlay="blue"
             className="h-full w-full"
           />
