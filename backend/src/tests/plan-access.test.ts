@@ -11,22 +11,21 @@ describe('plan service access', () => {
     expect(planAllowsService('basic', 'active', 'flat-tire')).toBe(true);
     expect(planAllowsService('basic', 'active', 'lockout')).toBe(true);
     expect(planAllowsService('basic', 'active', 'other')).toBe(true);
+    expect(planAllowsService('basic', 'active', 'towing')).toBe(true);
   });
 
-  it('rejects towing, fuel, and accident for Basic subscribers', () => {
-    expect(planAllowsService('basic', 'active', 'towing')).toBe(false);
+  it('rejects fuel and accident for Basic subscribers', () => {
     expect(planAllowsService('basic', 'active', 'fuel')).toBe(false);
     expect(planAllowsService('basic', 'active', 'accident')).toBe(false);
   });
 
   it('rejects premium-only services when the subscription is expired or cancelled', () => {
-    expect(planAllowsService('premium', 'expired', 'towing')).toBe(false);
+    expect(planAllowsService('premium', 'expired', 'fuel')).toBe(false);
     expect(planAllowsService('premium', 'cancelled', 'fuel')).toBe(false);
     expect(planAllowsService('basic', 'expired', 'accident')).toBe(false);
   });
 
   it('allows premium-only services only for an active Premium subscription', () => {
-    expect(planAllowsService('premium', 'active', 'towing')).toBe(true);
     expect(planAllowsService('premium', 'active', 'fuel')).toBe(true);
     expect(planAllowsService('premium', 'active', 'accident')).toBe(true);
     expect(allowedServicesForPlan('premium', 'active')).toEqual(

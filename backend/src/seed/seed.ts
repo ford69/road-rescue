@@ -46,8 +46,8 @@ const serviceTypes = [
   },
   {
     slug: 'other' as const,
-    name: 'Engine Diagnostics',
-    description: 'On-site diagnostics for unexpected breakdowns',
+    name: 'General Repairs',
+    description: 'On-site help for common breakdowns',
     estimatedPrice: 0,
     icon: 'Wrench',
   },

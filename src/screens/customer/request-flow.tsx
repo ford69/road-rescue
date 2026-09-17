@@ -73,7 +73,7 @@ export function RequestFlow({
   const { data: vehicles, loading: vehiclesLoading } = useVehicles();
   const { data: membership } = useSubscription();
   const restricted = React.useMemo(
-    () => new Set(membership?.restrictedServiceTypes ?? ['towing', 'fuel', 'accident']),
+    () => new Set(membership?.restrictedServiceTypes ?? ['fuel', 'accident']),
     [membership],
   );
   const [step, setStep] = React.useState<Step>('location');

@@ -10,6 +10,7 @@ import {
   MapPin,
   Shield,
   Sparkles,
+  Truck,
   Users,
   Wrench,
   Zap,
@@ -50,8 +51,16 @@ const services = [
     image: SERVICE_IMAGES.lockout,
   },
   {
+    icon: Truck,
+    title: 'Towing',
+    description: 'Tow your vehicle to a trusted garage.',
+    accent: 'from-primary/20 to-primary/5',
+    layout: 'lg:col-span-1',
+    image: SERVICE_IMAGES.towing,
+  },
+  {
     icon: Wrench,
-    title: 'Engine diagnostics',
+    title: 'General repairs',
     description: 'On-site help for common breakdowns.',
     accent: 'from-warning/25 to-warning/5',
     layout: 'lg:col-span-1',
@@ -289,7 +298,7 @@ export function LandingPage() {
           id="services"
           eyebrow="What we offer"
           title="Complete roadside coverage"
-          description="From flat tyres to lockouts — verified providers for every common emergency."
+          description="From flat tyres to towing — verified providers for every common emergency."
           variant="muted"
         >
           <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">

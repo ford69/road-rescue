@@ -28,11 +28,8 @@ describe('entitlementService.assertServiceAllowed', () => {
     await expect(entitlementService.assertServiceAllowed('user-1', 'battery')).resolves.toBeUndefined();
   });
 
-  it('rejects towing with PLAN_FEATURE_NOT_AVAILABLE', async () => {
-    await expect(entitlementService.assertServiceAllowed('user-1', 'towing')).rejects.toMatchObject({
-      statusCode: 403,
-      code: AuthErrorCode.PLAN_FEATURE_NOT_AVAILABLE,
-    });
+  it('allows towing on Basic', async () => {
+    await expect(entitlementService.assertServiceAllowed('user-1', 'towing')).resolves.toBeUndefined();
   });
 
   it('rejects fuel with PLAN_FEATURE_NOT_AVAILABLE', async () => {

@@ -20,6 +20,7 @@ import { prepareSelfieForUpload } from '@/lib/prepare-selfie';
 import { subscriptionsApi } from '@/api/repositories';
 import { formatGhs } from '@/lib/currency';
 import type { ProviderPlanDto, ProviderPlanSlug } from '@/api/types';
+import { serviceTypeConfig } from '@/lib/service-config';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -679,7 +680,7 @@ export function RegisterScreen() {
                           : 'border-border text-muted-foreground'
                       }`}
                     >
-                      {specialty.replace('-', ' ')}
+                      {serviceTypeConfig[specialty].label}
                     </button>
                   );
                 })}

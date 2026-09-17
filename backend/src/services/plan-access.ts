@@ -1,11 +1,12 @@
 import type { ServiceTypeSlug, SubscriptionPlanSlug } from '../types/index.js';
 
-export const PREMIUM_ONLY_SERVICES: ServiceTypeSlug[] = ['towing', 'fuel', 'accident'];
+export const PREMIUM_ONLY_SERVICES: ServiceTypeSlug[] = ['fuel', 'accident'];
 
 export const BASIC_INCLUDED_SERVICES: ServiceTypeSlug[] = [
   'flat-tire',
   'battery',
   'lockout',
+  'towing',
   'other',
 ];
 

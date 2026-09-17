@@ -45,7 +45,7 @@ export const entitlementService = {
         features: this.getEntitlementsForPlan('basic'),
         status: 'active',
         allowedServiceTypes: allowedServicesForPlan('basic', 'active'),
-        restrictedServiceTypes: ['towing', 'fuel', 'accident'],
+        restrictedServiceTypes: ['fuel', 'accident'],
       };
     }
     const subscription = await subscriptionRepository.findByCustomer(customer._id.toString());
@@ -58,7 +58,7 @@ export const entitlementService = {
       features: active ? this.getEntitlementsForPlan(planSlug) : this.getEntitlementsForPlan('basic'),
       status,
       allowedServiceTypes,
-      restrictedServiceTypes: ['towing', 'fuel', 'accident'].filter(
+      restrictedServiceTypes: ['fuel', 'accident'].filter(
         (service) => !allowedServiceTypes.includes(service as ServiceTypeSlug),
       ) as ServiceTypeSlug[],
     };

@@ -472,7 +472,7 @@ export async function seedSubscriptionPlans(): Promise<void> {
   await subscriptionPlanRepository.upsertPlan({
     slug: 'premium',
     name: 'Premium',
-    description: 'Everything in Basic plus towing, fuel delivery, accident support, and premium support.',
+    description: 'Everything in Basic plus fuel delivery, accident support, and premium support.',
     monthlyPriceGhs: env.SUBSCRIPTION_PREMIUM_PRICE_GHS,
     features: [
       'priority_matching',

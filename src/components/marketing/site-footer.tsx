@@ -27,10 +27,11 @@ export function SiteFooter() {
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-white/45">Services</p>
               <ul className="mt-4 space-y-2.5 text-sm text-white/75">
-                <li><a href="#services" className="hover:text-white">Breakdown assistance</a></li>
+                <li><a href="#services" className="hover:text-white">Flat tyre</a></li>
                 <li><a href="#services" className="hover:text-white">Battery jump start</a></li>
-                <li><a href="#services" className="hover:text-white">Tire assistance</a></li>
                 <li><a href="#services" className="hover:text-white">Lockout help</a></li>
+                <li><a href="#services" className="hover:text-white">Towing</a></li>
+                <li><a href="#services" className="hover:text-white">General repairs</a></li>
               </ul>
             </div>
             <div>

@@ -36,9 +36,9 @@ export const serviceTypeConfig: Record<
     description: 'Post-accident assistance and recovery',
   },
   other: {
-    label: 'Engine Diagnostics',
+    label: 'General Repairs',
     icon: 'Wrench',
-    description: 'Describe your problem in detail',
+    description: 'On-site help for common breakdowns',
   },
 };
 
