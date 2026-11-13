@@ -21,12 +21,6 @@ export type SettlementStatus = 'pending' | 'processing' | 'settled' | 'failed';
 
 export type SubscriptionPlanSlug = 'free' | 'basic' | 'premium';
 
-export type ProviderPlanSlug =
-  | 'provider_monthly'
-  | 'provider_quarterly'
-  | 'provider_semiannual'
-  | 'provider_annual';
-
 export type SubscriptionStatus =
   | 'active'
   | 'non_renewing'
@@ -110,6 +104,127 @@ export interface ServiceTypeDto {
   name: string;
   description: string;
   icon: string;
+  active?: boolean;
+}
+
+export type PricingModel = 'fixed' | 'starting_from' | 'quote';
+
+export type AdditionalChargeKind =
+  | 'call_out'
+  | 'distance'
+  | 'emergency'
+  | 'inspection'
+  | 'labour'
+  | 'other';
+
+export type PricingConfirmationStatus =
+  | 'unconfirmed'
+  | 'confirmed'
+  | 'pending_quote'
+  | 'quoted'
+  | 'accepted'
+  | 'rejected'
+  | 'pending_revision';
+
+export interface AdditionalChargeDto {
+  kind: AdditionalChargeKind;
+  label: string;
+  amountGhs: number;
+  perKmGhs?: number;
+  commissionable: boolean;
+}
+
+export interface ProviderPriceRangeDto {
+  minGhs: number | null;
+  maxGhs: number | null;
+  hasStartingFrom: boolean;
+  quoteCount: number;
+  pricedCount: number;
+}
+
+export interface ProviderServiceOfferingDto {
+  id: string;
+  serviceType: ServiceType;
+  serviceName?: string;
+  serviceDescription?: string;
+  categoryId?: string;
+  categoryName?: string;
+  pricingModel: PricingModel;
+  basePriceGhs: number | null;
+  currency: 'GHS';
+  additionalCharges: AdditionalChargeDto[];
+  partsNotIncluded: boolean;
+  active: boolean;
+  displayLabel: string;
+  updatedAt?: string;
+}
+
+export interface ProviderServicesBoardDto {
+  currency: 'GHS';
+  minPriceGhs: number;
+  maxPriceGhs: number;
+  maxChargeGhs: number;
+  chargeKinds: Array<{ id: AdditionalChargeKind; label: string }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    services: Array<{
+      slug: ServiceType;
+      name: string;
+      description: string;
+      categoryId: string;
+      offering: ProviderServiceOfferingDto | null;
+    }>;
+  }>;
+  offerings: ProviderServiceOfferingDto[];
+}
+
+export interface ServiceProviderOfferDto {
+  mechanicId: string;
+  garageName: string;
+  name: string;
+  rating: number;
+  reviewCount: number;
+  completedJobs: number;
+  availability: boolean;
+  experience: number;
+  city: string;
+  latitude: number;
+  longitude: number;
+  distanceKm: number;
+  avatar: string | null;
+  serviceType: ServiceType;
+  serviceName: string;
+  pricingModel: PricingModel;
+  basePriceGhs: number | null;
+  displayLabel: string;
+  additionalCharges: AdditionalChargeDto[];
+  displayedTotalGhs: number;
+  partsNotIncluded: boolean;
+  currency: 'GHS';
+}
+
+export interface PricingSnapshotDto {
+  serviceType: ServiceType;
+  serviceName: string;
+  pricingModel: PricingModel;
+  basePriceGhs: number;
+  additionalCharges: AdditionalChargeDto[];
+  distanceKm?: number;
+  currency: 'GHS';
+  displayedTotalGhs: number;
+  commissionableAmountGhs: number;
+  partsNotIncluded: boolean;
+  snapshotAt: string;
+}
+
+export interface JobQuoteDto {
+  amountGhs: number;
+  commissionableAmountGhs: number;
+  partsGhs: number;
+  reason?: string;
+  createdAt: string;
+  status: 'pending' | 'accepted' | 'rejected';
 }
 
 export interface NotificationDto {
@@ -130,6 +245,8 @@ export interface MechanicPublicProfileDto {
   verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
   experience: number;
   specialties: ServiceType[];
+  services?: ProviderServiceOfferingDto[];
+  priceRange?: ProviderPriceRangeDto;
   city: string;
   availability: boolean;
   rating: number;
@@ -290,50 +407,6 @@ export interface SubscriptionCheckoutDto {
   planSlug: SubscriptionPlanSlug;
 }
 
-export interface ProviderPlanDto {
-  slug: ProviderPlanSlug;
-  name: string;
-  intervalLabel: string;
-  intervalMonths: number;
-  priceGhs: number;
-  equivalentMonthlyGhs: number;
-  trialDays: number;
-  description: string;
-  sortOrder: number;
-  currency: 'GHS';
-}
-
-export interface ProviderSubscriptionDto {
-  _id: string;
-  planSlug: ProviderPlanSlug;
-  status: SubscriptionStatus;
-  trialUsed?: boolean;
-    trialEndsAt?: string;
-  billingStartsAt?: string;
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  plan?: ProviderPlanDto | null;
-}
-
-export interface ProviderSubscriptionSummaryDto {
-  subscription: ProviderSubscriptionDto | null;
-  plans: ProviderPlanDto[];
-  hasActiveSubscription: boolean;
-  paystackConfigured: boolean;
-}
-
-export interface ProviderSubscriptionCheckoutDto {
-  trialStarted: boolean;
-  authorizationUrl: string | null;
-  reference: string | null;
-  accessCode?: string;
-  publicKey?: string;
-  callbackUrl?: string;
-  planSlug: ProviderPlanSlug;
-  hasActiveSubscription: boolean;
-  subscription?: ProviderSubscriptionDto | null;
-}
-
 export interface PaymentInitializationDto {
   authorizationUrl: string;
   reference: string;
@@ -402,6 +475,10 @@ export interface RescueRequestDto {
   status: RequestStatus;
   serviceType: ServiceType;
   quotedPrice?: number;
+  pricingSnapshot?: PricingSnapshotDto;
+  pricingConfirmationStatus?: PricingConfirmationStatus;
+  pendingQuote?: JobQuoteDto;
+  quoteHistory?: JobQuoteDto[];
   paymentStatus: string;
   description?: string;
   images?: string[];
@@ -427,4 +504,314 @@ export interface RescueRequestDto {
   issueReportedAt?: string;
   issueReason?: string;
   eta?: number;
+}
+
+export interface ProviderWalletDto {
+  currency: 'GHS';
+  availableGhs: number;
+  pendingSettlementGhs: number;
+  reservedGhs: number;
+  paidGhs: number;
+  depositAvailableGhs: number;
+  totalDepositedGhs: number;
+  totalCommissionGhs: number;
+  totalEarnedGhs: number;
+  totalWithdrawnGhs: number;
+  totalReversedGhs: number;
+  commissionPercent: number;
+  minDepositGhs: number;
+  minWithdrawalGhs: number;
+  maxWithdrawalGhs: number;
+  minAvailableGhs: number;
+  pendingWithdrawalGhs?: number;
+  payoutInProgressGhs?: number;
+}
+
+export interface WalletTransactionDto {
+  id?: string;
+  reference: string;
+  type: string;
+  description: string;
+  amountGhs: number;
+  status: string;
+  requestId?: string;
+  paystackReference?: string;
+  createdAt: string;
+}
+
+export interface WalletDepositDto {
+  id: string;
+  reference: string;
+  amountGhs: number;
+  status: string;
+  channel?: string;
+  createdAt: string;
+  paidAt?: string;
+}
+
+export interface PayoutMethodDto {
+  id: string;
+  kind: 'bank' | 'mobile_money';
+  label: string;
+  accountName: string;
+  accountLast4: string;
+  bankName?: string;
+  bankCode?: string;
+  network?: 'mtn' | 'vodafone' | 'airteltigo';
+  verified: boolean;
+  isDefault: boolean;
+  mechanicId?: string;
+  garageName?: string;
+}
+
+export interface WalletWithdrawalDto {
+  id: string;
+  reference: string;
+  amountGhs: number;
+  sourceType?: 'service_earnings' | 'deposit_refund';
+  status: string;
+  destination: {
+    kind: 'bank' | 'mobile_money';
+    label: string;
+    accountName: string;
+    accountLast4: string;
+    accountNumber?: string;
+    bankName?: string;
+    network?: string;
+  };
+  rejectionReason?: string;
+  failureReason?: string;
+  payoutReference?: string;
+  payoutMethodUsed?: string;
+  amountPaidGhs?: number;
+  payoutDate?: string;
+  proofUrl?: string;
+  destinationNote?: string;
+  cancelReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  processedAt?: string;
+  confirmedAt?: string;
+  cancelledAt?: string;
+  mechanicId?: string;
+  garageName?: string;
+  reviewedBy?: string;
+  processedBy?: string;
+  confirmedBy?: string;
+  wallet?: ProviderWalletDto;
+  /** Provider's current available balance, included on admin lists. */
+  availableGhs?: number;
+}
+
+export interface WalletDepositInitDto {
+  reference: string;
+  authorizationUrl: string;
+  accessCode: string;
+  amountGhs: number;
+}
+
+export interface CorporateCashDto {
+  currency: 'GHS';
+  settledGhs: number;
+  allocatedGhs: number;
+  paidGhs: number;
+  committedGhs: number;
+  unallocatedPayoutCashGhs: number;
+  activity?: Array<{
+    id: string;
+    reference: string;
+    type: string;
+    direction: string;
+    amountGhs: number;
+    description: string;
+    createdAt: string;
+  }>;
+}
+
+export interface SettlementAwaitingItemDto {
+  id: string;
+  kind: 'job_payment' | 'provider_deposit';
+  reference?: string;
+  mechanicId?: string;
+  requestId?: string;
+  grossGhs: number;
+  platformFeeGhs: number;
+  entitlementGhs: number;
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface SettlementBatchDto {
+  id: string;
+  reference: string;
+  settlementReference: string;
+  paystackReference?: string;
+  bankReference?: string;
+  amountReceivedGhs: number;
+  expectedGrossGhs: number;
+  paystackFeesGhs: number;
+  expectedNetGhs: number;
+  /** Received minus expected net; negative means less arrived than expected. */
+  discrepancyGhs: number;
+  currency: 'GHS';
+  settlementDate: string;
+  status: 'draft' | 'discrepancy' | 'confirmed';
+  notes?: string;
+  resolutionNote?: string;
+  resolvedAt?: string;
+  confirmedAt?: string;
+  createdAt: string;
+  itemCount: number;
+  entitlementGhs: number;
+  items?: Array<{
+    kind: 'job_payment' | 'provider_deposit';
+    paymentId?: string;
+    depositId?: string;
+    mechanicId?: string;
+    amountGhs: number;
+    entitlementGhs: number;
+  }>;
+}
+
+export type FinanceTransactionType =
+  | 'customer_payment'
+  | 'provider_deposit'
+  | 'commission'
+  | 'provider_withdrawal'
+  | 'refund'
+  | 'adjustment';
+
+export type FinanceTransactionMethod = 'card' | 'mobile_money' | 'bank' | 'wallet' | 'other';
+
+export interface FinanceTransactionDto {
+  id: string;
+  reference: string;
+  type: FinanceTransactionType;
+  providerId?: string;
+  providerName?: string;
+  customerId?: string;
+  customerName?: string;
+  requestId?: string;
+  amountGhs: number;
+  commissionGhs?: number;
+  direction: 'in' | 'out' | 'internal';
+  date: string;
+  method: FinanceTransactionMethod;
+  status: string;
+  description: string;
+  details: Record<string, string | number | undefined>;
+}
+
+export interface FinanceAttentionItemDto {
+  id:
+    | 'settlements_pending'
+    | 'settlement_discrepancies'
+    | 'withdrawals_pending'
+    | 'payouts_in_progress'
+    | 'payouts_failed';
+  title: string;
+  description: string;
+  count: number;
+  amountGhs: number;
+  severity: 'warning' | 'critical';
+  action: { tab: 'settlements' | 'payouts'; status?: string };
+}
+
+export interface FinanceSummaryDto {
+  currency: 'GHS';
+  range: { from: string; to: string };
+  commissionPercent: number;
+  collected: {
+    totalGhs: number;
+    count: number;
+    providerDepositsGhs: number;
+    providerDepositCount: number;
+    customerPaymentsGhs: number;
+    customerPaymentCount: number;
+    confirmedBankReceiptsGhs: number;
+    confirmedSettlementCount: number;
+    directCustomerPaymentsGhs: number;
+    directJobCount: number;
+  };
+  providerEarnings: {
+    totalGhs: number;
+    availableGhs: number;
+    setAsideGhs: number;
+    setAsideForWithdrawalsGhs: number;
+    setAsideForActiveJobsGhs: number;
+    awaitingBankConfirmationGhs: number;
+    providerCount: number;
+  };
+  roadRescueEarnings: {
+    totalGhs: number;
+    commissionDeductedGhs: number;
+    commissionReversedGhs: number;
+    inAppPaymentFeesGhs: number;
+    jobCount: number;
+  };
+  awaitingSettlement: {
+    totalGhs: number;
+    transactionCount: number;
+    openBatchCount: number;
+    discrepancyCount: number;
+  };
+  providerPayments: {
+    totalGhs: number;
+    count: number;
+    inProgressGhs: number;
+    inProgressCount: number;
+  };
+  companyFunds: {
+    availableGhs: number;
+    confirmedBankReceiptsGhs: number;
+    payoutsAssignedGhs: number;
+    paidOutGhs: number;
+    obligationsGhs: number;
+  };
+  needsAttention: FinanceAttentionItemDto[];
+  recentActivity: FinanceTransactionDto[];
+}
+
+export interface JobPaymentInitDto {
+  reference: string;
+  authorizationUrl: string;
+  accessCode: string;
+  amountGhs: number;
+  platformFeeGhs: number;
+  providerAmountGhs: number;
+}
+
+export interface AdminFinancialOverviewDto {
+  currency: string;
+  totalAvailableGhs: number;
+  totalPendingSettlementGhs?: number;
+  totalDepositAvailableGhs?: number;
+  totalReservedGhs: number;
+  totalDepositedGhs: number;
+  totalCommissionGhs: number;
+  totalEarnedGhs?: number;
+  totalWithdrawnGhs: number;
+  pendingWithdrawals: number;
+  failedWithdrawals: number;
+  providerAccounts: number;
+  corporateCash?: CorporateCashDto;
+  recentActivity: Array<{
+    reference: string;
+    mechanicId: string;
+    type: string;
+    description: string;
+    amountGhs: number;
+    status: string;
+    createdAt: string;
+  }>;
+}
+
+export interface AdminProviderFinancialAccountDto {
+  mechanicId: string;
+  garageName: string;
+  wallet: ProviderWalletDto;
+  payoutMethods?: PayoutMethodDto[];
+  deposits: WalletDepositDto[];
+  withdrawals: WalletWithdrawalDto[];
+  ledger: WalletTransactionDto[];
 }

@@ -28,11 +28,16 @@ import { BASIC_INCLUDED_SERVICES } from '@/lib/plan-services';
 import {
   DEFAULT_PICKUP_LOCATION,
   GHANA_PICKUP_LOCATIONS,
+  locationFromPin,
   type GhanaLocation,
 } from '@/lib/locations';
+import { reverseGeocode } from '@/lib/mapbox';
+import { GeolocationRequestError, getCurrentPosition } from '@/lib/geolocation';
 import { useVehicles, useSubscription } from '@/hooks/useApi';
-import { requestsApi } from '@/api/repositories';
-import type { RescueRequestDto, ServiceType, VehicleDto } from '@/api/types';
+import { catalogApi, requestsApi } from '@/api/repositories';
+import type { RescueRequestDto, ServiceProviderOfferDto, ServiceType, VehicleDto } from '@/api/types';
+import { formatGhs } from '@/lib/currency';
+import { formatPricingLabel, pricingModelLabel } from '@/lib/pricing';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 
@@ -46,12 +51,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Wrench,
 };
 
-type Step = 'location' | 'vehicle' | 'problem' | 'confirm' | 'submitted';
+type Step = 'location' | 'vehicle' | 'problem' | 'provider' | 'confirm' | 'submitted';
 
 const steps: { id: Step; label: string }[] = [
   { id: 'location', label: 'Location' },
   { id: 'vehicle', label: 'Vehicle' },
   { id: 'problem', label: 'Problem' },
+  { id: 'provider', label: 'Provider' },
   { id: 'confirm', label: 'Confirm' },
 ];
 
@@ -80,6 +86,7 @@ export function RequestFlow({
   const [pickup, setPickup] = React.useState<GhanaLocation>(DEFAULT_PICKUP_LOCATION);
   const [selectedVehicle, setSelectedVehicle] = React.useState<VehicleDto | null>(null);
   const [selectedService, setSelectedService] = React.useState<ServiceType | null>(null);
+  const [selectedOffer, setSelectedOffer] = React.useState<ServiceProviderOfferDto | null>(null);
   const [description, setDescription] = React.useState('');
   const [createdRequest, setCreatedRequest] = React.useState<RescueRequestDto | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -106,13 +113,13 @@ export function RequestFlow({
   }, [vehicles, selectedVehicle]);
 
   const goNext = () => {
-    const order: Step[] = ['location', 'vehicle', 'problem', 'confirm'];
+    const order: Step[] = ['location', 'vehicle', 'problem', 'provider', 'confirm'];
     const idx = order.indexOf(step);
     if (idx < order.length - 1) setStep(order[idx + 1]);
   };
 
   const goBack = () => {
-    const order: Step[] = ['location', 'vehicle', 'problem', 'confirm'];
+    const order: Step[] = ['location', 'vehicle', 'problem', 'provider', 'confirm'];
     const idx = order.indexOf(step);
     if (idx > 0) setStep(order[idx - 1]);
     else onCancel();
@@ -129,6 +136,7 @@ export function RequestFlow({
         pickupCity: pickup.city,
         latitude: pickup.latitude,
         longitude: pickup.longitude,
+        mechanicId: selectedOffer?.mechanicId,
         description:
           description.trim() ||
           `${serviceTypeConfig[selectedService].label} requested near ${pickup.address}, ${pickup.city}`,
@@ -220,8 +228,20 @@ export function RequestFlow({
           selectedService={selectedService}
           description={description}
           restricted={restricted}
-          onSelect={setSelectedService}
+          onSelect={(service) => {
+            setSelectedService(service);
+            setSelectedOffer(null);
+          }}
           onDescriptionChange={setDescription}
+          goNext={goNext}
+        />
+      )}
+      {step === 'provider' && selectedService && (
+        <ProviderStep
+          service={selectedService}
+          pickup={pickup}
+          selectedOffer={selectedOffer}
+          onSelect={setSelectedOffer}
           goNext={goNext}
         />
       )}
@@ -230,6 +250,7 @@ export function RequestFlow({
           pickup={pickup}
           vehicle={selectedVehicle}
           service={selectedService}
+          offer={selectedOffer}
           description={description}
           submitting={submitting}
           onConfirm={() => void submitRequest()}
@@ -248,27 +269,100 @@ function LocationStep({
   onSelect: (location: GhanaLocation) => void;
   goNext: () => void;
 }) {
+  const { toast } = useToast();
+  const [resolving, setResolving] = React.useState(false);
+  const customPin = pickup.id.startsWith('pin-');
+
+  const applyCoordinates = async (latitude: number, longitude: number) => {
+    setResolving(true);
+    try {
+      const place = await reverseGeocode({ latitude, longitude });
+      onSelect(locationFromPin(latitude, longitude, place));
+    } catch {
+      onSelect(
+        locationFromPin(latitude, longitude, {
+          label: 'Dropped pin',
+          address: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+          city: 'Ghana',
+        }),
+      );
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const readCurrentLocation = async () => {
+    setResolving(true);
+    try {
+      const position = await getCurrentPosition();
+      await applyCoordinates(position.coords.latitude, position.coords.longitude);
+    } catch (error) {
+      setResolving(false);
+      toast({
+        type: 'error',
+        title: 'Could not read GPS',
+        description:
+          error instanceof GeolocationRequestError
+            ? error.message
+            : 'Try dropping a pin on the map.',
+      });
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div>
         <h2 className="font-display text-xl font-bold tracking-tight">Confirm your location</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose where help should meet you in Ghana.
+          Tap the map to drop a pin, use GPS, or pick a saved area.
         </p>
       </div>
 
       <MapView
-        className="h-56 min-h-[14rem] w-full rounded-2xl border border-border sm:h-64 landscape:h-[38dvh] landscape:min-h-[12rem]"
+        className="h-64 min-h-[16rem] w-full rounded-2xl border border-border sm:h-72 landscape:h-[42dvh] landscape:min-h-[12rem]"
+        cooperativeGestures
+        onMapClick={({ latitude, longitude }) => {
+          void applyCoordinates(latitude, longitude);
+        }}
         markers={[
           {
             id: 'user',
             latitude: pickup.latitude,
             longitude: pickup.longitude,
             type: 'user',
-            label: 'Pickup',
+            label: resolving ? 'Finding…' : 'Pickup',
           },
         ]}
       />
+
+      <Button
+        fullWidth
+        variant="outline"
+        disabled={resolving}
+        onClick={() => void readCurrentLocation()}
+      >
+        <Navigation2 className="h-4 w-4" />
+        {resolving ? 'Finding address…' : 'Use my location'}
+      </Button>
+
+      {customPin && (
+        <Card className="border-primary ring-2 ring-primary/20">
+          <div className="p-4 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-foreground">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">{pickup.label}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {pickup.address}, {pickup.city}
+              </p>
+            </div>
+            <Badge variant="success" dot>
+              Selected
+            </Badge>
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-2">
         {GHANA_PICKUP_LOCATIONS.map((location) => {
@@ -301,7 +395,7 @@ function LocationStep({
         })}
       </div>
 
-      <Button fullWidth size="lg" onClick={goNext}>
+      <Button fullWidth size="lg" onClick={goNext} disabled={resolving}>
         Confirm Location
         <ChevronRight className="h-5 w-5" />
       </Button>
@@ -483,10 +577,121 @@ function ProblemStep({
   );
 }
 
+function ProviderStep({
+  service,
+  pickup,
+  selectedOffer,
+  onSelect,
+  goNext,
+}: {
+  service: ServiceType;
+  pickup: GhanaLocation;
+  selectedOffer: ServiceProviderOfferDto | null;
+  onSelect: (offer: ServiceProviderOfferDto) => void;
+  goNext: () => void;
+}) {
+  const { toast } = useToast();
+  const [offers, setOffers] = React.useState<ServiceProviderOfferDto[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await catalogApi.providersForService(
+          service,
+          pickup.latitude,
+          pickup.longitude,
+        );
+        if (!cancelled) setOffers(rows);
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            type: 'error',
+            title: 'Could not load providers',
+            description: error instanceof ApiClientError ? error.message : 'Please try again.',
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pickup.latitude, pickup.longitude, service, toast]);
+
+  return (
+    <div className="space-y-4 animate-fade-in-up">
+      <div>
+        <h2 className="font-display text-xl font-bold tracking-tight">Compare providers</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Prices come from each provider. Choose who you want to request.
+        </p>
+      </div>
+      {loading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Finding providers…</p>
+      ) : offers.length === 0 ? (
+        <EmptyState
+          icon={<Wrench className="h-10 w-10" />}
+          title="No priced providers nearby"
+          description="No verified provider currently offers this service with a listed price. Try another service or location."
+        />
+      ) : (
+        <div className="space-y-2">
+          {offers.map((offer) => {
+            const selected = selectedOffer?.mechanicId === offer.mechanicId;
+            return (
+              <Card
+                key={offer.mechanicId}
+                interactive
+                onClick={() => onSelect(offer)}
+                className={cn(selected && 'border-primary ring-2 ring-primary/20')}
+              >
+                <div className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{offer.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {offer.city} · {offer.distanceKm.toFixed(1)} km · {offer.rating.toFixed(1)} rating
+                      </p>
+                    </div>
+                    <p className="font-display text-lg font-bold">
+                      {formatPricingLabel(offer.pricingModel, offer.basePriceGhs)}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {pricingModelLabel(offer.pricingModel)}
+                    {offer.additionalCharges.length
+                      ? ` · extras ${formatGhs(
+                          offer.additionalCharges.reduce((sum, charge) => sum + charge.amountGhs, 0),
+                          2,
+                        )}`
+                      : ''}
+                    {offer.partsNotIncluded ? ' · parts not included' : ''}
+                    {offer.pricingModel === 'starting_from'
+                      ? ' · final price needs confirmation'
+                      : ''}
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      <Button fullWidth size="lg" disabled={!selectedOffer} onClick={goNext}>
+        Continue
+        <ChevronRight className="h-5 w-5" />
+      </Button>
+    </div>
+  );
+}
+
 function ConfirmStep({
   pickup,
   vehicle,
   service,
+  offer,
   description,
   submitting,
   onConfirm,
@@ -494,6 +699,7 @@ function ConfirmStep({
   pickup: GhanaLocation;
   vehicle: VehicleDto | null;
   service: ServiceType | null;
+  offer: ServiceProviderOfferDto | null;
   description: string;
   submitting: boolean;
   onConfirm: () => void;
@@ -505,7 +711,11 @@ function ConfirmStep({
     <div className="space-y-4 animate-fade-in-up">
       <div>
         <h2 className="font-display text-xl font-bold tracking-tight">Confirm request</h2>
-        <p className="text-sm text-muted-foreground mt-1">We'll notify nearby Ghana providers.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {offer
+            ? 'The listed price will be saved on this job.'
+            : "We'll notify nearby Ghana providers."}
+        </p>
       </div>
 
       <Card>
@@ -526,6 +736,20 @@ function ConfirmStep({
             <span className="text-muted-foreground">Service</span>
             <span className="font-semibold text-right">{config.label}</span>
           </div>
+          {offer && (
+            <>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Provider</span>
+                <span className="font-semibold text-right">{offer.name}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Price</span>
+                <span className="font-semibold text-right">
+                  {formatPricingLabel(offer.pricingModel, offer.basePriceGhs)}
+                </span>
+              </div>
+            </>
+          )}
           {description.trim() && (
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">Details</span>
@@ -535,7 +759,7 @@ function ConfirmStep({
         </div>
       </Card>
 
-      <Button fullWidth size="lg" onClick={onConfirm} disabled={submitting}>
+      <Button fullWidth size="lg" onClick={onConfirm} disabled={submitting || !offer}>
         <ShieldAlert className="h-5 w-5" />
         {submitting ? 'Submitting…' : 'Request Assistance'}
       </Button>

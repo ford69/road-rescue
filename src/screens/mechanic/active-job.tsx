@@ -12,12 +12,16 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { StatusChip } from '@/components/ui/status-chip';
 import { MapView, MapFloatingCard } from '@/components/map-view';
+import { formatRouteEta } from '@/lib/mapbox';
 import { Timeline } from '@/components/timeline';
 import { serviceTypeConfig } from '@/lib/service-config';
 import { useRequests } from '@/hooks/useApi';
 import { mechanicsApi, requestsApi } from '@/api/repositories';
+import { formatGhs } from '@/lib/currency';
+import { snapshotCustomerTotal } from '@/lib/pricing';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { RequestStatus, RescueRequestDto } from '@/api/types';
@@ -54,11 +58,15 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [serviceAmount, setServiceAmount] = React.useState('');
+  const [quoteAmount, setQuoteAmount] = React.useState('');
+  const [quoteReason, setQuoteReason] = React.useState('');
   const [currentLocation, setCurrentLocation] = React.useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
   const lastSentAt = React.useRef(0);
+  const [routeEta, setRouteEta] = React.useState<string | null>(null);
 
   const active =
     requests.find((r) => ACTIVE.has(r.status)) ??
@@ -130,11 +138,52 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const requestConfirmation = async () => {
+  const priceConfirmed =
+    active?.pricingConfirmationStatus === 'confirmed' ||
+    active?.pricingConfirmationStatus === 'accepted';
+
+  const submitQuote = async () => {
     if (!active) return;
+    const amount = Number(quoteAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({ type: 'error', title: 'Enter a quote amount' });
+      return;
+    }
     setBusy(true);
     try {
-      await requestsApi.requestConfirmation(active._id);
+      await requestsApi.submitQuote(active._id, {
+        amountGhs: amount,
+        reason: quoteReason.trim() || undefined,
+      });
+      await reload();
+      toast({ type: 'success', title: 'Quote sent', description: 'Waiting for the customer to accept.' });
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: 'Could not send quote',
+        description: err instanceof ApiClientError ? err.message : 'Please try again.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestConfirmation = async () => {
+    if (!active) return;
+    const amount = priceConfirmed
+      ? Number(active.quotedPrice || 0)
+      : Number(serviceAmount || active.quotedPrice || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({
+        type: 'error',
+        title: 'Enter the service amount',
+        description: 'Commission is calculated from the confirmed job value in GHS.',
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestsApi.requestConfirmation(active._id, amount);
       await reload();
       setConfirmOpen(false);
       toast({
@@ -256,6 +305,11 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
             Boolean(currentLocation) &&
             (active.status === 'accepted' || active.status === 'enroute')
           }
+          onRouteReady={(summary) =>
+            setRouteEta(
+              summary ? formatRouteEta(summary.durationSeconds, summary.distanceMeters) : null,
+            )
+          }
           routePath={
             currentLocation &&
             (active.status === 'accepted' || active.status === 'enroute')
@@ -327,12 +381,23 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
             <div>
               <p className="font-display text-lg font-bold">{name}</p>
               <p className="text-sm text-muted-foreground mt-0.5">{vehicleLabel(active)}</p>
+              {active.pricingSnapshot && (
+                <p className="mt-1 text-sm font-semibold">
+                  {snapshotCustomerTotal(active.pricingSnapshot)}
+                  {priceConfirmed && active.quotedPrice
+                    ? ` · agreed ${formatGhs(active.quotedPrice, 2)}`
+                    : ''}
+                </p>
+              )}
               <p className="mt-2 flex items-center gap-1.5 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span>
                   {active.pickupLocation.address}, {active.pickupLocation.city}
                 </span>
               </p>
+              {routeEta && (
+                <p className="mt-1 text-sm font-semibold text-foreground">Drive time {routeEta}</p>
+              )}
             </div>
 
             {sheetExpanded && (
@@ -393,6 +458,30 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
                   {busy ? 'Updating…' : next.label}
                 </Button>
               )}
+              {active.pricingSnapshot && !priceConfirmed && (
+                  <div className="space-y-2 rounded-xl border border-border p-3">
+                    <p className="text-sm font-semibold">
+                      {active.pricingSnapshot.pricingModel === 'quote'
+                        ? 'Send a quote'
+                        : 'Confirm the final price'}
+                    </p>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="Amount (GHS)"
+                      value={quoteAmount}
+                      onChange={(event) => setQuoteAmount(event.target.value)}
+                    />
+                    <Input
+                      placeholder="Reason (required to change an agreed price)"
+                      value={quoteReason}
+                      onChange={(event) => setQuoteReason(event.target.value)}
+                    />
+                    <Button disabled={busy} onClick={() => void submitQuote()}>
+                      {busy ? 'Sending…' : 'Send quote'}
+                    </Button>
+                  </div>
+                )}
               {(active.status === 'inprogress' || active.status === 'issue_reported') && (
                 <Button
                   variant="primary"
@@ -424,9 +513,21 @@ export function MechanicActiveJob({ onBack }: { onBack: () => void }) {
           <SheetHeader title="Service Completion Request" onClose={() => setConfirmOpen(false)} />
           <SheetBody>
             <p className="text-sm text-muted-foreground">
-              Are you sure the service has been completed? The customer will receive a request to
-              review and approve the service completion.
+              {priceConfirmed
+                ? `Commission uses the agreed amount of ${formatGhs(Number(active.quotedPrice || 0), 2)}.`
+                : 'Enter the confirmed service amount. Road Rescue reserves commission when you send this request, then deducts it after the customer confirms.'}
             </p>
+            {!priceConfirmed && (
+              <Input
+                className="mt-3"
+                type="number"
+                min={1}
+                placeholder="Service amount (GHS)"
+                value={serviceAmount}
+                onChange={(event) => setServiceAmount(event.target.value)}
+                aria-label="Confirmed service amount in GHS"
+              />
+            )}
             <div className="mt-4 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
                 Cancel

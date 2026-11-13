@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculatePaymentSplit } from '../payments/payment-provider.impl.js';
 import { entitlementService } from '../services/entitlement.service.js';
-import { paymentService, isPaymentAvailable } from '../services/payment.service.js';
+import { isJobPaymentReference, isPaymentAvailable } from '../services/payment.service.js';
+import { commissionPesewas, ghsToPesewas } from '../utils/money.js';
 
 describe('payment split', () => {
   it('calculates platform and provider amounts without holding a wallet balance', () => {
@@ -12,6 +13,13 @@ describe('payment split', () => {
     expect(split.grossAmount).toBe(200);
     expect(split.platformFee).toBe(30);
     expect(split.providerAmount).toBe(170);
+  });
+
+  it('uses integer pesewas for the 10% job commission', () => {
+    const gross = ghsToPesewas(200);
+    const fee = commissionPesewas(gross, 10);
+    expect(fee).toBe(2_000);
+    expect(gross - fee).toBe(18_000);
   });
 });
 
@@ -34,16 +42,15 @@ describe('subscription entitlements', () => {
   });
 });
 
-describe('payment eligibility after confirmation', () => {
-  it('never treats mechanic services as payable in Road Rescue', () => {
+describe('job payment eligibility', () => {
+  it('allows Paystack checkout after the customer confirms completion', () => {
     expect(isPaymentAvailable('awaiting_confirmation')).toBe(false);
     expect(isPaymentAvailable('issue_reported')).toBe(false);
-    expect(isPaymentAvailable('completed')).toBe(false);
+    expect(isPaymentAvailable('completed')).toBe(true);
   });
 
-  it('rejects mechanic-service Paystack checkout', async () => {
-    await expect(paymentService.initialize('u1', 'r1')).rejects.toMatchObject({
-      statusCode: 400,
-    });
+  it('identifies in-app job payment references', () => {
+    expect(isJobPaymentReference('RR_JOB_abc')).toBe(true);
+    expect(isJobPaymentReference('RR_PWAL_abc')).toBe(false);
   });
 });

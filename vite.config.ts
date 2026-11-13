@@ -125,11 +125,11 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              // Map tiles only — never authenticated API data.
-              urlPattern: /^https:\/\/(tile\.openstreetmap\.org|.*\.basemaps\.cartocdn\.com)\/.*/i,
+              // Mapbox style, tiles, and glyphs only — never Directions or Geocoding.
+              urlPattern: /^https:\/\/api\.mapbox\.com\/(styles|v4|fonts)\/.*/i,
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'rr-map-tiles',
+                cacheName: 'rr-mapbox-tiles',
                 expiration: {
                   maxEntries: 200,
                   maxAgeSeconds: 60 * 60 * 24 * 7,
@@ -147,6 +147,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
+    },
+    optimizeDeps: {
+      include: ['mapbox-gl'],
     },
     server: {
       proxy: {

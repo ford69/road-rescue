@@ -25,9 +25,11 @@ import { CustomerSubscriptionPage } from '@/screens/customer/subscription';
 import { Notifications } from '@/screens/customer/notifications';
 import { HelpSupport } from '@/screens/help-support';
 import { MechanicHome, MechanicJobHistory } from '@/screens/mechanic/home';
-import { ProviderSubscriptionPage } from '@/screens/mechanic/subscription';
 import { MechanicActiveJob } from '@/screens/mechanic/active-job';
+import { MechanicWallet } from '@/screens/mechanic/wallet';
+import { MechanicServicesPage } from '@/screens/mechanic/services';
 import { AdminDashboard } from '@/screens/admin/dashboard';
+import { AdminFinance } from '@/screens/admin/finance';
 import {
   AdminLiveJobs,
   AdminMechanics,
@@ -51,7 +53,10 @@ type Screen =
   | 'payments'
   | 'reports'
   | 'settings'
-  | 'subscription';
+  | 'subscription'
+  | 'wallet'
+  | 'finance'
+  | 'services';
 
 const roles: Role[] = ['customer', 'mechanic', 'admin'];
 const screens: Screen[] = [
@@ -70,6 +75,9 @@ const screens: Screen[] = [
   'reports',
   'settings',
   'subscription',
+  'wallet',
+  'finance',
+  'services',
 ];
 
 function isRole(value: string | undefined): value is Role {
@@ -94,11 +102,8 @@ function ProtectedApp() {
     };
     const onSubscriptionRequired = () => {
       if (location.pathname.startsWith('/auth/complete-subscription')) return;
-      if (location.pathname.startsWith('/mechanic/subscription')) return;
-      navigate(
-        user?.role === 'mechanic' ? '/mechanic/subscription' : '/auth/complete-subscription',
-        { replace: true },
-      );
+      if (user?.role === 'mechanic') return;
+      navigate('/auth/complete-subscription', { replace: true });
     };
     window.addEventListener(EMAIL_NOT_VERIFIED_EVENT, onUnverified);
     window.addEventListener(SUBSCRIPTION_REQUIRED_EVENT, onSubscriptionRequired);
@@ -126,12 +131,6 @@ function ProtectedApp() {
 
   if (user.role === 'customer' && !user.hasActiveSubscription) {
     return <Navigate to={`/auth/complete-subscription${location.search}`} replace />;
-  }
-
-  if (user.role === 'mechanic' && !user.hasActiveSubscription) {
-    if (!location.pathname.startsWith('/mechanic/subscription')) {
-      return <Navigate to="/mechanic/subscription" replace />;
-    }
   }
 
   return <AppShell onLogout={() => void logout()} />;
@@ -164,10 +163,13 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       navigate('/customer/home', { replace: true });
     }
     if (roleParam === 'mechanic' && screenParam === 'earnings') {
-      navigate('/mechanic/profile', { replace: true });
+      navigate('/mechanic/wallet', { replace: true });
+    }
+    if (roleParam === 'mechanic' && screenParam === 'subscription') {
+      navigate('/mechanic/home', { replace: true });
     }
     if (roleParam === 'admin' && screenParam === 'payments') {
-      navigate('/admin/home', { replace: true });
+      navigate('/admin/finance', { replace: true });
     }
   }, [idParam, navigate, roleParam, screenParam, user]);
 
@@ -211,7 +213,10 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       profile: role === 'admin' ? 'Settings' : 'Profile',
       request: 'Request Assistance',
       tracking: 'Live Tracking',
-      earnings: 'Payments & Earnings',
+      earnings: 'Wallet',
+      wallet: 'Wallet',
+      finance: 'Finance',
+      services: 'Services & Pricing',
       support: 'Help & Support',
       users: 'User Management',
       mechanics: role === 'customer' ? 'Provider profile' : 'Providers',
@@ -275,7 +280,8 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
 
         <main
           className={cn(
-            'mx-auto w-full max-w-5xl px-4 py-4 pb-nav',
+            'mx-auto w-full px-4 py-4 pb-nav',
+            role === 'admin' && screen === 'finance' ? 'max-w-6xl' : 'max-w-5xl',
             isRequestFlow ? 'pt-4' : 'pt-4',
             'lg:px-6 lg:py-6 lg:pb-6',
           )}
@@ -317,8 +323,9 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
               onOpenJob={handleOpenMechanicJob}
             />
           )}
-          {role === 'mechanic' && screen === 'subscription' && <ProviderSubscriptionPage />}
           {role === 'mechanic' && screen === 'history' && <MechanicJobHistory />}
+          {role === 'mechanic' && (screen === 'wallet' || screen === 'earnings') && <MechanicWallet />}
+          {role === 'mechanic' && screen === 'services' && <MechanicServicesPage />}
           {role === 'mechanic' && screen === 'alerts' && <Notifications controller={notifications} />}
           {role === 'mechanic' && screen === 'profile' && <Profile onSignOut={onLogout} />}
           {role === 'mechanic' && screen === 'support' && <HelpSupport />}
@@ -327,6 +334,7 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           {role === 'admin' && screen === 'track' && <AdminLiveJobs />}
           {role === 'admin' && screen === 'users' && <AdminUsers />}
           {role === 'admin' && screen === 'mechanics' && <AdminMechanics />}
+          {role === 'admin' && (screen === 'finance' || screen === 'payments') && <AdminFinance />}
           {role === 'admin' && (screen === 'reports' || screen === 'history') && <AdminReports />}
           {role === 'admin' && (screen === 'settings' || screen === 'profile') && (
             <AdminSettings onSignOut={onLogout} />

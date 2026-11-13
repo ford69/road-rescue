@@ -40,7 +40,6 @@ import { subscriptionService } from './subscription.service.js';
 import { entitlementService } from './entitlement.service.js';
 import { isPaidCustomerPlan } from './plan-access.js';
 import { providerOnboardingService } from './provider-onboarding.service.js';
-import { providerSubscriptionService } from './provider-subscription.service.js';
 
 type RegisterCustomerInput = z.infer<typeof registerCustomerSchema>;
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -84,8 +83,7 @@ async function presentAuthUser(user: Parameters<typeof sanitizeUser>[0] & { role
     return { ...base, hasActiveSubscription: true as const };
   }
   if (user.role === 'mechanic') {
-    const hasActiveSubscription = await providerSubscriptionService.hasAccess(user._id.toString());
-    return { ...base, hasActiveSubscription };
+    return { ...base, hasActiveSubscription: true as const };
   }
   const entitlements = await entitlementService.getCustomerEntitlements(user._id.toString());
   return {

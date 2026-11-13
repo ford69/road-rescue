@@ -17,11 +17,14 @@ import { Card } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { StatusChip } from '@/components/ui/status-chip';
 import { MapView, MapFloatingCard } from '@/components/map-view';
+import { formatRouteEta } from '@/lib/mapbox';
 import { Timeline } from '@/components/timeline';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { DISPLAY_RATING, DISPLAY_REVIEW_COUNT } from '@/lib/ratings';
 import { useRequests } from '@/hooks/useApi';
 import { requestsApi } from '@/api/repositories';
+import { formatGhs } from '@/lib/currency';
+import { snapshotCustomerTotal } from '@/lib/pricing';
 import { ApiClientError } from '@/api/client/http';
 import { useToast } from '@/components/ui/toast';
 import type { RequestStatus } from '@/api/types';
@@ -61,7 +64,8 @@ export function LiveTracking({
   const [issueOpen, setIssueOpen] = React.useState(false);
   const [issueReason, setIssueReason] = React.useState('');
   const [acting, setActing] = React.useState(false);
-
+  const [quoteActing, setQuoteActing] = React.useState(false);
+  const [routeEta, setRouteEta] = React.useState<string | null>(null);
   // Requests are returned newest-first. Never fall back to an older active
   // request after the latest job completes.
   const latestRequest = requests[0] ?? null;
@@ -258,6 +262,30 @@ export function LiveTracking({
     }
   };
 
+  const decideQuote = async (accept: boolean) => {
+    setQuoteActing(true);
+    try {
+      if (accept) await requestsApi.acceptQuote(active._id);
+      else await requestsApi.rejectQuote(active._id);
+      await reload();
+      toast({
+        type: 'success',
+        title: accept ? 'Quote accepted' : 'Quote declined',
+        description: accept
+          ? 'The agreed amount is now locked for this job.'
+          : 'Your provider can send another quote.',
+      });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Could not update quote',
+        description: error instanceof ApiClientError ? error.message : 'Try again',
+      });
+    } finally {
+      setQuoteActing(false);
+    }
+  };
+
   const confirmCompletion = async () => {
     setActing(true);
     try {
@@ -304,6 +332,11 @@ export function LiveTracking({
         <MapView
           className="absolute inset-0 h-full w-full"
           showRoute={phase === 'enroute' && Boolean(liveLocation)}
+          onRouteReady={(summary) =>
+            setRouteEta(
+              summary ? formatRouteEta(summary.durationSeconds, summary.distanceMeters) : null,
+            )
+          }
           routePath={
             phase === 'enroute' && liveLocation
               ? [
@@ -386,7 +419,11 @@ export function LiveTracking({
                 {phase === 'waiting' ? 'Status' : phase === 'enroute' ? 'Next update' : 'Status'}
               </p>
               <p className="font-display text-2xl font-bold capitalize">
-                {phase === 'waiting' ? 'Waiting for provider' : phase}
+                {phase === 'waiting'
+                  ? 'Waiting for provider'
+                  : phase === 'enroute' && routeEta
+                    ? routeEta
+                    : phase}
               </p>
             </div>
             <button onClick={() => setSheetExpanded((p) => !p)} className="rounded-xl p-2 hover:bg-accent">
@@ -442,6 +479,54 @@ export function LiveTracking({
               {sheetExpanded && (
             <>
               <Timeline items={timelineItems} />
+              {active.pricingSnapshot && (
+                <Card>
+                  <div className="space-y-1 p-4 text-sm">
+                    <p className="font-semibold">{snapshotCustomerTotal(active.pricingSnapshot)}</p>
+                    <p className="text-muted-foreground">
+                      {active.pricingSnapshot.serviceName}
+                      {active.quotedPrice
+                        ? ` · agreed ${formatGhs(active.quotedPrice, 2)}`
+                        : ''}
+                    </p>
+                    {active.pricingSnapshot.partsNotIncluded && (
+                      <p className="text-muted-foreground">Parts are charged separately.</p>
+                    )}
+                    {active.pricingSnapshot.additionalCharges.map((charge) => (
+                      <p key={charge.label} className="text-muted-foreground">
+                        {charge.label}: {formatGhs(charge.amountGhs, 2)}
+                      </p>
+                    ))}
+                  </div>
+                </Card>
+              )}
+              {active.pendingQuote?.status === 'pending' && (
+                <div className="space-y-3 rounded-xl border border-border bg-accent/50 p-4">
+                  <p className="font-semibold">
+                    Quote: {formatGhs(active.pendingQuote.amountGhs, 2)}
+                  </p>
+                  {active.pendingQuote.reason && (
+                    <p className="text-sm text-muted-foreground">{active.pendingQuote.reason}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      disabled={quoteActing}
+                      onClick={() => void decideQuote(true)}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      variant="outline"
+                      disabled={quoteActing}
+                      onClick={() => void decideQuote(false)}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
               {canCancel && (
                 <Button
                   fullWidth
@@ -488,9 +573,12 @@ export function LiveTracking({
               )}
               {phase === 'completed' && (
                 <div className="space-y-2">
-                  <p className="rounded-xl bg-accent px-4 py-3 text-sm">
-                    This service is complete. Any payment to your provider happens outside Road Rescue.
-                  </p>
+                  {Number(active.quotedPrice || 0) > 0 && (
+                    <p className="rounded-xl bg-accent px-4 py-3 text-sm">
+                      Pay the provider {formatGhs(Number(active.quotedPrice), 2)} directly by cash or
+                      mobile money.
+                    </p>
+                  )}
                   <Button
                     fullWidth
                     variant="outline"
@@ -509,7 +597,8 @@ export function LiveTracking({
           <SheetHeader title="Approve Service Completion?" onClose={() => setConfirmOpen(false)} />
           <SheetBody>
             <p className="text-sm text-muted-foreground">
-              By approving, you confirm that the requested Road Rescue service has been completed.
+              By approving, you confirm that the requested Road Rescue service has been completed
+              {active.quotedPrice ? ` for ${formatGhs(active.quotedPrice, 2)}` : ''}.
             </p>
             <div className="mt-4 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>

@@ -59,6 +59,25 @@ export type ServiceTypeSlug =
   | 'accident'
   | 'other';
 
+export type PricingModel = 'fixed' | 'starting_from' | 'quote';
+
+export type AdditionalChargeKind =
+  | 'call_out'
+  | 'distance'
+  | 'emergency'
+  | 'inspection'
+  | 'labour'
+  | 'other';
+
+export type PricingConfirmationStatus =
+  | 'unconfirmed'
+  | 'confirmed'
+  | 'pending_quote'
+  | 'quoted'
+  | 'accepted'
+  | 'rejected'
+  | 'pending_revision';
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;

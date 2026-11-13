@@ -93,7 +93,9 @@ export const requestController = {
   },
   requestConfirmation: async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
-    const data = await requestService.requestConfirmation(req.user.id, paramId(req));
+    const quotedPrice =
+      typeof req.body?.quotedPrice === 'number' ? req.body.quotedPrice : undefined;
+    const data = await requestService.requestConfirmation(req.user.id, paramId(req), quotedPrice);
     return sendSuccess(res, data, 'Customer confirmation requested');
   },
   confirmCompletion: async (req: Request, res: Response) => {

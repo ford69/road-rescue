@@ -61,13 +61,14 @@ vi.mock('../services/provider-onboarding.service.js', () => ({
   providerOnboardingService: { complete: vi.fn() },
 }));
 
-vi.mock('../services/provider-subscription.service.js', () => ({
-  isProviderSubscriptionReference: (reference?: string) => Boolean(reference?.startsWith('RR_PSUB_')),
-  providerSubscriptionService: {
-    fulfillCardAuthorization: vi.fn(),
-    handleRecurringCharge: vi.fn(),
-    attachPaystackSubscriptionCode: vi.fn(),
-  },
+vi.mock('../services/wallet.service.js', () => ({
+  isWalletDepositReference: (reference?: string) => Boolean(reference?.startsWith('RR_PWAL_')),
+  walletService: { fulfillVerifiedDeposit: vi.fn() },
+}));
+
+vi.mock('../services/payment.service.js', () => ({
+  isJobPaymentReference: (reference?: string) => Boolean(reference?.startsWith('RR_JOB_')),
+  paymentService: { fulfillJobPayment: vi.fn() },
 }));
 
 import { initializePaystackSubscription, verifyPaystackPayment } from '../payments/paystack.js';

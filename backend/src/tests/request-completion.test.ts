@@ -12,6 +12,17 @@ vi.mock('../sockets/index.js', () => ({
   emitToRequest: vi.fn(),
 }));
 
+vi.mock('../services/wallet.service.js', () => ({
+  walletService: {
+    assertCanAcceptJob: vi.fn().mockResolvedValue({}),
+    syncCommissionHold: vi.fn().mockImplementation(async (_userId: string, request: unknown) => request),
+    syncCommissionHoldForRequest: vi.fn().mockImplementation(async (request: unknown) => request),
+    captureCommission: vi.fn().mockResolvedValue(undefined),
+    releaseCommissionHold: vi.fn().mockResolvedValue(undefined),
+  },
+  isWalletDepositReference: (reference?: string) => Boolean(reference?.startsWith('RR_PWAL_')),
+}));
+
 vi.mock('../repositories/mechanic.repository.js', () => ({
   mechanicRepository: {
     findByUserId: vi.fn(),
@@ -77,6 +88,9 @@ function requestDoc(status: string) {
     mechanic: mechanicId,
     customer: customerId,
     quotedPrice: 120,
+    commissionHoldPesewas: 0,
+    commissionCapturedPesewas: 0,
+    save: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -131,7 +145,7 @@ describe('service confirmation workflow', () => {
       expect.objectContaining({ customerConfirmedBy: customerUserId }),
     );
     expect(result).toMatchObject({ status: 'completed' });
-    expect(isPaymentAvailable('completed')).toBe(false);
+    expect(isPaymentAvailable('completed')).toBe(true);
   });
 
   it('rejects confirmation from another customer', async () => {
@@ -202,10 +216,10 @@ describe('service confirmation workflow', () => {
     expect(result).toMatchObject({ status: 'awaiting_confirmation' });
   });
 
-  it('does not treat any service status as payable through Road Rescue', () => {
+  it('allows Paystack checkout only after the customer confirms completion', () => {
     expect(isPaymentAvailable('awaiting_confirmation')).toBe(false);
     expect(isPaymentAvailable('inprogress')).toBe(false);
-    expect(isPaymentAvailable('completed')).toBe(false);
+    expect(isPaymentAvailable('completed')).toBe(true);
   });
 
   it('rejects a second completion request', async () => {

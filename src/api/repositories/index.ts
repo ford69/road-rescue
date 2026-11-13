@@ -16,13 +16,26 @@ import type {
   SubscriptionPlanDto,
   SubscriptionPlanSlug,
   SubscriptionSummaryDto,
-  ProviderPlanDto,
-  ProviderPlanSlug,
-  ProviderSubscriptionCheckoutDto,
-  ProviderSubscriptionSummaryDto,
   VehicleDto,
   PaginatedDto,
   CustomerHistoryDto,
+  ProviderWalletDto,
+  ProviderServicesBoardDto,
+  ProviderServiceOfferingDto,
+  ServiceProviderOfferDto,
+  WalletTransactionDto,
+  WalletDepositDto,
+  PayoutMethodDto,
+  WalletWithdrawalDto,
+  WalletDepositInitDto,
+  AdminFinancialOverviewDto,
+  AdminProviderFinancialAccountDto,
+  FinanceSummaryDto,
+  FinanceTransactionDto,
+  CorporateCashDto,
+  JobPaymentInitDto,
+  SettlementAwaitingItemDto,
+  SettlementBatchDto,
 } from '../types';
 
 function queryString(params: Record<string, string | number | undefined>): string {
@@ -55,6 +68,11 @@ export interface SupportTicketDto {
 export const catalogApi = {
   serviceTypes() {
     return apiRequest<ServiceTypeDto[]>('/service-types');
+  },
+  providersForService(slug: string, lat: number, lng: number) {
+    return apiRequest<ServiceProviderOfferDto[]>(
+      `/service-types/${slug}/providers${queryString({ lat, lng })}`,
+    );
   },
 };
 
@@ -100,6 +118,7 @@ export const requestsApi = {
     latitude: number;
     longitude: number;
     description?: string;
+    mechanicId?: string;
   }) {
     return apiRequest<RescueRequestDto>('/requests', {
       method: 'POST',
@@ -118,10 +137,35 @@ export const requestsApi = {
       body: JSON.stringify({ status }),
     });
   },
-  async requestConfirmation(id: string) {
+  getQuote(id: string) {
+    return apiRequest<{
+      snapshot: RescueRequestDto['pricingSnapshot'];
+      status: RescueRequestDto['pricingConfirmationStatus'];
+      quotedPrice: number;
+      pendingQuote: RescueRequestDto['pendingQuote'];
+      quoteHistory: RescueRequestDto['quoteHistory'];
+    }>(`/requests/${id}/quote`);
+  },
+  submitQuote(id: string, input: { amountGhs: number; partsGhs?: number; reason?: string }) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/quote`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  acceptQuote(id: string) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/quote/accept`, { method: 'POST' });
+  },
+  rejectQuote(id: string, reason?: string) {
+    return apiRequest<RescueRequestDto>(`/requests/${id}/quote/reject`, {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    });
+  },
+  async requestConfirmation(id: string, quotedPrice?: number) {
     try {
       return await apiRequest<RescueRequestDto>(`/requests/${id}/request-confirmation`, {
         method: 'POST',
+        body: JSON.stringify(quotedPrice != null ? { quotedPrice } : {}),
       });
     } catch (error) {
       if (!(error instanceof ApiClientError) || error.status !== 404) throw error;
@@ -185,6 +229,9 @@ export const mechanicsApi = {
   },
   publicProfile(id: string) {
     return apiRequest<MechanicPublicProfileDto>(`/mechanics/${id}`);
+  },
+  publicServices(id: string) {
+    return apiRequest<ProviderServiceOfferingDto[]>(`/mechanics/${id}/services`);
   },
   publicReviews(id: string, params?: { page?: number; limit?: number }) {
     return apiRequest<PaginatedDto<MechanicReviewDto>>(
@@ -274,22 +321,238 @@ export const subscriptionsApi = {
   downgradeToFree() {
     return apiRequest<SubscriptionSummaryDto>('/subscriptions/downgrade', { method: 'POST' });
   },
-  providerPlans() {
-    return apiRequest<ProviderPlanDto[]>('/subscriptions/provider/plans');
+};
+
+export const walletApi = {
+  get() {
+    return apiRequest<ProviderWalletDto>('/provider/wallet');
   },
-  providerCurrent() {
-    return apiRequest<ProviderSubscriptionSummaryDto>('/subscriptions/provider/me');
+  transactions(params: { page?: number; limit?: number; type?: string } = {}) {
+    return apiRequest<PaginatedDto<WalletTransactionDto>>(
+      `/provider/wallet/transactions${queryString(params)}`,
+    );
   },
-  providerCheckout(planSlug: ProviderPlanSlug) {
-    return apiRequest<ProviderSubscriptionCheckoutDto>('/subscriptions/provider/checkout', {
+  deposits(params: { page?: number; limit?: number } = {}) {
+    return apiRequest<PaginatedDto<WalletDepositDto>>(
+      `/provider/wallet/deposits${queryString(params)}`,
+    );
+  },
+  initiateDeposit(amountGhs: number) {
+    return apiRequest<WalletDepositInitDto>('/provider/wallet/deposit', {
       method: 'POST',
-      body: JSON.stringify({ planSlug }),
+      body: JSON.stringify({ amountGhs }),
     });
   },
-  providerVerify(reference: string) {
-    return apiRequest<ProviderSubscriptionSummaryDto>(
-      `/subscriptions/provider/verify/${encodeURIComponent(reference)}`,
+  verifyDeposit(reference: string) {
+    return apiRequest<{
+      wallet?: ProviderWalletDto;
+      status?: string;
+      duplicate?: boolean;
+    }>(`/provider/wallet/deposit/verify/${encodeURIComponent(reference)}`);
+  },
+  payoutMethods() {
+    return apiRequest<PayoutMethodDto[]>('/provider/wallet/payout-methods');
+  },
+  addPayoutMethod(input: {
+    kind: 'bank' | 'mobile_money';
+    label: string;
+    accountName: string;
+    accountNumber: string;
+    bankName?: string;
+    bankCode?: string;
+    network?: 'mtn' | 'vodafone' | 'airteltigo';
+    isDefault?: boolean;
+  }) {
+    return apiRequest<PayoutMethodDto>('/provider/wallet/payout-methods', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  updatePayoutMethod(id: string, input: { isDefault?: boolean; active?: boolean; label?: string }) {
+    return apiRequest<PayoutMethodDto>(`/provider/wallet/payout-methods/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+  withdrawals(params: { page?: number; limit?: number } = {}) {
+    return apiRequest<PaginatedDto<WalletWithdrawalDto>>(
+      `/provider/wallet/withdrawals${queryString(params)}`,
     );
+  },
+  requestWithdrawal(
+    amountGhs: number,
+    payoutMethodId: string,
+    sourceType: 'service_earnings' | 'deposit_refund' = 'deposit_refund',
+  ) {
+    return apiRequest<WalletWithdrawalDto>('/provider/wallet/withdrawals', {
+      method: 'POST',
+      body: JSON.stringify({ amountGhs, payoutMethodId, sourceType }),
+    });
+  },
+  cancelWithdrawal(id: string, reason: string) {
+    return apiRequest<WalletWithdrawalDto>(`/provider/wallet/withdrawals/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+};
+
+export const paymentsApi = {
+  initialize(requestId: string) {
+    return apiRequest<JobPaymentInitDto>(`/payments/initialize/${requestId}`, { method: 'POST' });
+  },
+  verify(reference: string) {
+    return apiRequest<ProviderPaymentDto>(`/payments/verify/${encodeURIComponent(reference)}`);
+  },
+  forRequest(requestId: string) {
+    return apiRequest<ProviderPaymentDto | null>(`/requests/${requestId}/payment`);
+  },
+};
+
+export const adminFinanceApi = {
+  overview() {
+    return apiRequest<AdminFinancialOverviewDto>('/admin/financial-overview');
+  },
+  summary(params: { from?: string; to?: string } = {}) {
+    return apiRequest<FinanceSummaryDto>(`/admin/finance/summary${queryString(params)}`);
+  },
+  transactions(
+    params: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      type?: string;
+      status?: string;
+      method?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
+    return apiRequest<PaginatedDto<FinanceTransactionDto>>(
+      `/admin/finance/transactions${queryString(params)}`,
+    );
+  },
+  withdrawals(params: { page?: number; limit?: number; status?: string; q?: string } = {}) {
+    return apiRequest<PaginatedDto<WalletWithdrawalDto>>(
+      `/admin/withdrawals${queryString(params)}`,
+    );
+  },
+  withdrawal(id: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}`);
+  },
+  approve(id: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/approve`, { method: 'POST' });
+  },
+  reject(id: string, reason: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+  process(id: string, payoutMethodUsed: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/process`, {
+      method: 'POST',
+      body: JSON.stringify({ payoutMethodUsed }),
+    });
+  },
+  confirm(
+    id: string,
+    input: {
+      payoutReference: string;
+      amountPaidGhs?: number;
+      payoutDate?: string;
+      proofUrl?: string;
+      destinationNote?: string;
+    },
+  ) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  fail(id: string, reason: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/fail`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+  cancel(id: string, reason: string) {
+    return apiRequest<WalletWithdrawalDto>(`/admin/withdrawals/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+  unverifiedPayoutMethods() {
+    return apiRequest<PayoutMethodDto[]>('/admin/payout-methods/unverified');
+  },
+  verifyPayoutMethod(id: string) {
+    return apiRequest<PayoutMethodDto>(`/admin/payout-methods/${id}/verify`, { method: 'POST' });
+  },
+  awaitingSettlements(params: { from?: string; to?: string; q?: string } = {}) {
+    return apiRequest<{ items: SettlementAwaitingItemDto[] }>(
+      `/admin/settlements/awaiting${queryString(params)}`,
+    );
+  },
+  settlements(params: { page?: number; limit?: number; status?: string } = {}) {
+    return apiRequest<PaginatedDto<SettlementBatchDto>>(
+      `/admin/settlements${queryString(params)}`,
+    );
+  },
+  settlement(id: string) {
+    return apiRequest<SettlementBatchDto>(`/admin/settlements/${id}`);
+  },
+  createSettlement(input: {
+    settlementReference: string;
+    amountReceivedGhs: number;
+    settlementDate: string;
+    bankReference?: string;
+    paystackReference?: string;
+    paystackFeesGhs?: number;
+    notes?: string;
+    paymentIds?: string[];
+    depositIds?: string[];
+    confirm?: boolean;
+  }) {
+    return apiRequest<SettlementBatchDto>('/admin/settlements', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  confirmSettlement(id: string) {
+    return apiRequest<SettlementBatchDto>(`/admin/settlements/${id}/confirm`, { method: 'POST' });
+  },
+  resolveSettlement(
+    id: string,
+    input: {
+      amountReceivedGhs?: number;
+      paystackFeesGhs?: number;
+      bankReference?: string;
+      acceptDifference?: boolean;
+      note?: string;
+    },
+  ) {
+    return apiRequest<SettlementBatchDto>(`/admin/settlements/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  cash() {
+    return apiRequest<CorporateCashDto>('/admin/cash-reconciliation');
+  },
+  recordCommitment(input: { amountGhs: number; reason: string; release?: boolean; reference?: string }) {
+    return apiRequest<CorporateCashDto>('/admin/cash-commitments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  providerAccount(id: string) {
+    return apiRequest<AdminProviderFinancialAccountDto>(`/admin/providers/${id}/financial-account`);
+  },
+  adjust(id: string, input: { amountGhs: number; reason: string; reference?: string }) {
+    return apiRequest<AdminProviderFinancialAccountDto>(`/admin/providers/${id}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   },
 };
 
@@ -301,6 +564,58 @@ export const adminApi = {
     return apiRequest<MechanicDto>(`/admin/mechanics/${id}/verification`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  },
+  serviceTypes() {
+    return apiRequest<ServiceTypeDto[]>('/admin/service-types');
+  },
+  setServiceTypeStatus(slug: string, active: boolean, reason?: string) {
+    return apiRequest<ServiceTypeDto>(`/admin/service-types/${slug}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active, reason }),
+    });
+  },
+  providerServices(id: string) {
+    return apiRequest<{
+      mechanicId: string;
+      garageName: string;
+      offerings: ProviderServiceOfferingDto[];
+    }>(`/admin/providers/${id}/services`);
+  },
+};
+
+export const providerServicesApi = {
+  board() {
+    return apiRequest<ProviderServicesBoardDto>('/provider/services');
+  },
+  upsert(input: {
+    serviceType: string;
+    pricingModel: string;
+    basePriceGhs?: number;
+    additionalCharges?: Array<{
+      kind: string;
+      label: string;
+      amountGhs?: number;
+      perKmGhs?: number;
+      commissionable?: boolean;
+    }>;
+    partsNotIncluded?: boolean;
+    active?: boolean;
+  }) {
+    return apiRequest<ProviderServiceOfferingDto>('/provider/services', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  },
+  setStatus(serviceType: string, active: boolean) {
+    return apiRequest<ProviderServiceOfferingDto>(`/provider/services/${serviceType}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    });
+  },
+  remove(serviceType: string) {
+    return apiRequest<ProviderServiceOfferingDto>(`/provider/services/${serviceType}`, {
+      method: 'DELETE',
     });
   },
 };

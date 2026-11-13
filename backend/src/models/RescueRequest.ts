@@ -1,5 +1,44 @@
 import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
-import type { PaymentStatus, RequestStatus, ServiceTypeSlug } from '../types/index.js';
+import type {
+  AdditionalChargeKind,
+  PaymentStatus,
+  PricingConfirmationStatus,
+  PricingModel,
+  RequestStatus,
+  ServiceTypeSlug,
+} from '../types/index.js';
+
+export interface IPricingChargeSnapshot {
+  kind: AdditionalChargeKind;
+  label: string;
+  amountGhs: number;
+  perKmGhs?: number;
+  commissionable: boolean;
+}
+
+export interface IPricingSnapshot {
+  serviceType: ServiceTypeSlug;
+  serviceName: string;
+  pricingModel: PricingModel;
+  basePriceGhs: number;
+  additionalCharges: IPricingChargeSnapshot[];
+  distanceKm?: number;
+  currency: 'GHS';
+  displayedTotalGhs: number;
+  commissionableAmountGhs: number;
+  partsNotIncluded: boolean;
+  snapshotAt: Date;
+}
+
+export interface IJobQuote {
+  amountGhs: number;
+  commissionableAmountGhs: number;
+  partsGhs: number;
+  reason?: string;
+  createdAt: Date;
+  createdBy: Types.ObjectId;
+  status: 'pending' | 'accepted' | 'rejected';
+}
 
 export interface IRescueRequest extends Document {
   _id: Types.ObjectId;
@@ -23,6 +62,12 @@ export interface IRescueRequest extends Document {
   images: string[];
   status: RequestStatus;
   quotedPrice: number;
+  pricingSnapshot?: IPricingSnapshot;
+  pricingConfirmationStatus: PricingConfirmationStatus;
+  pendingQuote?: IJobQuote;
+  quoteHistory: IJobQuote[];
+  commissionHoldPesewas: number;
+  commissionCapturedPesewas: number;
   paymentStatus: PaymentStatus;
   acceptedAt?: Date;
   arrivedAt?: Date;
@@ -80,6 +125,24 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
       index: true,
     },
     quotedPrice: { type: Number, default: 0 },
+    pricingSnapshot: { type: Schema.Types.Mixed },
+    pricingConfirmationStatus: {
+      type: String,
+      enum: [
+        'unconfirmed',
+        'confirmed',
+        'pending_quote',
+        'quoted',
+        'accepted',
+        'rejected',
+        'pending_revision',
+      ],
+      default: 'unconfirmed',
+    },
+    pendingQuote: { type: Schema.Types.Mixed, default: undefined },
+    quoteHistory: { type: Schema.Types.Mixed, default: [] },
+    commissionHoldPesewas: { type: Number, default: 0, min: 0 },
+    commissionCapturedPesewas: { type: Number, default: 0, min: 0 },
     paymentStatus: {
       type: String,
       enum: ['pending', 'paid', 'failed', 'refunded'],
@@ -102,8 +165,10 @@ const rescueRequestSchema = new Schema<IRescueRequest>(
 
 rescueRequestSchema.set('toJSON', {
   transform(_doc, ret) {
-    ret.images = Array.isArray(ret.images) ? ret.images : [];
-    return ret;
+    const value = ret as unknown as Record<string, unknown>;
+    value.images = Array.isArray(value.images) ? value.images : [];
+    value.quoteHistory = Array.isArray(value.quoteHistory) ? value.quoteHistory : [];
+    return value;
   },
 });
 

@@ -274,6 +274,20 @@
   }
 }
 
+.rr-map .mapboxgl-ctrl-attrib {
+  font-size: 10px;
+  background: hsl(var(--card) / 0.88);
+}
+
+.rr-map .mapboxgl-ctrl-bottom-left,
+.rr-map .mapboxgl-ctrl-bottom-right {
+  z-index: 2;
+}
+
+.rr-map .mapboxgl-canvas {
+  outline: none;
+}
+
 @layer utilities {
   .tap-highlight {
     -webkit-tap-highlight-color: transparent;

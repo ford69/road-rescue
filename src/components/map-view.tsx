@@ -1,8 +1,17 @@
 import * as React from 'react';
-import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
-import { divIcon, latLngBounds } from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import Map, {
+  Layer,
+  Marker,
+  NavigationControl,
+  Source,
+  type MapMouseEvent,
+  type MapRef,
+} from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/theme-provider';
+import { useDrivingRoute } from '@/hooks/useDrivingRoute';
+import { ACCRA_CENTER, getMapboxToken, hasMapboxToken, mapboxStyle } from '@/lib/mapbox';
 
 export interface MapMarker {
   id: string;
@@ -12,108 +21,11 @@ export interface MapMarker {
   label?: string;
 }
 
-function markerIcon(type: MapMarker['type'], label?: string) {
-  const color =
-    type === 'mechanic' ? '#f4c430' : type === 'destination' ? '#16a34a' : '#18181b';
-  const symbol = type === 'mechanic' ? '🔧' : type === 'destination' ? '➤' : '●';
-  return divIcon({
-    className: '',
-    iconSize: [44, 54],
-    iconAnchor: [22, 22],
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-      <div style="width:40px;height:40px;border-radius:9999px;background:${color};color:white;display:flex;align-items:center;justify-content:center;border:4px solid rgba(255,255,255,.8);box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:16px">${symbol}</div>
-      ${label ? `<span style="white-space:nowrap;background:white;color:#18181b;border-radius:7px;padding:1px 6px;font:600 11px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.15)">${label}</span>` : ''}
-    </div>`,
-  });
-}
-
-const tileProviders = [
-  {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  },
-  {
-    url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-];
-
-function ResilientTileLayer({ onAllProvidersFailed }: { onAllProvidersFailed: () => void }) {
-  const [providerIndex, setProviderIndex] = React.useState(0);
-  const provider = tileProviders[providerIndex];
-
-  return (
-    <TileLayer
-      key={provider.url}
-      url={provider.url}
-      attribution={provider.attribution}
-      eventHandlers={{
-        tileerror: () => {
-          if (providerIndex < tileProviders.length - 1) {
-            setProviderIndex(providerIndex + 1);
-            return;
-          }
-          onAllProvidersFailed();
-        },
-      }}
-    />
-  );
-}
-
-function FitMarkers({ markers }: { markers: MapMarker[] }) {
-  const map = useMap();
-  React.useEffect(() => {
-    if (!markers?.length) return;
-    if (markers.length === 1) {
-      map.setView([markers[0].latitude, markers[0].longitude], 15);
-    } else {
-      map.fitBounds(
-        latLngBounds(markers.map((marker) => [marker.latitude, marker.longitude])),
-        { padding: [48, 48], maxZoom: 15 },
-      );
-    }
-  }, [map, markers]);
-  return null;
-}
-
-/** Keeps Leaflet tiles sized correctly across rotate / resize / flex layouts. */
-function InvalidateSizeOnResize() {
-  const map = useMap();
-
-  React.useEffect(() => {
-    const container = map.getContainer();
-    let frame = 0;
-
-    const invalidate = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        map.invalidateSize({ animate: false });
-      });
-    };
-
-    invalidate();
-    const timeouts = [50, 200, 500].map((ms) => window.setTimeout(invalidate, ms));
-
-    const observer = new ResizeObserver(invalidate);
-    observer.observe(container);
-
-    window.addEventListener('resize', invalidate);
-    window.addEventListener('orientationchange', invalidate);
-    document.addEventListener('visibilitychange', invalidate);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      timeouts.forEach((id) => window.clearTimeout(id));
-      observer.disconnect();
-      window.removeEventListener('resize', invalidate);
-      window.removeEventListener('orientationchange', invalidate);
-      document.removeEventListener('visibilitychange', invalidate);
-    };
-  }, [map]);
-
-  return null;
-}
+const MARKER_STYLES: Record<MapMarker['type'], { background: string; symbol: string }> = {
+  mechanic: { background: '#f4c430', symbol: '🔧' },
+  destination: { background: '#16a34a', symbol: '➤' },
+  user: { background: '#18181b', symbol: '●' },
+};
 
 export function MapView({
   markers = [],
@@ -122,6 +34,9 @@ export function MapView({
   className,
   children,
   interactive = true,
+  cooperativeGestures = false,
+  onMapClick,
+  onRouteReady,
 }: {
   markers?: MapMarker[];
   showRoute?: boolean;
@@ -129,8 +44,16 @@ export function MapView({
   className?: string;
   children?: React.ReactNode;
   interactive?: boolean;
+  cooperativeGestures?: boolean;
+  onMapClick?: (point: { latitude: number; longitude: number }) => void;
+  onRouteReady?: (summary: { durationSeconds: number; distanceMeters: number } | null) => void;
 }) {
-  const [tilesUnavailable, setTilesUnavailable] = React.useState(false);
+  const { theme } = useTheme();
+  const mapRef = React.useRef<MapRef>(null);
+  const token = getMapboxToken();
+  const configured = hasMapboxToken();
+  const [styleFailed, setStyleFailed] = React.useState(false);
+
   const safeMarkers = React.useMemo(
     () =>
       (markers ?? []).filter(
@@ -139,44 +62,194 @@ export function MapView({
     [markers],
   );
 
-  return (
-    <div className={cn('relative isolate min-h-[12rem] overflow-hidden bg-muted', className)}>
-      <MapContainer
-        center={[5.6037, -0.187]}
-        zoom={12}
-        className="absolute inset-0 z-0 h-full w-full"
-        style={{ minHeight: '100%', height: '100%', width: '100%' }}
-        zoomControl={interactive}
-        dragging={interactive}
-        scrollWheelZoom={interactive}
-        doubleClickZoom={interactive}
-      >
-        <ResilientTileLayer onAllProvidersFailed={() => setTilesUnavailable(true)} />
-        <InvalidateSizeOnResize />
-        <FitMarkers markers={safeMarkers} />
-        {safeMarkers.map((marker) => (
-          <Marker
-            key={marker.id}
-            position={[marker.latitude, marker.longitude]}
-            icon={markerIcon(marker.type, marker.label)}
-          />
-        ))}
-        {showRoute && routePath && routePath.length > 1 && (
-          <Polyline
-            positions={routePath.map((point) => [point.latitude, point.longitude])}
-            pathOptions={{ color: '#eab308', weight: 5, opacity: 0.9 }}
-          />
-        )}
-      </MapContainer>
+  const { path, etaLabel, summary } = useDrivingRoute(
+    routePath,
+    showRoute && Boolean(routePath?.length),
+  );
+  const onRouteReadyRef = React.useRef(onRouteReady);
+  onRouteReadyRef.current = onRouteReady;
 
-      {tilesUnavailable && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-[550] -translate-x-1/2 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-muted-foreground shadow-elevated">
+  React.useEffect(() => {
+    onRouteReadyRef.current?.(summary);
+  }, [summary]);
+
+  const fitPoints = React.useMemo(() => {
+    if (path?.length) return path;
+    return safeMarkers.map((marker) => ({
+      latitude: marker.latitude,
+      longitude: marker.longitude,
+    }));
+  }, [path, safeMarkers]);
+
+  const fitKey = fitPoints.map((point) => `${point.latitude},${point.longitude}`).join('|');
+
+  const fitToPoints = React.useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !fitPoints.length) return;
+    if (fitPoints.length === 1) {
+      map.easeTo({
+        center: [fitPoints[0].longitude, fitPoints[0].latitude],
+        zoom: 15,
+        duration: 500,
+      });
+      return;
+    }
+    const lngs = fitPoints.map((point) => point.longitude);
+    const lats = fitPoints.map((point) => point.latitude);
+    map.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: 56, maxZoom: 15, duration: 500 },
+    );
+  }, [fitPoints]);
+
+  React.useEffect(() => {
+    fitToPoints();
+  }, [fitKey, fitToPoints]);
+
+  React.useEffect(() => {
+    const map = mapRef.current?.getMap();
+    const container = map?.getContainer();
+    if (!map || !container) return;
+
+    const resize = () => map.resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    };
+  }, [configured]);
+
+  const routeGeoJson = React.useMemo(
+    () =>
+      path && path.length > 1
+        ? {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: path.map((point) => [point.longitude, point.latitude]),
+            },
+          }
+        : null,
+    [path],
+  );
+
+  const handleClick = (event: MapMouseEvent) => {
+    const target = event.originalEvent.target as HTMLElement | null;
+    if (target?.closest('.rr-map-marker')) return;
+    onMapClick?.({ latitude: event.lngLat.lat, longitude: event.lngLat.lng });
+  };
+
+  return (
+    <div className={cn('rr-map relative isolate min-h-[12rem] overflow-hidden bg-muted', className)}>
+      {configured ? (
+        <Map
+          ref={mapRef}
+          mapboxAccessToken={token}
+          reuseMaps
+          initialViewState={{
+            longitude: ACCRA_CENTER.longitude,
+            latitude: ACCRA_CENTER.latitude,
+            zoom: 12,
+          }}
+          mapStyle={mapboxStyle(theme)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+          attributionControl
+          dragRotate={false}
+          pitchWithRotate={false}
+          touchPitch={false}
+          scrollZoom={interactive}
+          dragPan={interactive}
+          doubleClickZoom={interactive}
+          keyboard={interactive}
+          cooperativeGestures={cooperativeGestures}
+          cursor={onMapClick ? 'pointer' : undefined}
+          onClick={onMapClick ? handleClick : undefined}
+          onLoad={fitToPoints}
+          onError={() => setStyleFailed(true)}
+        >
+          {interactive ? <NavigationControl position="bottom-right" showCompass={false} /> : null}
+          {routeGeoJson ? (
+            <Source id="rescue-route" type="geojson" data={routeGeoJson}>
+              <Layer
+                id="rescue-route-casing"
+                type="line"
+                paint={{
+                  'line-color': '#18181b',
+                  'line-width': 8,
+                  'line-opacity': 0.35,
+                }}
+                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              />
+              <Layer
+                id="rescue-route-line"
+                type="line"
+                paint={{
+                  'line-color': '#eab308',
+                  'line-width': 5,
+                  'line-opacity': 0.95,
+                }}
+                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              />
+            </Source>
+          ) : null}
+          {safeMarkers.map((marker) => {
+            const style = MARKER_STYLES[marker.type];
+            return (
+              <Marker
+                key={marker.id}
+                latitude={marker.latitude}
+                longitude={marker.longitude}
+                anchor="center"
+                style={{ zIndex: marker.type === 'mechanic' ? 2 : 1 }}
+              >
+                <div className="rr-map-marker flex flex-col items-center gap-1">
+                  {marker.label ? (
+                    <span className="whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 text-[11px] font-semibold text-zinc-900 shadow-md">
+                      {marker.label}
+                    </span>
+                  ) : null}
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-base text-white shadow-lg"
+                    style={{ background: style.background }}
+                  >
+                    {style.symbol}
+                  </div>
+                </div>
+              </Marker>
+            );
+          })}
+        </Map>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted px-6 text-center">
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Add <span className="font-semibold text-foreground">VITE_MAPBOX_ACCESS_TOKEN</span> to
+            enable live maps.
+          </p>
+        </div>
+      )}
+
+      {styleFailed && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[20] -translate-x-1/2 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-muted-foreground shadow-elevated">
           Map imagery offline · live positions still updating
         </div>
       )}
 
+      {etaLabel && (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[20] rounded-full bg-card/95 px-3 py-1.5 text-xs font-semibold text-foreground shadow-elevated">
+          {etaLabel}
+        </div>
+      )}
+
       {children && (
-        <div className="pointer-events-none absolute inset-0 z-[500]">{children}</div>
+        <div className="pointer-events-none absolute inset-0 z-[30]">{children}</div>
       )}
     </div>
   );

@@ -9,6 +9,12 @@ import { StatusChip } from '@/components/ui/status-chip';
 import { mechanicsApi } from '@/api/repositories';
 import type { MechanicPublicProfileDto } from '@/api/types';
 import { mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
+import {
+  formatChargeLine,
+  formatPricingLabel,
+  formatProviderPriceRange,
+  pricingModelLabel,
+} from '@/lib/pricing';
 import { DISPLAY_RATING, DISPLAY_REVIEW_COUNT } from '@/lib/ratings';
 import { resolveMediaUrl } from '@/lib/user-display';
 import { ApiClientError } from '@/api/client/http';
@@ -112,19 +118,83 @@ export function MechanicProfilePage({ mechanicId: mechanicIdProp }: { mechanicId
         </div>
       </Card>
 
-      <Card className="p-5 space-y-3">
-        <h2 className="font-display text-base font-bold">Services offered</h2>
-        <div className="flex flex-wrap gap-2">
-          {ensureArray(profile.specialties).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No specialties listed yet.</p>
-          ) : (
-            ensureArray(profile.specialties).map((slug) => (
-              <Badge key={slug} variant="outline">
-                {serviceTypeConfig[slug]?.label ?? slug}
-              </Badge>
-            ))
+      <Card className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-base font-bold">Services & pricing</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Prices are set by this provider. Starting-from amounts can change after inspection.
+            </p>
+          </div>
+          {ensureArray(profile.services).length > 0 && (
+            <p className="shrink-0 font-display text-lg font-bold">
+              {formatProviderPriceRange(profile.priceRange, profile.services)}
+            </p>
           )}
         </div>
+        {ensureArray(profile.services).length > 0 ? (
+          <div className="space-y-3">
+            {profile.services!.map((service) => {
+              const name =
+                service.serviceName ?? serviceTypeConfig[service.serviceType]?.label ?? service.serviceType;
+              const description =
+                service.serviceDescription ||
+                serviceTypeConfig[service.serviceType]?.description ||
+                '';
+              return (
+                <div key={service.id} className="rounded-xl border border-border p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{name}</p>
+                      {service.categoryName && (
+                        <p className="text-xs text-muted-foreground">{service.categoryName}</p>
+                      )}
+                    </div>
+                    <p className="shrink-0 font-display text-base font-bold">
+                      {formatPricingLabel(service.pricingModel, service.basePriceGhs)}
+                    </p>
+                  </div>
+                  {description && (
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {pricingModelLabel(service.pricingModel)}
+                    {service.pricingModel === 'starting_from'
+                      ? ' · final price needs confirmation'
+                      : ''}
+                    {service.partsNotIncluded ? ' · parts not included' : ''}
+                  </p>
+                  {ensureArray(service.additionalCharges).length > 0 && (
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {service.additionalCharges.map((charge) => (
+                        <li key={`${charge.kind}-${charge.label}`}>{formatChargeLine(charge)}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/customer/request?service=${service.serviceType}`)}
+                  >
+                    Request this service
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {ensureArray(profile.specialties).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No priced services listed yet.</p>
+            ) : (
+              ensureArray(profile.specialties).map((slug) => (
+                <Badge key={slug} variant="outline">
+                  {serviceTypeConfig[slug]?.label ?? slug}
+                </Badge>
+              ))
+            )}
+          </div>
+        )}
       </Card>
 
       <div className="space-y-3">

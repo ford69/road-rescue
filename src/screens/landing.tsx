@@ -21,7 +21,6 @@ import { SiteFooter } from '@/components/marketing/site-footer';
 import { useAuth } from '@/context/auth-context';
 import { postAuthPath } from '@/lib/auth-gate';
 import { BRAND_ASSETS, MARKETING_IMAGES, SERVICE_IMAGES } from '@/lib/brand';
-import { formatGhs } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 const services = [
@@ -143,13 +142,6 @@ const heroStats = [
   { value: '24/7', label: 'Always on call' },
   { value: '4+', label: 'Service types' },
   { value: '100%', label: 'Verified providers' },
-];
-
-const providerPackages = [
-  { name: 'Monthly', priceGhs: 49.99, intervalLabel: 'month', highlight: false },
-  { name: '3 months', priceGhs: 129.99, intervalLabel: '3 months', highlight: false },
-  { name: '6 months', priceGhs: 229.99, intervalLabel: '6 months', highlight: false },
-  { name: 'Yearly', priceGhs: 429.99, intervalLabel: 'year', highlight: true },
 ];
 
 export function LandingPage() {
@@ -469,49 +461,17 @@ export function LandingPage() {
           </div>
 
           <div className="mt-10">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Provider plans</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Get started</p>
             <h3 className="mt-2 font-display text-2xl font-bold text-white">
-              Choose a package. 30-day free trial on every plan.
+              Apply, get verified, and go online.
             </h3>
             <p className="mt-2 max-w-2xl text-sm text-white/80">
-              No subscription payment today. Your selected plan is billed after the trial.
+              There is no provider subscription. After KYC approval you can accept jobs and manage
+              deposits in your wallet.
             </p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {providerPackages.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={cn(
-                    'marketing-card-dark flex flex-col p-5',
-                    plan.highlight && 'ring-2 ring-primary',
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-white">{plan.name}</p>
-                    {plan.highlight && (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
-                        Best value
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-3 font-display text-2xl font-bold text-white">
-                    {formatGhs(plan.priceGhs, 2)}
-                    <span className="ml-1 text-sm font-medium text-white/70">/ {plan.intervalLabel}</span>
-                  </p>
-                  <p className="mt-2 text-sm text-white/75">30-day free trial included</p>
-                  <Button
-                    variant={plan.highlight ? 'primary' : 'outline'}
-                    className={cn(
-                      'mt-5 w-full',
-                      !plan.highlight &&
-                        'border-white/30 bg-white/5 text-white hover:bg-white/15 hover:text-white',
-                    )}
-                    onClick={() => navigate('/auth/register?role=provider')}
-                  >
-                    Become a Provider
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <Button className="mt-6" onClick={() => navigate('/auth/register?role=provider')}>
+              Become a Provider
+            </Button>
           </div>
         </Section>
 

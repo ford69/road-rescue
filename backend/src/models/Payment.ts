@@ -23,7 +23,11 @@ export interface IPayment extends Document {
   status: PaymentStatus;
   settlementStatus: SettlementStatus;
   settlementFailureReason?: string;
+  settlementBatch?: Types.ObjectId;
   settledAt?: Date;
+  sourceType: 'job_payment' | 'other';
+  entitlementPesewas: number;
+  entitlementCredited: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,10 +64,16 @@ const paymentSchema = new Schema<IPayment>(
       default: 'pending',
     },
     settlementFailureReason: { type: String },
+    settlementBatch: { type: Schema.Types.ObjectId, ref: 'SettlementBatch', index: true, sparse: true },
     settledAt: { type: Date },
+    sourceType: { type: String, enum: ['job_payment', 'other'], default: 'job_payment' },
+    entitlementPesewas: { type: Number, default: 0, min: 0 },
+    entitlementCredited: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
+
+paymentSchema.index({ status: 1, settlementStatus: 1, createdAt: -1 });
 
 export const Payment: Model<IPayment> =
   mongoose.models.Payment ?? mongoose.model<IPayment>('Payment', paymentSchema);

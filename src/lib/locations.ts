@@ -75,3 +75,18 @@ export const GHANA_PICKUP_LOCATIONS: GhanaLocation[] = [
 ];
 
 export const DEFAULT_PICKUP_LOCATION = GHANA_PICKUP_LOCATIONS[0];
+
+export function locationFromPin(
+  latitude: number,
+  longitude: number,
+  place: { label: string; address: string; city: string },
+): GhanaLocation {
+  return {
+    id: `pin-${latitude.toFixed(5)}-${longitude.toFixed(5)}`,
+    label: place.label,
+    address: place.address,
+    city: place.city,
+    latitude,
+    longitude,
+  };
+}

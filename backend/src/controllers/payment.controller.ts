@@ -19,8 +19,10 @@ export const paymentController = {
       '';
     const path = reference.startsWith('RR_PONB_')
       ? '/auth/register?role=provider'
-      : reference.startsWith('RR_PSUB_')
-        ? '/mechanic/subscription'
+      : reference.startsWith('RR_PWAL_')
+        ? '/mechanic/wallet'
+        : reference.startsWith('RR_JOB_')
+          ? '/customer/tracking'
         : '/auth/complete-subscription';
     const target = new URL(`${env.PRIMARY_CLIENT_ORIGIN}${path}`);
     params.forEach((value, key) => target.searchParams.set(key, value));
@@ -47,6 +49,12 @@ export const paymentController = {
   mechanicPayoutInfo: async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const data = await paymentService.getMechanicPayoutInfo(req.user.id);
+    return sendSuccess(res, data);
+  },
+
+  forRequest: async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await paymentService.getForRequest(req.user.id, param(req, 'requestId'));
     return sendSuccess(res, data);
   },
 

@@ -17,9 +17,6 @@ import type { ApiUser } from '@/api/types';
 import { postAuthPath, rememberPendingEmail } from '@/lib/auth-gate';
 import { parseRegisterRoleParam, registerRoleQuery, roleLabel } from '@/lib/role-labels';
 import { prepareSelfieForUpload } from '@/lib/prepare-selfie';
-import { subscriptionsApi } from '@/api/repositories';
-import { formatGhs } from '@/lib/currency';
-import type { ProviderPlanDto, ProviderPlanSlug } from '@/api/types';
 import { serviceTypeConfig } from '@/lib/service-config';
 
 const loginSchema = z.object({
@@ -192,10 +189,8 @@ export function RegisterScreen() {
   const [submitting, setSubmitting] = React.useState(false);
   const [completingPaystack, setCompletingPaystack] = React.useState(false);
   const [basicSelected, setBasicSelected] = React.useState(true);
-  const [step, setStep] = React.useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [selfie, setSelfie] = React.useState<File | null>(null);
-  const [selectedPlan, setSelectedPlan] = React.useState<ProviderPlanSlug>('provider_annual');
-  const [providerPlans, setProviderPlans] = React.useState<ProviderPlanDto[]>([]);
   const [specialties, setSpecialties] = React.useState<(typeof mechanicSpecialties)[number][]>([
     'battery',
     'flat-tire',
@@ -221,10 +216,9 @@ export function RegisterScreen() {
   });
   const role = form.watch('role');
   const password = form.watch('password');
-  const totalSteps = role === 'mechanic' ? 4 : 2;
+  const totalSteps = role === 'mechanic' ? 3 : 2;
   const roleParam = search.get('role');
   const paystackReference = search.get('reference') || search.get('trxref');
-  const chosenPlan = providerPlans.find((plan) => plan.slug === selectedPlan);
 
   React.useEffect(() => {
     const next = parseRegisterRoleParam(roleParam);
@@ -233,22 +227,6 @@ export function RegisterScreen() {
       setStep(1);
     }
   }, [form, roleParam]);
-
-  React.useEffect(() => {
-    if (role !== 'mechanic') return;
-    let cancelled = false;
-    void subscriptionsApi
-      .providerPlans()
-      .then((plans) => {
-        if (!cancelled) setProviderPlans(plans);
-      })
-      .catch(() => {
-        /* catalog still has hardcoded fallbacks on review */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [role]);
 
   React.useEffect(() => {
     if (!paystackReference || parseRegisterRoleParam(roleParam) !== 'mechanic') return;
@@ -261,7 +239,7 @@ export function RegisterScreen() {
         rememberPendingEmail(result.email || '');
         toast({
           type: 'success',
-          title: 'Card authenticated',
+          title: 'Application received',
           description: 'Check your email to verify your Road Rescue Provider account.',
         });
         navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || '')}`, {
@@ -272,7 +250,7 @@ export function RegisterScreen() {
         toast({
           type: 'error',
           title: 'Could not finish registration',
-          description: userFacingAuthError(error, 'Card authentication could not be confirmed.'),
+          description: userFacingAuthError(error, 'Registration could not be confirmed.'),
         });
         setCompletingPaystack(false);
       }
@@ -330,10 +308,6 @@ export function RegisterScreen() {
         return;
       }
       setStep(3);
-      return;
-    }
-    if (step === 3) {
-      setStep(4);
     }
   };
 
@@ -389,29 +363,19 @@ export function RegisterScreen() {
               longitude: -0.187,
               specialties,
               truck: values.truck || undefined,
-              planSlug: selectedPlan,
             });
       rememberPendingEmail(result.email || values.email);
-      if (values.role === 'customer') {
-        if (result.user) setUser(result.user);
-        toast({
-          type: 'success',
-          title: 'Account created',
-          description: 'Please verify your email address before continuing.',
-        });
-        navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || values.email)}`, {
-          replace: true,
-        });
-        return;
-      }
-      if (result.authorizationUrl) {
-        window.location.assign(result.authorizationUrl);
-        return;
-      }
+      if (result.user) setUser(result.user);
       toast({
-        type: 'error',
-        title: 'Checkout unavailable',
-        description: 'Paystack did not return a payment page.',
+        type: 'success',
+        title: 'Account created',
+        description:
+          values.role === 'mechanic'
+            ? 'Verify your email. Going online still requires KYC approval.'
+            : 'Please verify your email address before continuing.',
+      });
+      navigate(`/auth/verify-email?email=${encodeURIComponent(result.email || values.email)}`, {
+        replace: true,
       });
     } catch (error) {
       toast({
@@ -442,14 +406,12 @@ export function RegisterScreen() {
             ? 'Enter your account details to get started'
             : 'Your plan — Basic is free'
           : completingPaystack
-            ? 'Confirming your card with Paystack'
+            ? 'Finishing your provider application'
             : step === 1
               ? 'Provider information'
               : step === 2
                 ? 'Business details'
-                : step === 3
-                  ? 'Select subscription'
-                  : 'Review'
+                : 'Review'
       }
       footer={
         <p className="text-sm text-muted-foreground">
@@ -472,7 +434,6 @@ export function RegisterScreen() {
               <>
                 <span>Provider info</span>
                 <span>Business</span>
-                <span>Plan</span>
                 <span>Review</span>
               </>
             ) : (
@@ -482,7 +443,7 @@ export function RegisterScreen() {
               </>
             )}
           </div>
-          <div className={`grid gap-2 ${role === 'customer' ? 'grid-cols-2' : 'grid-cols-4'}`}>
+          <div className={`grid gap-2 ${role === 'customer' ? 'grid-cols-2' : 'grid-cols-3'}`}>
             {Array.from({ length: totalSteps }, (_, index) => index + 1).map((item) => (
               <div
                 key={item}
@@ -691,89 +652,9 @@ export function RegisterScreen() {
         {role === 'mechanic' && step === 3 && (
           <div className="space-y-3">
             <div>
-              <h3 className="font-display text-lg font-bold">Select subscription</h3>
-              <p className="text-sm font-semibold text-foreground">
-                30-day free trial. Your selected plan will be charged after your trial ends.
-              </p>
-            </div>
-            {(providerPlans.length > 0
-              ? providerPlans
-              : [
-                  {
-                    slug: 'provider_monthly' as const,
-                    name: 'Monthly',
-                    intervalLabel: 'month',
-                    priceGhs: 49.99,
-                    equivalentMonthlyGhs: 49.99,
-                    trialDays: 30,
-                    description: '',
-                    sortOrder: 1,
-                    currency: 'GHS' as const,
-                    intervalMonths: 1,
-                  },
-                  {
-                    slug: 'provider_quarterly' as const,
-                    name: '3 months',
-                    intervalLabel: '3 months',
-                    priceGhs: 129.99,
-                    equivalentMonthlyGhs: 43.33,
-                    trialDays: 30,
-                    description: '',
-                    sortOrder: 2,
-                    currency: 'GHS' as const,
-                    intervalMonths: 3,
-                  },
-                  {
-                    slug: 'provider_semiannual' as const,
-                    name: '6 months',
-                    intervalLabel: '6 months',
-                    priceGhs: 229.99,
-                    equivalentMonthlyGhs: 38.33,
-                    trialDays: 30,
-                    description: '',
-                    sortOrder: 3,
-                    currency: 'GHS' as const,
-                    intervalMonths: 6,
-                  },
-                  {
-                    slug: 'provider_annual' as const,
-                    name: 'Yearly',
-                    intervalLabel: 'year',
-                    priceGhs: 429.99,
-                    equivalentMonthlyGhs: 35.83,
-                    trialDays: 30,
-                    description: '',
-                    sortOrder: 4,
-                    currency: 'GHS' as const,
-                    intervalMonths: 12,
-                  },
-                ]
-            ).map((plan) => (
-              <button
-                key={plan.slug}
-                type="button"
-                onClick={() => setSelectedPlan(plan.slug)}
-                className={`w-full rounded-xl border p-4 text-left space-y-1 ${
-                  selectedPlan === plan.slug ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">{plan.name}</p>
-                  <p className="text-sm font-semibold">
-                    {formatGhs(plan.priceGhs, 2)}
-                    <span className="font-medium text-muted-foreground"> / {plan.intervalLabel}</span>
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-        {role === 'mechanic' && step === 4 && (
-          <div className="space-y-3">
-            <div>
               <h3 className="font-display text-lg font-bold">Review</h3>
               <p className="text-sm text-muted-foreground">
-                Confirm your details before Paystack card authentication.
+                Confirm your details. Going online still requires KYC approval.
               </p>
             </div>
             <div className="rounded-xl border border-border p-4 space-y-2 text-sm">
@@ -788,21 +669,6 @@ export function RegisterScreen() {
               <p>
                 <span className="text-muted-foreground">Garage: </span>
                 {form.getValues('garageName')}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Plan: </span>
-                {chosenPlan
-                  ? `${chosenPlan.name} · ${formatGhs(chosenPlan.priceGhs, 2)} / ${chosenPlan.intervalLabel}`
-                  : selectedPlan}
-              </p>
-            </div>
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
-              <p className="text-sm font-semibold">
-                30-day free trial. Your selected plan will be charged after your trial ends.
-              </p>
-              <p className="text-sm text-foreground">
-                No subscription payment today. A small temporary card verification/tokenization charge
-                may apply and will be refunded.
               </p>
             </div>
           </div>
@@ -835,14 +701,10 @@ export function RegisterScreen() {
             {completingPaystack
               ? 'Finishing…'
               : submitting
-                ? role === 'mechanic'
-                  ? 'Opening Paystack…'
-                  : 'Creating…'
+                ? 'Creating…'
                 : step < totalSteps
                   ? 'Continue'
-                  : role === 'mechanic'
-                    ? 'Authenticate card'
-                    : 'Create Account & Continue'}
+                  : 'Create Account & Continue'}
           </Button>
         </div>
       </form>

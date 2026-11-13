@@ -12,6 +12,17 @@ vi.mock('../sockets/index.js', () => ({
   emitToRequest: vi.fn(),
 }));
 
+vi.mock('../services/wallet.service.js', () => ({
+  walletService: {
+    assertCanAcceptJob: vi.fn().mockResolvedValue({}),
+    syncCommissionHold: vi.fn().mockImplementation(async (_userId: string, request: unknown) => request),
+    syncCommissionHoldForRequest: vi.fn().mockImplementation(async (request: unknown) => request),
+    captureCommission: vi.fn().mockResolvedValue(undefined),
+    releaseCommissionHold: vi.fn().mockResolvedValue(undefined),
+  },
+  isWalletDepositReference: (reference?: string) => Boolean(reference?.startsWith('RR_PWAL_')),
+}));
+
 vi.mock('../repositories/mechanic.repository.js', () => ({
   mechanicRepository: {
     findByUserId: vi.fn(),

@@ -19,9 +19,9 @@ import authRoutes from './routes/auth.routes.js';
 import apiRoutes from './routes/index.js';
 import { paymentController } from './controllers/payment.controller.js';
 import { subscriptionController } from './controllers/subscription.controller.js';
-import { providerSubscriptionController } from './controllers/provider-subscription.controller.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { reportIssueSchema } from './validators/auth.validators.js';
+import { requestConfirmationSchema } from './validators/wallet.validators.js';
 import { authController } from './controllers/auth.controller.js';
 
 export function createApp() {
@@ -130,28 +130,6 @@ export function createApp() {
     authorize('customer'),
     asyncHandler(subscriptionController.downgradeToFree),
   );
-  app.get(
-    '/api/subscriptions/provider/plans',
-    asyncHandler(providerSubscriptionController.listPlans),
-  );
-  app.get(
-    '/api/subscriptions/provider/me',
-    authenticate,
-    authorize('mechanic'),
-    asyncHandler(providerSubscriptionController.current),
-  );
-  app.post(
-    '/api/subscriptions/provider/checkout',
-    authenticate,
-    authorize('mechanic'),
-    asyncHandler(providerSubscriptionController.checkout),
-  );
-  app.get(
-    '/api/subscriptions/provider/verify/:reference',
-    authenticate,
-    authorize('mechanic'),
-    asyncHandler(providerSubscriptionController.verify),
-  );
   // Completion workflow — registered on the app so a stale /api router
   // cannot 404 these POSTs behind authenticate.
   app.post(
@@ -159,6 +137,7 @@ export function createApp() {
     authenticate,
     requireEmailVerification,
     authorize('mechanic'),
+    validateBody(requestConfirmationSchema),
     asyncHandler(requestController.requestConfirmation),
   );
   app.post(

@@ -27,7 +27,7 @@ import { adminApi } from '@/api/repositories';
 import { formatGhs } from '@/lib/currency';
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { DISPLAY_RATING } from '@/lib/ratings';
-import type { AdminDashboardDto, MechanicDto } from '@/api/types';
+import type { AdminDashboardDto, MechanicDto, ServiceTypeDto } from '@/api/types';
 import { MechanicVerificationSheet } from '@/components/admin/mechanic-verification-sheet';
 
 function PageHeader({
@@ -89,6 +89,7 @@ export function AdminLiveJobs() {
           <Card className="overflow-hidden">
             <MapView
               className="h-72 min-h-[16rem] w-full border-b border-border landscape:h-[42dvh] landscape:min-h-[12rem]"
+              cooperativeGestures
               markers={data.mechanics
                 .filter((mechanic) => mechanic.availability)
                 .slice(0, 8)
@@ -262,8 +263,8 @@ export function AdminMechanics() {
                 return (
                   <Card
                     key={mechanic._id}
-                    interactive={verification === 'pending'}
-                    onClick={() => verification === 'pending' && setSelectedMechanic(mechanic)}
+                    interactive
+                    onClick={() => setSelectedMechanic(mechanic)}
                   >
                     <div className="space-y-3 p-4">
                       <div className="flex items-start gap-3">
@@ -298,9 +299,7 @@ export function AdminMechanics() {
                           Ghana Card: {mechanic.ghanaCardNumber.slice(0, 7)}••••••
                         </p>
                       )}
-                      {verification === 'pending' && (
-                        <p className="text-xs font-semibold text-brand-blue">Tap to review details</p>
-                      )}
+                      <p className="text-xs font-semibold text-brand-blue">Tap to view details and prices</p>
                       <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
                         <span className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-warning text-warning" />
@@ -360,20 +359,7 @@ export function AdminReports() {
               <SummaryCard icon={<BarChart3 />} label="Revenue" value={formatGhs(data.kpis.revenueGhs)} />
               <SummaryCard icon={<CreditCard />} label="Avg. payment" value={formatGhs(averagePayment)} />
             </div>
-            <Card>
-              <div className="p-5">
-                <h3 className="font-display font-bold">Service catalogue</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Active roadside services.</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {data.serviceTypes.map((service) => (
-                    <div key={service._id} className="rounded-xl border border-border p-3">
-                      <p className="font-semibold">{service.name}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{service.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
+            <AdminCatalogue />
           </div>
         );
       }}
@@ -421,6 +407,75 @@ export function AdminSettings({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+function AdminCatalogue() {
+  const { toast } = useToast();
+  const [types, setTypes] = React.useState<ServiceTypeDto[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const load = React.useCallback(async () => {
+    const rows = await adminApi.serviceTypes();
+    setTypes(rows);
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await load();
+      } catch {
+        if (!cancelled) setTypes([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
+
+  return (
+    <Card>
+      <div className="p-5">
+        <h3 className="font-display font-bold">Service catalogue</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Activate or deactivate catalogue services. This does not overwrite provider prices.
+        </p>
+        {loading ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading catalogue…</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {types.map((service) => (
+              <div key={service._id} className="rounded-xl border border-border p-3">
+                <p className="font-semibold">{service.name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{service.description}</p>
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void adminApi
+                      .setServiceTypeStatus(service.slug, !service.active)
+                      .then(load)
+                      .catch((error) =>
+                        toast({
+                          type: 'error',
+                          title: 'Could not update catalogue',
+                          description: error instanceof Error ? error.message : 'Try again',
+                        }),
+                      )
+                  }
+                >
+                  {service.active ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

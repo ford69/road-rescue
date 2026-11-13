@@ -50,6 +50,20 @@ export const resendVerificationHourlyLimiter = rateLimit({
   ),
 });
 
+export const walletWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  skip: skipInTests,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip ?? 'unknown',
+  handler: jsonHandler(
+    'WALLET_RATE_LIMITED',
+    'Too many wallet requests. Try again later.',
+  ),
+});
+
 export const verifyEmailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,

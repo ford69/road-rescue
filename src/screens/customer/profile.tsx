@@ -13,7 +13,7 @@ import {
   Wrench,
   Moon,
   Sun,
-  Sparkles,
+  Wallet,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -344,9 +344,14 @@ export function Profile({
                 onClick={() => setActivePanel('service')}
               />
               <SettingRow
-                icon={<Sparkles className="h-5 w-5" />}
-                label="Subscription"
-                onClick={() => navigate('/mechanic/subscription')}
+                icon={<Wrench className="h-5 w-5" />}
+                label="Services & Pricing"
+                onClick={() => navigate('/mechanic/services')}
+              />
+              <SettingRow
+                icon={<Wallet className="h-5 w-5" />}
+                label="Wallet"
+                onClick={() => navigate('/mechanic/wallet')}
               />
               <SettingRow
                 icon={<HelpCircle className="h-5 w-5" />}

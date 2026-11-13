@@ -1,6 +1,10 @@
 import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
 import type { ServiceTypeSlug } from '../types/index.js';
-import type { ProviderPlanSlug } from '../services/provider-plans.js';
+type ProviderPlanSlug =
+  | 'provider_monthly'
+  | 'provider_quarterly'
+  | 'provider_semiannual'
+  | 'provider_annual';
 
 export type ProviderIntentStatus = 'pending_payment' | 'completing' | 'completed' | 'failed';
 
@@ -20,7 +24,7 @@ export interface IProviderRegistrationIntent extends Document {
   specialties: ServiceTypeSlug[];
   truck?: string;
   selfiePath: string;
-  planSlug: ProviderPlanSlug;
+  planSlug?: ProviderPlanSlug;
   status: ProviderIntentStatus;
   paystackReference: string;
   authorizationUrl?: string;
@@ -55,7 +59,6 @@ const providerRegistrationIntentSchema = new Schema<IProviderRegistrationIntent>
     planSlug: {
       type: String,
       enum: ['provider_monthly', 'provider_quarterly', 'provider_semiannual', 'provider_annual'],
-      required: true,
     },
     status: {
       type: String,

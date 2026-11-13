@@ -18,6 +18,8 @@ import {
   LogOut,
   Sparkles,
   CreditCard,
+  Wallet,
+  Wrench,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -44,8 +46,8 @@ const customerNav: NavItem[] = [
 const mechanicNav: NavItem[] = [
   { id: 'home', label: 'Jobs', icon: Briefcase },
   { id: 'track', label: 'Map', icon: Map },
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'history', label: 'History', icon: Clock },
-  { id: 'alerts', label: 'Alerts', icon: Bell },
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
@@ -56,9 +58,13 @@ const customerSidebar: NavItem[] = [
 ];
 
 const mechanicSidebar: NavItem[] = [
-  ...mechanicNav.slice(0, 4),
-  { id: 'subscription', label: 'Subscription', icon: CreditCard },
-  mechanicNav[4],
+  { id: 'home', label: 'Jobs', icon: Briefcase },
+  { id: 'track', label: 'Map', icon: Map },
+  { id: 'history', label: 'History', icon: Clock },
+  { id: 'services', label: 'Services & Pricing', icon: Wrench },
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
+  { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const adminNav: NavItem[] = [
@@ -74,6 +80,7 @@ const adminSidebar: NavItem[] = [
   { id: 'track', label: 'Live Jobs', icon: Map },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'mechanics', label: 'Providers', icon: Briefcase },
+  { id: 'finance', label: 'Finance', icon: Wallet },
   { id: 'reports', label: 'Reports', icon: Clock },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];

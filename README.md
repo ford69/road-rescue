@@ -4,7 +4,7 @@ Road Rescue Ghana is a roadside-assistance marketplace that connects stranded dr
 
 ## Stack
 
-- Frontend: React 18, Vite, TypeScript, TailwindCSS, React Router
+- Frontend: React 18, Vite, TypeScript, TailwindCSS, React Router, Mapbox GL JS
 - Backend: Node.js, Express, TypeScript, MongoDB, Mongoose
 - Auth: JWT access + refresh tokens, bcrypt
 
@@ -66,6 +66,7 @@ Frontend `.env`:
 ```
 VITE_API_URL=/api
 VITE_API_PROXY_TARGET=http://localhost:4000
+VITE_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_public_token
 ```
 
 Backend `.env` — see `backend/.env.example`.
@@ -89,4 +90,4 @@ authorization headers.
 
 - Phase 0: routing, docs, CI — done
 - Phase 1: MongoDB Atlas backend, auth, live API screens, Ghana seed data — done
-- Later: Google Maps, Socket.IO tracking, Paystack, FCM
+- Later: Socket.IO tracking, Paystack, FCM

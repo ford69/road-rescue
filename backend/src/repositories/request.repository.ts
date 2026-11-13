@@ -93,11 +93,14 @@ export const requestRepository = {
     }).sort({ createdAt: -1 });
   },
 
-  findOpenForMechanics() {
-    return RescueRequest.find({
-      status: 'requested',
-      $or: [{ mechanic: null }, { mechanic: { $exists: false } }],
-    })
+  findOpenForMechanics(mechanicId?: string) {
+    const filter: Record<string, unknown> = { status: 'requested' };
+    if (mechanicId) {
+      filter.$or = [{ mechanic: null }, { mechanic: { $exists: false } }, { mechanic: mechanicId }];
+    } else {
+      filter.$or = [{ mechanic: null }, { mechanic: { $exists: false } }];
+    }
+    return RescueRequest.find(filter)
       .populate('vehicle')
       .populate({
         path: 'customer',

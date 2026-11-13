@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import type { Response } from 'express';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
@@ -16,11 +15,6 @@ import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.j
 import { ProviderRegistrationIntent } from '../models/ProviderRegistrationIntent.js';
 import type { registerMechanicSchema } from '../validators/auth.validators.js';
 import type { z } from 'zod';
-import { isProviderPlanSlug } from './provider-plans.js';
-import {
-  startAuthorizedTrial,
-  tokenizationAmountGhs,
-} from './provider-subscription.service.js';
 import type { IMechanic } from '../models/Mechanic.js';
 
 type RegisterMechanicInput = z.infer<typeof registerMechanicSchema>;
@@ -29,10 +23,6 @@ export const ONBOARDING_REFERENCE_PREFIX = 'RR_PONB_';
 
 function paystack() {
   return getPaymentProvider();
-}
-
-function onboardingCallbackUrl(): string {
-  return `${env.PRIMARY_CLIENT_ORIGIN}/auth/register?role=provider`;
 }
 
 function registrationPendingResponse(email: string, token: string) {
@@ -47,108 +37,130 @@ export function isProviderOnboardingReference(reference?: string): reference is 
   return Boolean(reference && reference.startsWith(ONBOARDING_REFERENCE_PREFIX));
 }
 
+async function createProviderAccount(input: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  passwordHash: string;
+  garageName: string;
+  ghanaCardNumber: string;
+  experience: number;
+  city: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  specialties: RegisterMechanicInput['specialties'];
+  truck?: string;
+  selfiePath: string;
+}) {
+  await ensureUniqueIdentity(input.email, input.phone);
+  await resolveGhanaCardConflict(input.ghanaCardNumber, input.email);
+
+  const verification = createEmailVerification();
+  const user = await userRepository.create({
+    firstName: input.firstName,
+    lastName: input.lastName,
+    email: input.email,
+    phone: input.phone,
+    password: input.passwordHash,
+    role: 'mechanic',
+    avatar: input.selfiePath,
+    status: 'pending',
+    emailVerified: false,
+    emailVerifiedAt: null,
+    emailVerificationToken: verification.tokenHash,
+    emailVerificationExpires: verification.expiresAt,
+  });
+
+  let mechanic: IMechanic;
+  try {
+    mechanic = await mechanicRepository.create({
+      userId: user._id,
+      garageName: input.garageName,
+      ghanaCardNumber: input.ghanaCardNumber,
+      experience: input.experience,
+      location: { city: input.city, address: input.address },
+      latitude: input.latitude,
+      longitude: input.longitude,
+      specialties: input.specialties,
+      availability: false,
+      verificationStatus: 'pending',
+      truck: input.truck,
+      documents: [input.selfiePath],
+    });
+  } catch (error) {
+    await userRepository.deleteById(user._id.toString());
+    throw error;
+  }
+
+  await notificationRepository.create({
+    title: 'Provider application received',
+    body: 'Verify your email. Going online still requires KYC approval.',
+    recipient: user._id,
+    type: 'info',
+  });
+
+  void Promise.all([
+    emailService.sendVerificationEmail({
+      email: user.email,
+      firstName: user.firstName,
+      token: verification.token,
+      audience: 'mechanic',
+    }),
+    emailService.sendMechanicApplicationReceivedEmail({
+      email: user.email,
+      firstName: user.firstName,
+      garageName: input.garageName,
+    }),
+  ]).catch((error: unknown) => {
+    logger.error('Provider onboarding email flow failed', {
+      email: user.email,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  return { user, mechanic, verification };
+}
+
 export const providerOnboardingService = {
   async start(input: RegisterMechanicInput, selfie: Express.Multer.File | undefined, res: Response) {
     if (!selfie) {
       throw new ValidationError('A clear selfie photo is required');
     }
-    if (!isProviderPlanSlug(input.planSlug)) {
-      throw new ValidationError('Select a provider subscription plan.');
-    }
-    if (!paystack().isConfigured()) {
-      throw new ValidationError('Paystack is not configured for provider registration yet.');
-    }
 
     await ensureUniqueIdentity(input.email, input.phone);
     await resolveGhanaCardConflict(input.ghanaCardNumber, input.email);
 
-    const existingOpen = await providerRegistrationIntentRepository.findOpenByEmail(input.email);
     const passwordHash = await hashPassword(input.password);
     const selfiePath = getPublicUploadPath(selfie.filename);
-    const reference = `${ONBOARDING_REFERENCE_PREFIX}${crypto.randomBytes(8).toString('hex')}`;
-    const amountGhs = tokenizationAmountGhs();
-
-    const initialized = await paystack().initializePayment({
+    const created = await createProviderAccount({
+      firstName: input.firstName,
+      lastName: input.lastName,
       email: input.email.toLowerCase(),
-      amountGhs,
-      reference,
-      callbackUrl: onboardingCallbackUrl(),
-      metadata: {
-        purpose: 'provider_onboarding',
-        planSlug: input.planSlug,
-      },
-      platformFeePercent: 0,
-      channels: ['card'],
+      phone: input.phone,
+      passwordHash,
+      garageName: input.garageName,
+      ghanaCardNumber: input.ghanaCardNumber,
+      experience: input.experience,
+      city: input.city,
+      address: input.address,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      specialties: input.specialties,
+      truck: input.truck,
+      selfiePath,
     });
-
-    if (existingOpen) {
-      existingOpen.firstName = input.firstName;
-      existingOpen.lastName = input.lastName;
-      existingOpen.phone = input.phone;
-      existingOpen.passwordHash = passwordHash;
-      existingOpen.garageName = input.garageName;
-      existingOpen.ghanaCardNumber = input.ghanaCardNumber;
-      existingOpen.experience = input.experience;
-      existingOpen.city = input.city;
-      existingOpen.address = input.address;
-      existingOpen.latitude = input.latitude;
-      existingOpen.longitude = input.longitude;
-      existingOpen.specialties = input.specialties;
-      existingOpen.truck = input.truck;
-      existingOpen.selfiePath = selfiePath;
-      existingOpen.planSlug = input.planSlug;
-      existingOpen.status = 'pending_payment';
-      existingOpen.paystackReference = initialized.reference;
-      existingOpen.authorizationUrl = initialized.authorizationUrl;
-      existingOpen.accessCode = initialized.accessCode;
-      existingOpen.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await existingOpen.save();
-    } else {
-      await providerRegistrationIntentRepository.create({
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email: input.email.toLowerCase(),
-        phone: input.phone,
-        passwordHash,
-        garageName: input.garageName,
-        ghanaCardNumber: input.ghanaCardNumber,
-        experience: input.experience,
-        city: input.city,
-        address: input.address,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        specialties: input.specialties,
-        truck: input.truck,
-        selfiePath,
-        planSlug: input.planSlug,
-        status: 'pending_payment',
-        paystackReference: initialized.reference,
-        authorizationUrl: initialized.authorizationUrl,
-        accessCode: initialized.accessCode,
-        tokenizationRefunded: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      });
-    }
 
     clearAuthCookies(res);
-    logger.info('Provider onboarding Paystack checkout started', {
-      event: 'provider.onboarding.checkout.started',
-      email: input.email.toLowerCase(),
-      planSlug: input.planSlug,
-      reference: initialized.reference,
+    logger.info('Provider account created', {
+      event: 'provider.onboarding.completed',
+      userId: created.user._id.toString(),
     });
-
-    return {
-      requiresAccount: false,
-      authorizationUrl: initialized.authorizationUrl,
-      reference: initialized.reference,
-      accessCode: initialized.accessCode,
-      publicKey: env.PAYSTACK_PUBLIC_KEY,
-      callbackUrl: onboardingCallbackUrl(),
-      planSlug: input.planSlug,
-    };
+    return registrationPendingResponse(created.user.email, created.verification.token);
   },
 
+  /** Completes leftover Paystack card-auth registrations started before subscriptions were removed. */
   async complete(reference: string, res?: Response) {
     const existing = await providerRegistrationIntentRepository.findByReference(reference);
     if (!existing) throw new NotFoundError('Provider registration checkout not found');
@@ -183,29 +195,13 @@ export const providerOnboardingService = {
       await intent.save();
       throw new ValidationError('Card authentication has not completed successfully');
     }
-    const channel = (verified.authorizationChannel ?? verified.channel ?? '').toLowerCase();
-    if (channel && channel !== 'card') {
-      intent.status = 'failed';
-      await intent.save();
-      throw new ValidationError('Use a debit or credit card so we can store it for later billing.');
-    }
-    if (!verified.authorizationCode || verified.authorizationReusable === false) {
-      intent.status = 'failed';
-      await intent.save();
-      throw new ValidationError('Paystack did not return a reusable card authorization.');
-    }
-    if (!verified.customerCode) {
-      intent.status = 'failed';
-      await intent.save();
-      throw new ValidationError('Paystack did not return a customer code.');
-    }
 
     let refunded = intent.tokenizationRefunded;
     if (!refunded) {
       try {
         await paystack().refundTransaction(
           reference,
-          'Card verification / tokenization refund — no subscription payment yet',
+          'Unused provider registration card verification refund',
         );
         refunded = true;
       } catch (error) {
@@ -217,100 +213,37 @@ export const providerOnboardingService = {
       }
     }
 
-    await ensureUniqueIdentity(intent.email, intent.phone);
-    await resolveGhanaCardConflict(intent.ghanaCardNumber, intent.email);
-
-    const verification = createEmailVerification();
-    const user = await userRepository.create({
+    const created = await createProviderAccount({
       firstName: intent.firstName,
       lastName: intent.lastName,
       email: intent.email,
       phone: intent.phone,
-      password: intent.passwordHash,
-      role: 'mechanic',
-      avatar: intent.selfiePath,
-      status: 'pending',
-      emailVerified: false,
-      emailVerifiedAt: null,
-      emailVerificationToken: verification.tokenHash,
-      emailVerificationExpires: verification.expiresAt,
-    });
-
-    let mechanic: IMechanic;
-    try {
-      mechanic = await mechanicRepository.create({
-        userId: user._id,
-        garageName: intent.garageName,
-        ghanaCardNumber: intent.ghanaCardNumber,
-        experience: intent.experience,
-        location: { city: intent.city, address: intent.address },
-        latitude: intent.latitude,
-        longitude: intent.longitude,
-        specialties: intent.specialties,
-        availability: false,
-        verificationStatus: 'pending',
-        truck: intent.truck,
-        documents: [intent.selfiePath],
-      });
-    } catch (error) {
-      await userRepository.deleteById(user._id.toString());
-      intent.status = 'failed';
-      await intent.save();
-      throw error;
-    }
-
-    await startAuthorizedTrial({
-      mechanicId: mechanic._id.toString(),
-      userId: user._id.toString(),
-      planSlug: intent.planSlug,
-      authorizationCode: verified.authorizationCode,
-      customerCode: verified.customerCode,
-      tokenizationReference: reference,
-      refunded,
+      passwordHash: intent.passwordHash,
+      garageName: intent.garageName,
+      ghanaCardNumber: intent.ghanaCardNumber,
+      experience: intent.experience,
+      city: intent.city,
+      address: intent.address,
+      latitude: intent.latitude,
+      longitude: intent.longitude,
+      specialties: intent.specialties as RegisterMechanicInput['specialties'],
+      truck: intent.truck,
+      selfiePath: intent.selfiePath,
     });
 
     intent.status = 'completed';
-    intent.userId = user._id;
-    intent.mechanicId = mechanic._id;
-    intent.authorizationCode = verified.authorizationCode;
-    intent.paystackCustomerCode = verified.customerCode;
+    intent.userId = created.user._id;
+    intent.mechanicId = created.mechanic._id;
     intent.tokenizationRefunded = refunded;
     await intent.save();
 
-    await notificationRepository.create({
-      title: 'Provider application received',
-      body: 'Verify your email. Going online still requires KYC approval. Your plan will be billed after the 30-day trial.',
-      recipient: user._id,
-      type: 'info',
-    });
-
-    void Promise.all([
-      emailService.sendVerificationEmail({
-        email: user.email,
-        firstName: user.firstName,
-        token: verification.token,
-        audience: 'mechanic',
-      }),
-      emailService.sendMechanicApplicationReceivedEmail({
-        email: user.email,
-        firstName: user.firstName,
-        garageName: intent.garageName,
-      }),
-    ]).catch((error: unknown) => {
-      logger.error('Provider onboarding email flow failed', {
-        email: user.email,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-
     if (res) clearAuthCookies(res);
-    logger.info('Provider account created after card authorization', {
+    logger.info('Provider account created after leftover card checkout', {
       event: 'provider.onboarding.completed',
-      userId: user._id.toString(),
-      planSlug: intent.planSlug,
+      userId: created.user._id.toString(),
       reference,
     });
-    return registrationPendingResponse(user.email, verification.token);
+    return registrationPendingResponse(created.user.email, created.verification.token);
   },
 };
 

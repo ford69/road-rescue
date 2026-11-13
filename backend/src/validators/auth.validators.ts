@@ -78,12 +78,6 @@ export const registerMechanicSchema = registerCustomerSchema.extend({
     z.array(mechanicSpecialtyEnum).min(1),
   ),
   truck: z.string().optional(),
-  planSlug: z.enum([
-    'provider_monthly',
-    'provider_quarterly',
-    'provider_semiannual',
-    'provider_annual',
-  ]),
 });
 
 export const loginSchema = z.object({
@@ -134,6 +128,7 @@ export const createRequestSchema = z.object({
   description: z.string().optional(),
   destinationAddress: z.string().optional(),
   destinationCity: z.string().optional(),
+  mechanicId: z.string().min(1).optional(),
 });
 
 export const updateRequestStatusSchema = z.object({

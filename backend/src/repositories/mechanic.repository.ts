@@ -44,4 +44,15 @@ export const mechanicRepository = {
       .populate('userId', 'firstName lastName email phone status avatar')
       .sort({ createdAt: -1 });
   },
+
+  updateSpecialties(id: string, specialties: IMechanic['specialties']) {
+    return Mechanic.findByIdAndUpdate(id, { specialties }, { new: true });
+  },
+
+  findByIds(ids: string[]) {
+    return Mechanic.find({ _id: { $in: ids } }).populate(
+      'userId',
+      'firstName lastName phone avatar',
+    );
+  },
 };

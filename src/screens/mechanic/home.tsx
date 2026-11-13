@@ -26,8 +26,10 @@ import { Input } from '@/components/ui/input';
 import { serviceTypeConfig } from '@/lib/service-config';
 import { PaginationBar } from '@/components/ui/pagination';
 import { useAvailableJobs, useRequests } from '@/hooks/useApi';
-import { mechanicsApi, requestsApi } from '@/api/repositories';
-import type { RequestStatus, RescueRequestDto } from '@/api/types';
+import { useNavigate } from 'react-router-dom';
+import { mechanicsApi, requestsApi, walletApi } from '@/api/repositories';
+import type { ProviderWalletDto, RequestStatus, RescueRequestDto } from '@/api/types';
+import { formatGhs } from '@/lib/currency';
 import { useToast } from '@/components/ui/toast';
 import { nextJobAction, canCancelJob } from '@/lib/job-status';
 import { ApiClientError } from '@/api/client/http';
@@ -64,7 +66,9 @@ export function MechanicHome({
   onOpenJob: (job: RescueRequestDto) => void;
 }) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [applicationStatus, setApplicationStatus] = React.useState<string | null>(null);
+  const [wallet, setWallet] = React.useState<ProviderWalletDto | null>(null);
   const [online, setOnline] = React.useState(false);
   const { data: availableJobs, loading, error, reload, accept } = useAvailableJobs({
     pollMs: 30000,
@@ -81,6 +85,14 @@ export function MechanicHome({
 
   React.useEffect(() => {
     let active = true;
+    void walletApi
+      .get()
+      .then((next) => {
+        if (active) setWallet(next);
+      })
+      .catch(() => {
+        if (active) setWallet(null);
+      });
     void mechanicsApi
       .profile()
       .then((profile) => {
@@ -156,7 +168,7 @@ export function MechanicHome({
         title: action?.successTitle ?? 'Status updated',
         description:
           status === 'completed'
-            ? 'Payment recorded for this service.'
+            ? 'Collect payment from the customer directly.'
             : action?.successDescription,
       });
     } catch (err) {
@@ -286,6 +298,32 @@ export function MechanicHome({
               </div>
             </div>
           )}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between gap-4 p-4">
+          <div className="grid flex-1 grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Available
+              </p>
+              <p className="mt-1 font-display text-xl font-bold">
+                {formatGhs(wallet?.availableGhs ?? 0, 2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Commission deducted
+              </p>
+              <p className="mt-1 font-display text-xl font-bold">
+                {formatGhs(wallet?.totalCommissionGhs ?? 0, 2)}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/mechanic/wallet')}>
+            Wallet
+          </Button>
         </div>
       </Card>
 

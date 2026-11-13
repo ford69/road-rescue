@@ -20,7 +20,17 @@ import {
   ConflictError,
   AuthErrorCode,
 } from '../utils/errors.js';
-import { providerSubscriptionService } from './provider-subscription.service.js';
+import { walletService } from './wallet.service.js';
+import {
+  applyAcceptedQuote,
+  assertCanCaptureCommission,
+  assertCanRequestCompletion,
+  assertCanSubmitQuote,
+  buildQuote,
+  isPriceConfirmed,
+  providerPricingService,
+  publicPriceRange,
+} from './provider-pricing.service.js';
 import type {
   createRequestSchema,
   createVehicleSchema,
@@ -147,8 +157,26 @@ export const requestService = {
     if (!service) throw new NotFoundError('Service type not found');
     await entitlementService.assertServiceAllowed(userId, input.serviceType);
 
+    let assignedMechanic: IRescueRequest['mechanic'];
+    let pricingSnapshot = undefined;
+    let pricingConfirmationStatus: IRescueRequest['pricingConfirmationStatus'] = 'unconfirmed';
+    let quotedPrice = 0;
+
+    if (input.mechanicId) {
+      const snap = await providerPricingService.snapshotForMechanic(
+        input.mechanicId,
+        input.serviceType,
+        { latitude: input.latitude, longitude: input.longitude },
+      );
+      assignedMechanic = snap.mechanic._id;
+      pricingSnapshot = snap.snapshot;
+      pricingConfirmationStatus = providerPricingService.confirmationStatusFor(snap.snapshot);
+      quotedPrice = providerPricingService.quotedPriceFor(snap.snapshot);
+    }
+
     const request = await requestRepository.create({
       customer: customer._id,
+      mechanic: assignedMechanic,
       vehicle: vehicle._id,
       serviceType: input.serviceType,
       pickupLocation: {
@@ -167,13 +195,18 @@ export const requestService = {
       description: input.description,
       images: [],
       status: 'requested',
-      quotedPrice: 0,
+      quotedPrice,
+      pricingSnapshot,
+      pricingConfirmationStatus,
+      quoteHistory: [],
       paymentStatus: 'pending',
     });
 
     await notificationRepository.create({
       title: 'Rescue requested',
-      body: `We are matching a nearby provider for ${service.name} near ${input.pickupAddress}.`,
+      body: assignedMechanic
+        ? `Your ${service.name} request was sent with the provider's listed price.`
+        : `We are matching a nearby provider for ${service.name} near ${input.pickupAddress}.`,
       recipient: customer.userId,
       type: 'info',
     });
@@ -267,7 +300,19 @@ export const requestService = {
     if (mechanic.verificationStatus !== 'verified') {
       throw new ForbiddenError('Your provider application must be verified before viewing jobs');
     }
-    return requestRepository.findOpenForMechanics();
+    const open = await requestRepository.findOpenForMechanics(mechanic._id.toString());
+    const offerings = new Set(
+      (await providerPricingService.listPublicForMechanic(mechanic._id.toString())).map(
+        (item) => item.serviceType,
+      ),
+    );
+    return open.filter((job) => {
+      const assigned = job.mechanic ? refId(job.mechanic) : '';
+      if (assigned && assigned !== mechanic._id.toString()) return false;
+      if (assigned === mechanic._id.toString()) return true;
+      if (offerings.size === 0) return true;
+      return offerings.has(job.serviceType);
+    });
   },
 
   async accept(userId: string, requestId: string) {
@@ -279,12 +324,32 @@ export const requestService = {
     if (!mechanic.availability) {
       throw new ValidationError('Go online before accepting jobs');
     }
-    await providerSubscriptionService.assertAccess(userId);
+    await walletService.assertCanAcceptJob(userId);
 
     const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
     if (!request) throw new NotFoundError('Rescue request not found');
-    if (request.status !== 'requested' || request.mechanic) {
+    if (request.status !== 'requested') {
       ConflictAccept();
+    }
+    const assignedMechanic = request.mechanic ? refId(request.mechanic) : '';
+    if (assignedMechanic && assignedMechanic !== mechanic._id.toString()) {
+      throw new ForbiddenError('This request was sent to another provider');
+    }
+
+    if (assignedMechanic) {
+      await providerPricingService.assertOffersService(mechanic._id.toString(), request.serviceType);
+    } else {
+      const snap = await providerPricingService
+        .snapshotForMechanic(mechanic._id.toString(), request.serviceType, request.pickupLocation)
+        .catch(() => null);
+      if (snap) {
+        request.pricingSnapshot = snap.snapshot;
+        request.pricingConfirmationStatus = providerPricingService.confirmationStatusFor(
+          snap.snapshot,
+        );
+        request.quotedPrice = providerPricingService.quotedPriceFor(snap.snapshot);
+        await request.save();
+      }
     }
 
     await requestRepository.updateStatus(requestId, 'accepted', {
@@ -300,6 +365,11 @@ export const requestService = {
       offeredAt: new Date(),
       respondedAt: new Date(),
     });
+
+    const accepted = await requestRepository.findById(requestId);
+    if (accepted) {
+      await walletService.syncCommissionHoldForRequest(accepted);
+    }
 
     const customer = await customerRepository.findById(refId(request.customer));
     if (customer) {
@@ -353,6 +423,10 @@ export const requestService = {
     if (input.status === 'arrived') extras.arrivedAt = new Date();
     if (input.status === 'cancelled') extras.cancelledAt = new Date();
 
+    if (input.status === 'cancelled') {
+      await walletService.releaseCommissionHold(request);
+    }
+
     await requestRepository.updateStatus(requestId, input.status as RequestStatus, extras);
     emitToRequest(requestId, 'request:status', {
       requestId,
@@ -403,7 +477,7 @@ export const requestService = {
     return requestRepository.findById(requestId);
   },
 
-  async requestConfirmation(userId: string, requestId: string) {
+  async requestConfirmation(userId: string, requestId: string, quotedPrice?: number) {
     const mechanic = await mechanicRepository.findByUserId(userId);
     if (!mechanic) throw new NotFoundError('Provider profile not found');
     const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
@@ -417,6 +491,23 @@ export const requestService = {
     if (request.status !== 'inprogress' && request.status !== 'issue_reported') {
       throw new ValidationError('You can request confirmation only after the service is in progress');
     }
+    assertCanRequestCompletion(request);
+    if (quotedPrice !== undefined) {
+      if (!Number.isFinite(quotedPrice) || quotedPrice < 0) {
+        throw new ValidationError('Enter a valid service amount');
+      }
+      if (request.pricingSnapshot && isPriceConfirmed(request.pricingConfirmationStatus)) {
+        if (Math.abs(quotedPrice - request.quotedPrice) > 0.009) {
+          throw new ValidationError(
+            'The agreed price cannot change here. Submit a revised quote for the customer to approve.',
+          );
+        }
+      } else {
+        request.quotedPrice = quotedPrice;
+        await request.save();
+      }
+    }
+    await walletService.syncCommissionHold(userId, request);
 
     await requestRepository.updateStatus(requestId, 'awaiting_confirmation', {
       completionRequestedAt: new Date(),
@@ -456,6 +547,9 @@ export const requestService = {
     if (request.status !== 'awaiting_confirmation') {
       throw new ValidationError('This service is not waiting for your confirmation');
     }
+
+    assertCanCaptureCommission(request);
+    await walletService.captureCommission(request);
 
     await requestRepository.updateStatus(requestId, 'completed', {
       completedAt: new Date(),
@@ -564,6 +658,133 @@ export const requestService = {
       providerId: mechanicId,
       createdAt: rating.createdAt,
     };
+  },
+
+  async getQuote(userId: string, role: string, requestId: string) {
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    await assertRequestAccess(userId, role, request);
+    return {
+      snapshot: request.pricingSnapshot ?? null,
+      status: request.pricingConfirmationStatus,
+      quotedPrice: request.quotedPrice,
+      pendingQuote: request.pendingQuote ?? null,
+      quoteHistory: request.quoteHistory ?? [],
+    };
+  },
+
+  async submitQuote(
+    userId: string,
+    requestId: string,
+    input: { amountGhs: number; partsGhs?: number; reason?: string },
+  ) {
+    const mechanic = await mechanicRepository.findByUserId(userId);
+    if (!mechanic) throw new NotFoundError('Provider profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (!request.mechanic || refId(request.mechanic) !== mechanic._id.toString()) {
+      throw new ForbiddenError('You are not assigned to this request');
+    }
+    if (['completed', 'cancelled'].includes(request.status)) {
+      throw new ValidationError('This job is no longer open for quotes');
+    }
+    assertCanSubmitQuote(request, input.reason);
+    const wasConfirmed = isPriceConfirmed(request.pricingConfirmationStatus);
+    const quote = buildQuote({
+      amountGhs: input.amountGhs,
+      partsGhs: input.partsGhs,
+      reason: input.reason,
+      createdBy: userId,
+    });
+    request.pendingQuote = quote;
+    request.quoteHistory = [...(request.quoteHistory ?? []), quote];
+    request.pricingConfirmationStatus = isPriceConfirmed(request.pricingConfirmationStatus)
+      ? 'pending_revision'
+      : 'quoted';
+    await request.save();
+
+    const customer = await customerRepository.findById(refId(request.customer));
+    if (customer) {
+      await notificationRepository.create({
+        title: wasConfirmed ? 'Revised price proposed' : 'Quote received',
+        body: `Your provider quoted ₵${input.amountGhs.toFixed(2)} for this service.`,
+        recipient: customer.userId,
+        type: 'info',
+        meta: { requestId, action: 'quote' },
+      });
+    }
+
+    return requestRepository.findById(requestId);
+  },
+
+  async acceptQuote(userId: string, requestId: string) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (refId(request.customer) !== customer._id.toString()) {
+      throw new ForbiddenError('You do not own this request');
+    }
+    if (!request.pendingQuote || request.pendingQuote.status !== 'pending') {
+      throw new ValidationError('There is no quote waiting for your approval');
+    }
+    request.pendingQuote.status = 'accepted';
+    const history = request.quoteHistory ?? [];
+    const last = history[history.length - 1];
+    if (last) last.status = 'accepted';
+    applyAcceptedQuote(request, request.pendingQuote);
+    await request.save();
+    await walletService.syncCommissionHoldForRequest(request);
+
+    if (request.mechanic) {
+      const mechanic = await mechanicRepository.findById(refId(request.mechanic));
+      if (mechanic) {
+        await notificationRepository.create({
+          title: 'Quote accepted',
+          body: 'The customer accepted your quote. You can continue the job.',
+          recipient: mechanic.userId,
+          type: 'success',
+          meta: { requestId },
+        });
+      }
+    }
+
+    return requestRepository.findById(requestId);
+  },
+
+  async rejectQuote(userId: string, requestId: string, reason?: string) {
+    const customer = await customerRepository.findByUserId(userId);
+    if (!customer) throw new NotFoundError('Customer profile not found');
+    const request = await requestRepository.findById(assertObjectId(requestId, 'request id'));
+    if (!request) throw new NotFoundError('Rescue request not found');
+    if (refId(request.customer) !== customer._id.toString()) {
+      throw new ForbiddenError('You do not own this request');
+    }
+    if (!request.pendingQuote || request.pendingQuote.status !== 'pending') {
+      throw new ValidationError('There is no quote waiting for a decision');
+    }
+    request.pendingQuote.status = 'rejected';
+    const history = request.quoteHistory ?? [];
+    const last = history[history.length - 1];
+    if (last) last.status = 'rejected';
+    request.pricingConfirmationStatus = 'rejected';
+    request.pendingQuote = undefined;
+    await request.save();
+
+    if (request.mechanic) {
+      const mechanic = await mechanicRepository.findById(refId(request.mechanic));
+      if (mechanic) {
+        await notificationRepository.create({
+          title: 'Quote declined',
+          body: reason || 'The customer declined the quoted amount. You can send a new quote.',
+          recipient: mechanic.userId,
+          type: 'warning',
+          meta: { requestId },
+        });
+      }
+    }
+
+    return requestRepository.findById(requestId);
   },
 
   async reportIssue(userId: string, requestId: string, reason: string) {
@@ -675,9 +896,6 @@ export const mechanicService = {
     if (input.availability && mechanic.verificationStatus !== 'verified') {
       throw new ForbiddenError('Your provider application must be verified before going online');
     }
-    if (input.availability) {
-      await providerSubscriptionService.assertAccess(userId);
-    }
     mechanic.availability = input.availability;
     await mechanic.save();
     return mechanic;
@@ -768,6 +986,7 @@ export const mechanicService = {
       lastName?: string;
       avatar?: string;
     };
+    const services = await providerPricingService.listPublicForMechanic(mechanic._id.toString());
     return {
       id: mechanic._id.toString(),
       name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || mechanic.garageName,
@@ -776,6 +995,8 @@ export const mechanicService = {
       verificationStatus: mechanic.verificationStatus,
       experience: mechanic.experience ?? 0,
       specialties: mechanic.specialties ?? [],
+      services,
+      priceRange: publicPriceRange(services),
       city: mechanic.location?.city ?? '',
       availability: Boolean(mechanic.availability),
       rating: mechanic.rating ?? 0,
@@ -842,7 +1063,7 @@ export const mechanicService = {
       recentPayments: paidPayments.slice(0, 20).map((payment) => paymentService.serializePayment(payment)),
       payoutInfo: await paymentService.getMechanicPayoutInfo(userId),
       disclaimer:
-        'Your payments are processed through our payment provider. Road Rescue does not hold your funds. Settlement timing depends on Paystack and your configured payout method.',
+        'Customer service payments settle to Road Rescue first. Your 90% entitlement becomes withdrawable after an administrator confirms the Paystack bank settlement.',
     };
   },
 };

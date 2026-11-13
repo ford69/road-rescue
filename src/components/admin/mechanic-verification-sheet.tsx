@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { MapPin, Phone, Mail, Star } from 'lucide-react';
-import type { MechanicDto } from '@/api/types';
+import type { MechanicDto, ProviderServiceOfferingDto } from '@/api/types';
+import { adminApi } from '@/api/repositories';
+import { formatPricingLabel } from '@/lib/pricing';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +10,7 @@ import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/she
 import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/service-config';
 import { DISPLAY_RATING } from '@/lib/ratings';
 import { resolveMediaUrl } from '@/lib/user-display';
+import { ProviderFinancePanel } from '@/components/admin/provider-finance-panel';
 
 export function MechanicVerificationSheet({
   mechanic,
@@ -24,6 +27,27 @@ export function MechanicVerificationSheet({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const [offerings, setOfferings] = React.useState<ProviderServiceOfferingDto[]>([]);
+
+  React.useEffect(() => {
+    if (!mechanic) {
+      setOfferings([]);
+      return;
+    }
+    let cancelled = false;
+    void adminApi
+      .providerServices(mechanic._id)
+      .then((result) => {
+        if (!cancelled) setOfferings(result.offerings);
+      })
+      .catch(() => {
+        if (!cancelled) setOfferings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mechanic]);
+
   if (!mechanic) return null;
 
   const name = mechanicDisplayName(mechanic);
@@ -110,6 +134,30 @@ export function MechanicVerificationSheet({
 
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Provider prices
+              </p>
+              <div className="mt-2 space-y-2">
+                {offerings.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">No priced services yet</span>
+                ) : (
+                  offerings.map((offering) => (
+                    <div key={offering.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span>
+                        {serviceTypeConfig[offering.serviceType]?.label ?? offering.serviceType}
+                        {!offering.active ? ' (disabled)' : ''}
+                        {offering.pricingModel === 'quote' ? ' · quote' : ''}
+                      </span>
+                      <span className="font-semibold">
+                        {formatPricingLabel(offering.pricingModel, offering.basePriceGhs)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Specialties
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -145,6 +193,8 @@ export function MechanicVerificationSheet({
                 </div>
               </div>
             )}
+
+            <ProviderFinancePanel mechanicId={mechanic._id} />
 
             {verification === 'pending' && (
               <div className="grid grid-cols-2 gap-3 border-t border-border pt-4">

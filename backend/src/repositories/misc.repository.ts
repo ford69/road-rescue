@@ -32,8 +32,16 @@ export const serviceTypeRepository = {
     return ServiceType.find({ active: true }).sort({ name: 1 });
   },
 
+  findAllAdmin() {
+    return ServiceType.find().sort({ name: 1 });
+  },
+
   findBySlug(slug: string) {
     return ServiceType.findOne({ slug });
+  },
+
+  setActive(slug: string, active: boolean) {
+    return ServiceType.findOneAndUpdate({ slug }, { $set: { active } }, { new: true });
   },
 };
 
@@ -44,6 +52,10 @@ export const paymentRepository = {
 
   findByCustomer(customerId: string) {
     return Payment.find({ customer: customerId }).sort({ createdAt: -1 });
+  },
+
+  findById(id: string) {
+    return Payment.findById(id);
   },
 
   findByRequest(requestId: string) {
@@ -60,6 +72,35 @@ export const paymentRepository = {
 
   findAll() {
     return Payment.find().sort({ createdAt: -1 }).limit(100);
+  },
+
+  findAwaitingSettlement() {
+    return Payment.find({
+      status: 'paid',
+      settlementStatus: { $in: ['pending', 'processing'] },
+      settlementBatch: { $exists: false },
+    }).sort({ paidAt: 1, createdAt: 1 });
+  },
+
+  claimForSettlement(id: string, batchId: string) {
+    return Payment.findOneAndUpdate(
+      {
+        _id: id,
+        status: 'paid',
+        $or: [
+          { settlementStatus: { $in: ['pending', 'processing'] }, settlementBatch: { $exists: false } },
+          { settlementBatch: batchId },
+        ],
+      },
+      {
+        $set: {
+          settlementStatus: 'settled',
+          settlementBatch: batchId,
+          settledAt: new Date(),
+        },
+      },
+      { new: true },
+    );
   },
 };
 

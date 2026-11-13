@@ -255,6 +255,7 @@ export function AdminDashboard() {
             <p className="text-sm text-muted-foreground mb-3">Active providers across Accra</p>
             <MapView
               className="h-64 min-h-[16rem] w-full rounded-xl border border-border landscape:h-[40dvh] landscape:min-h-[12rem]"
+              cooperativeGestures
               markers={mechanics.slice(0, 4).map((m) => ({
                 id: m._id,
                 latitude: m.latitude,
