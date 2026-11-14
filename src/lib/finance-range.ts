@@ -49,5 +49,5 @@ export function rangeForPreset(
   if (preset === '7d') from = startOfLocalDay(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000));
   if (preset === '30d') from = startOfLocalDay(new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000));
   if (preset === 'month') from = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { from: from.toISOString(), to: now.toISOString() };
+  return { from: from.toISOString(), to: endOfLocalDay(now).toISOString() };
 }

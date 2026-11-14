@@ -16,6 +16,7 @@ import { requireEmailVerification } from './middleware/requireEmailVerification.
 import { requireCustomerSubscription } from './middleware/requireCustomerSubscription.js';
 import { validateBody } from './middleware/validate.js';
 import authRoutes from './routes/auth.routes.js';
+import adminFinanceRoutes from './routes/admin-finance.routes.js';
 import apiRoutes from './routes/index.js';
 import { paymentController } from './controllers/payment.controller.js';
 import { subscriptionController } from './controllers/subscription.controller.js';
@@ -157,6 +158,9 @@ export function createApp() {
     validateBody(reportIssueSchema),
     asyncHandler(requestController.reportIssue),
   );
+  // Finance lives on the app so a stale compiled `/api` router cannot 404
+  // /admin/finance/summary after the frontend has already been deployed.
+  app.use('/api/admin', authenticate, requireEmailVerification, adminFinanceRoutes);
   app.use('/api', apiRoutes);
 
   app.use(notFoundHandler);

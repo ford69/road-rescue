@@ -17,9 +17,8 @@ import { subscriptionController } from '../controllers/subscription.controller.j
 import { chatController } from '../controllers/chat.controller.js';
 import { supportController } from '../controllers/support.controller.js';
 import { walletController } from '../controllers/wallet.controller.js';
-import { settlementController } from '../controllers/settlement.controller.js';
-import { financeController } from '../controllers/finance.controller.js';
 import { providerPricingController } from '../controllers/provider-pricing.controller.js';
+import adminFinanceRoutes from './admin-finance.routes.js';
 import { walletWriteLimiter } from '../middleware/authRateLimit.js';
 import {
   createRequestSchema,
@@ -35,19 +34,11 @@ import {
 } from '../validators/auth.validators.js';
 import {
   cancelWithdrawalSchema,
-  cashCommitmentSchema,
-  confirmWithdrawalSchema,
-  failWithdrawalSchema,
   initiateDepositSchema,
   payoutMethodSchema,
-  processWithdrawalSchema,
-  rejectWithdrawalSchema,
   requestConfirmationSchema,
   requestWithdrawalSchema,
-  settlementCreateSchema,
-  settlementResolveSchema,
   updatePayoutMethodSchema,
-  walletAdjustmentSchema,
 } from '../validators/wallet.validators.js';
 import {
   adminServiceTypeStatusSchema,
@@ -322,123 +313,7 @@ router.post(
 );
 
 router.get('/admin/dashboard', authorize('admin'), asyncHandler(adminController.dashboard));
-router.get(
-  '/admin/financial-overview',
-  authorize('admin'),
-  asyncHandler(walletController.adminOverview),
-);
-router.get(
-  '/admin/withdrawals',
-  authorize('admin'),
-  asyncHandler(walletController.adminListWithdrawals),
-);
-router.get(
-  '/admin/withdrawals/:id',
-  authorize('admin'),
-  asyncHandler(walletController.adminGetWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/approve',
-  authorize('admin'),
-  asyncHandler(walletController.approveWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/reject',
-  authorize('admin'),
-  validateBody(rejectWithdrawalSchema),
-  asyncHandler(walletController.rejectWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/process',
-  authorize('admin'),
-  validateBody(processWithdrawalSchema),
-  asyncHandler(walletController.processWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/confirm',
-  authorize('admin'),
-  validateBody(confirmWithdrawalSchema),
-  asyncHandler(walletController.confirmWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/fail',
-  authorize('admin'),
-  validateBody(failWithdrawalSchema),
-  asyncHandler(walletController.failWithdrawal),
-);
-router.post(
-  '/admin/withdrawals/:id/cancel',
-  authorize('admin'),
-  validateBody(cancelWithdrawalSchema),
-  asyncHandler(walletController.adminCancelWithdrawal),
-);
-router.get(
-  '/admin/payout-methods/unverified',
-  authorize('admin'),
-  asyncHandler(walletController.listUnverifiedPayoutMethods),
-);
-router.post(
-  '/admin/payout-methods/:id/verify',
-  authorize('admin'),
-  asyncHandler(walletController.verifyPayoutMethod),
-);
-router.get(
-  '/admin/settlements/awaiting',
-  authorize('admin'),
-  asyncHandler(settlementController.awaiting),
-);
-router.get('/admin/settlements', authorize('admin'), asyncHandler(settlementController.list));
-router.get('/admin/settlements/:id', authorize('admin'), asyncHandler(settlementController.get));
-router.post(
-  '/admin/settlements',
-  authorize('admin'),
-  validateBody(settlementCreateSchema),
-  asyncHandler(settlementController.create),
-);
-router.post(
-  '/admin/settlements/:id/confirm',
-  authorize('admin'),
-  asyncHandler(settlementController.confirm),
-);
-router.post(
-  '/admin/settlements/:id/resolve',
-  authorize('admin'),
-  validateBody(settlementResolveSchema),
-  asyncHandler(settlementController.resolve),
-);
-router.get('/admin/finance/summary', authorize('admin'), asyncHandler(financeController.summary));
-router.get(
-  '/admin/finance/transactions',
-  authorize('admin'),
-  asyncHandler(financeController.transactions),
-);
-router.get(
-  '/admin/cash-reconciliation',
-  authorize('admin'),
-  asyncHandler(settlementController.cash),
-);
-router.post(
-  '/admin/cash-commitments',
-  authorize('admin'),
-  validateBody(cashCommitmentSchema),
-  asyncHandler(settlementController.commitment),
-);
-router.get(
-  '/admin/financial-reports',
-  authorize('admin'),
-  asyncHandler(settlementController.reports),
-);
-router.get(
-  '/admin/providers/:id/financial-account',
-  authorize('admin'),
-  asyncHandler(walletController.adminProviderAccount),
-);
-router.post(
-  '/admin/providers/:id/adjustments',
-  authorize('admin'),
-  validateBody(walletAdjustmentSchema),
-  asyncHandler(walletController.adjust),
-);
+router.use('/admin', adminFinanceRoutes);
 router.patch(
   '/admin/mechanics/:id/verification',
   authorize('admin'),

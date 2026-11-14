@@ -17,7 +17,10 @@ export function AdminFinance() {
   const preset: FinancePreset = isFinancePreset(presetParam) ? presetParam : '30d';
   const customFrom = searchParams.get('from') || isoDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
   const customTo = searchParams.get('to') || isoDate(new Date());
-  const range = rangeForPreset(preset, customFrom, customTo);
+  const range = React.useMemo(
+    () => rangeForPreset(preset, customFrom, customTo),
+    [preset, customFrom, customTo],
+  );
   const payoutStatus = searchParams.get('status') ?? undefined;
 
   const update = (next: Record<string, string | undefined>) => {

@@ -7,7 +7,6 @@ import { EmptyState } from '@/components/empty-state';
 import { adminFinanceApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
 import { formatCedis } from '@/lib/currency';
-import { useToast } from '@/components/ui/toast';
 import type { FinanceSummaryDto } from '@/api/types';
 import { typeLabel, type FinanceTab } from '@/lib/finance-display';
 import { MoneyCard, StatusBadge } from './shared';
@@ -21,26 +20,30 @@ export function FinanceOverview({
   to: string;
   onNavigate: (tab: FinanceTab, status?: string) => void;
 }) {
-  const { toast } = useToast();
   const [summary, setSummary] = React.useState<FinanceSummaryDto | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     void adminFinanceApi
       .summary({ from, to })
       .then((data) => {
         if (!cancelled) setSummary(data);
       })
-      .catch((error) => {
+      .catch((err) => {
         if (!cancelled) {
           setSummary(null);
-          toast({
-            type: 'error',
-            title: 'Could not load finance overview',
-            description: error instanceof ApiClientError ? error.message : 'Try again',
-          });
+          const status = err instanceof ApiClientError ? err.status : 0;
+          setError(
+            status === 404
+              ? 'The finance API is not running on this server yet. Rebuild and restart the production API, then refresh.'
+              : err instanceof ApiClientError
+                ? err.message
+                : 'Try again',
+          );
         }
       })
       .finally(() => {
@@ -49,7 +52,7 @@ export function FinanceOverview({
     return () => {
       cancelled = true;
     };
-  }, [from, to, toast]);
+  }, [from, to]);
 
   if (loading) {
     return <p className="py-8 text-center text-sm text-muted-foreground">Loading overview…</p>;
@@ -59,7 +62,7 @@ export function FinanceOverview({
       <EmptyState
         icon={<AlertTriangle className="h-10 w-10" />}
         title="Finance data unavailable"
-        description="Administrator access is required."
+        description={error ?? 'Administrator access is required.'}
       />
     );
   }
