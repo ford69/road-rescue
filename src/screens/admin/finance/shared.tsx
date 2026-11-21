@@ -1,31 +1,21 @@
 import * as React from 'react';
-import { Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { formatCedis } from '@/lib/currency';
 import { statusLabel, statusVariant } from '@/lib/finance-display';
 import { FINANCE_PRESETS, type FinancePreset } from '@/lib/finance-range';
 
-export function Hint({ text }: { text: string }) {
-  return (
-    <span title={text} aria-label={text} className="inline-flex text-muted-foreground">
-      <Info className="h-3.5 w-3.5" />
-    </span>
-  );
-}
-
 export function MoneyCard({
   title,
   amount,
-  subtitle,
   hint,
   badge,
 }: {
   title: string;
   amount: number;
-  subtitle: string;
   hint?: string;
   badge?: React.ReactNode;
 }) {
@@ -33,14 +23,13 @@ export function MoneyCard({
     <Card>
       <div className="flex h-full flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
           <div className="flex items-center gap-1">
-            {badge}
-            {hint ? <Hint text={hint} /> : null}
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+            {hint ? <InfoTooltip text={hint} label={`About ${title}`} /> : null}
           </div>
+          {badge}
         </div>
         <p className="font-display text-2xl font-bold tracking-tight">{formatCedis(amount)}</p>
-        <p className="text-xs leading-5 text-muted-foreground">{subtitle}</p>
       </div>
     </Card>
   );

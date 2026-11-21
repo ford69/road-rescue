@@ -11,6 +11,7 @@ import { ApiClientError } from '@/api/client/http';
 import { formatCedis } from '@/lib/currency';
 import { useToast } from '@/components/ui/toast';
 import type { SettlementAwaitingItemDto, SettlementBatchDto } from '@/api/types';
+import { InfoHeading } from '@/components/ui/info-tooltip';
 import { StatusBadge } from './shared';
 
 export function FinanceSettlements({ initialStatus }: { initialStatus?: string }) {
@@ -160,15 +161,12 @@ export function FinanceSettlements({ initialStatus }: { initialStatus?: string }
     <div className="space-y-6">
       <Card>
         <div className="space-y-4 p-5">
-          <div>
-            <h2 className="font-display font-bold">Confirm a Paystack bank credit</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              This records a bank credit that already arrived. It does not send money and does not
-              use an internal company wallet. Select the matching Paystack charges, enter the amount
-              received, then confirm. Differences are flagged for review and are never silently
-              marked as settled.
-            </p>
-          </div>
+          <InfoHeading
+            className="font-display font-bold"
+            info="Records a bank credit that already arrived. It does not send money and does not use an internal company wallet. Select matching Paystack charges, enter the amount received, then confirm. Differences are flagged for review and are never silently marked as settled."
+          >
+            Confirm a Paystack bank credit
+          </InfoHeading>
           {loading && awaiting.length === 0 ? (
             <p className="text-sm text-muted-foreground">Loading pending charges…</p>
           ) : awaiting.length === 0 ? (

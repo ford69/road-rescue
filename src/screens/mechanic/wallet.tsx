@@ -11,6 +11,7 @@ import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/she
 import { walletApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
 import { formatGhs } from '@/lib/currency';
+import { InfoHeading, InfoTooltip, joinInfo } from '@/components/ui/info-tooltip';
 import { useToast } from '@/components/ui/toast';
 import type {
   PayoutMethodDto,
@@ -247,24 +248,39 @@ export function MechanicWallet() {
 
   return (
     <div className="space-y-5 pb-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">Wallet</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Deposits credit your available balance. Completing a job deducts {wallet.commissionPercent}%
-          commission from that balance.
-        </p>
-      </div>
+      <InfoHeading
+        as="h1"
+        className="font-display text-2xl font-bold tracking-tight"
+        info={joinInfo(
+          `Deposits credit your available balance. Completing a job deducts ${wallet.commissionPercent}% commission from that balance.`,
+          `Commission deducted so far: ${formatGhs(wallet.totalCommissionGhs, 2)}.`,
+        )}
+      >
+        Wallet
+      </InfoHeading>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Summary label="Available balance" value={formatGhs(wallet.availableGhs, 2)} />
-        <Summary label="Pending requests" value={formatGhs(pendingRequestGhs, 2)} />
-        <Summary label="Approved / processing" value={formatGhs(inPayoutGhs, 2)} />
-        <Summary label="Completed withdrawals" value={formatGhs(wallet.totalWithdrawnGhs, 2)} />
+        <Summary
+          label="Available balance"
+          value={formatGhs(wallet.availableGhs, 2)}
+          info="Prepaid deposit float minus commission and amounts set aside for approved payouts."
+        />
+        <Summary
+          label="Pending requests"
+          value={formatGhs(pendingRequestGhs, 2)}
+          info="Submitted withdrawals that have not been approved. They do not reduce available balance."
+        />
+        <Summary
+          label="Approved / processing"
+          value={formatGhs(inPayoutGhs, 2)}
+          info="Set aside from available balance until the transfer is confirmed or returned."
+        />
+        <Summary
+          label="Completed withdrawals"
+          value={formatGhs(wallet.totalWithdrawnGhs, 2)}
+          info="Payouts confirmed as sent to your bank or mobile money wallet."
+        />
       </div>
-      <p className="text-sm text-muted-foreground">
-        Commission deducted {formatGhs(wallet.totalCommissionGhs, 2)}. Pending requests do not reduce
-        available balance. Approved payouts are set aside until the transfer is confirmed or returned.
-      </p>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {tabs.map((item) => (
@@ -283,11 +299,12 @@ export function MechanicWallet() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <div className="space-y-3 p-5">
-              <h2 className="font-display font-bold">Deposit funds</h2>
-              <p className="text-sm text-muted-foreground">
-                Minimum {formatGhs(wallet.minDepositGhs)}. Currency is GHS. Paystack confirms the
-                amount on the server before your available balance changes.
-              </p>
+              <InfoHeading
+                className="font-display font-bold"
+                info={`Minimum ${formatGhs(wallet.minDepositGhs)}. Currency is GHS. Paystack confirms the amount on the server before your available balance changes.`}
+              >
+                Deposit funds
+              </InfoHeading>
               <Input
                 type="number"
                 min={wallet.minDepositGhs}
@@ -302,11 +319,12 @@ export function MechanicWallet() {
           </Card>
           <Card>
             <div className="space-y-3 p-5">
-              <h2 className="font-display font-bold">Withdraw</h2>
-              <p className="text-sm text-muted-foreground">
-                Withdraw from your available balance to a bank account or mobile money wallet.
-                Limits {formatGhs(wallet.minWithdrawalGhs)}–{formatGhs(wallet.maxWithdrawalGhs)}.
-              </p>
+              <InfoHeading
+                className="font-display font-bold"
+                info={`Withdraw from your available balance to a bank account or mobile money wallet. Limits ${formatGhs(wallet.minWithdrawalGhs)}–${formatGhs(wallet.maxWithdrawalGhs)}. Submitting a request does not reduce your balance until an administrator approves it.`}
+              >
+                Withdraw
+              </InfoHeading>
               {methods.length === 0 ? (
                 <Button variant="outline" onClick={() => setPayoutOpen(true)}>
                   <Plus className="h-4 w-4" />
@@ -540,12 +558,12 @@ export function MechanicWallet() {
                   <option value="airteltigo">AirtelTigo</option>
                 </select>
               )}
-              <p className="text-xs text-muted-foreground">
-                Use this destination to withdraw your available balance to bank or mobile money.
-              </p>
-              <Button disabled={busy} onClick={() => void savePayoutMethod()}>
-                Save destination
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button disabled={busy} onClick={() => void savePayoutMethod()}>
+                  Save destination
+                </Button>
+                <InfoTooltip text="Use this destination to withdraw your available balance to bank or mobile money." />
+              </div>
             </div>
           </SheetBody>
         </SheetContent>
@@ -554,11 +572,14 @@ export function MechanicWallet() {
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value, info }: { label: string; value: string; info?: string }) {
   return (
     <Card>
       <div className="p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <div className="flex items-center gap-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+          {info ? <InfoTooltip text={info} label={`About ${label}`} /> : null}
+        </div>
         <p className="mt-1 font-display text-xl font-bold">{value}</p>
       </div>
     </Card>

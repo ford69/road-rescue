@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCedis } from '@/lib/currency';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { useToast } from '@/components/ui/toast';
 import type { AdminProviderFinancialAccountDto } from '@/api/types';
 
@@ -75,9 +76,12 @@ export function ProviderFinancePanel({ mechanicId }: { mechanicId: string }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Provider finances
-      </p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Provider finances
+        </p>
+        <InfoTooltip text="Available is the provider deposit float. Funds set aside are reserved for approved payouts. Road Rescue earnings are commission deducted from jobs." />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Stat label="Available" value={formatCedis(account.wallet.availableGhs)} />
         <Stat label="Funds set aside" value={formatCedis(account.wallet.reservedGhs)} />
@@ -148,12 +152,12 @@ export function ProviderFinancePanel({ mechanicId }: { mechanicId: string }) {
       </div>
 
       <div className="space-y-2 border-t border-border pt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Correct a balance
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Use only for genuine corrections. This writes an immutable ledger adjustment.
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Correct a balance
+          </p>
+          <InfoTooltip text="Use only for genuine corrections. This writes an immutable ledger adjustment." />
+        </div>
         <Input
           placeholder="Amount in GHS (negative to deduct)"
           value={adjustAmount}

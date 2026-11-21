@@ -29,6 +29,7 @@ import { mechanicDisplayName, mechanicInitials, serviceTypeConfig } from '@/lib/
 import { DISPLAY_RATING } from '@/lib/ratings';
 import type { AdminDashboardDto, MechanicDto, ServiceTypeDto } from '@/api/types';
 import { MechanicVerificationSheet } from '@/components/admin/mechanic-verification-sheet';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 function PageHeader({
   title,
@@ -41,9 +42,9 @@ function PageHeader({
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+      <div className="flex items-center gap-1.5">
         <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <InfoTooltip text={description} label={`About ${title}`} />
       </div>
       {action}
     </div>

@@ -9,6 +9,7 @@ import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/she
 import { providerServicesApi } from '@/api/repositories';
 import { ApiClientError } from '@/api/client/http';
 import { formatGhs } from '@/lib/currency';
+import { InfoHeading, InfoTooltip } from '@/components/ui/info-tooltip';
 import { formatPricingLabel, pricingModelLabel } from '@/lib/pricing';
 import { useToast } from '@/components/ui/toast';
 import type {
@@ -195,12 +196,13 @@ export function MechanicServicesPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">Services & Pricing</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Choose the Road Rescue services you offer and set your own Ghana Cedis prices.
-        </p>
-      </div>
+      <InfoHeading
+        as="h1"
+        className="font-display text-2xl font-bold tracking-tight"
+        info="Choose the Road Rescue services you offer and set your own Ghana Cedis prices."
+      >
+        Services & Pricing
+      </InfoHeading>
 
       <Input
         icon={<Search className="h-4 w-4" />}
@@ -255,8 +257,10 @@ export function MechanicServicesPage() {
                     }`}
                     onClick={() => setForm((current) => ({ ...current, pricingModel: option.id }))}
                   >
-                    <p className="font-semibold">{option.label}</p>
-                    <p className="text-xs text-muted-foreground">{option.hint}</p>
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      {option.label}
+                      <InfoTooltip text={option.hint} />
+                    </p>
                   </button>
                 ))}
               </div>

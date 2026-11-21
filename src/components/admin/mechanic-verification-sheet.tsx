@@ -67,7 +67,7 @@ export function MechanicVerificationSheet({
       <SheetContent side="bottom" className="max-h-[92vh]">
         <SheetHeader
           title="Provider verification"
-          description="Review application details before approving or rejecting."
+          info="Review application details before approving or rejecting."
           onClose={onClose}
         />
         <SheetBody>

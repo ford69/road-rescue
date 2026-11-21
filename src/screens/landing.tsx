@@ -63,7 +63,7 @@ const services = [
     description: 'On-site help for common breakdowns.',
     accent: 'from-warning/25 to-warning/5',
     layout: 'lg:col-span-1',
-    image: SERVICE_IMAGES.battery,
+    image: SERVICE_IMAGES.generalRepair,
   },
 ];
 
@@ -120,7 +120,7 @@ const trustPoints = [
     icon: MapPin,
     title: 'Live tracking',
     description: 'See exactly where help is and when it will arrive.',
-    image: SERVICE_IMAGES.accidentSupport,
+    image: SERVICE_IMAGES.liveTracking,
   },
   {
     icon: Wrench,
@@ -268,7 +268,7 @@ export function LandingPage() {
         </section>
 
         {/* Full-bleed image strip */}
-        <section className="relative h-56 overflow-hidden sm:h-72 lg:h-80" aria-label="Road Rescue in action">
+        {/* <section className="relative h-56 overflow-hidden sm:h-72 lg:h-80" aria-label="Road Rescue in action">
           <MarketingPhoto
             src={SERVICE_IMAGES.lockout.src}
             position={SERVICE_IMAGES.lockout.position}
@@ -283,7 +283,7 @@ export function LandingPage() {
               </p>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Services — bento grid */}
         <Section
@@ -409,8 +409,8 @@ export function LandingPage() {
           variant="dark"
           background={
             <MarketingPhoto
-              src={SERVICE_IMAGES.towing.src}
-              position={SERVICE_IMAGES.towing.position}
+              src={BRAND_ASSETS.sectionImage1}
+              position={BRAND_ASSETS.sectionImage1}
               overlay="blue"
               className="pointer-events-none absolute inset-0 opacity-50"
             />

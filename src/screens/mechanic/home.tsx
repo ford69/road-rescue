@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/status-chip';
@@ -305,17 +306,23 @@ export function MechanicHome({
         <div className="flex items-center justify-between gap-4 p-4">
           <div className="grid flex-1 grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Available
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Available
+                </p>
+                <InfoTooltip text="Prepaid deposit float minus commission and amounts set aside for approved payouts." />
+              </div>
               <p className="mt-1 font-display text-xl font-bold">
                 {formatGhs(wallet?.availableGhs ?? 0, 2)}
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Commission deducted
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Commission deducted
+                </p>
+                <InfoTooltip text="Taken from available balance when you complete a job." />
+              </div>
               <p className="mt-1 font-display text-xl font-bold">
                 {formatGhs(wallet?.totalCommissionGhs ?? 0, 2)}
               </p>

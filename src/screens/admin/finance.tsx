@@ -7,6 +7,7 @@ import { FinancePayouts } from './finance/payouts';
 import { FinanceSettlements } from './finance/settlements';
 import { FinanceTransactions } from './finance/transactions';
 import { FINANCE_TABS, isFinanceTab, type FinanceTab } from '@/lib/finance-display';
+import { InfoHeading } from '@/components/ui/info-tooltip';
 import { FinanceRangePicker } from './finance/shared';
 
 export function AdminFinance() {
@@ -35,13 +36,13 @@ export function AdminFinance() {
   return (
     <div className="space-y-5 pb-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">Finance</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            See money collected, what belongs to providers, what Road Rescue has earned, and what
-            still needs your attention.
-          </p>
-        </div>
+        <InfoHeading
+          as="h1"
+          className="font-display text-2xl font-bold tracking-tight"
+          info="Money collected, amounts owed to providers, Road Rescue earnings, and items that still need attention."
+        >
+          Finance
+        </InfoHeading>
         {(tab === 'overview' || tab === 'transactions') && (
           <FinanceRangePicker
             preset={preset}

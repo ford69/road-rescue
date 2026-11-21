@@ -11,6 +11,7 @@ import { ApiClientError } from '@/api/client/http';
 import { formatCedis } from '@/lib/currency';
 import { useToast } from '@/components/ui/toast';
 import type { WalletWithdrawalDto } from '@/api/types';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { StatusBadge } from './shared';
 
 const STATUSES = [
@@ -120,12 +121,7 @@ export function FinancePayouts({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        A pending request does not move money. Approval sets the amount aside from the provider’s
-        available balance. Mark it completed only after the bank or mobile-money transfer has been
-        sent.
-      </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {STATUSES.map((item) => (
           <Button
             key={item.id || 'all'}
@@ -139,6 +135,10 @@ export function FinancePayouts({
             {item.label}
           </Button>
         ))}
+        <InfoTooltip
+          text="A pending request does not move money. Approval sets the amount aside from the provider’s available balance. Mark it completed only after the bank or mobile-money transfer has been sent."
+          label="About provider payouts"
+        />
       </div>
       <div className="flex gap-2">
         <Input

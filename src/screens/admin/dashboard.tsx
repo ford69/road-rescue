@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/status-chip';
 import { MapView } from '@/components/map-view';
 import { EmptyState } from '@/components/empty-state';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { formatGhs } from '@/lib/currency';
 import { serviceTypeConfig, mechanicDisplayName, mechanicInitials } from '@/lib/service-config';
 import { DISPLAY_RATING } from '@/lib/ratings';
@@ -97,11 +98,9 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h1 className="font-display text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time overview of Road Rescue Ghana
-          </p>
+          <InfoTooltip text="Real-time overview of Road Rescue Ghana." />
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="md">

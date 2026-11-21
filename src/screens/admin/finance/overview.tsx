@@ -9,6 +9,7 @@ import { ApiClientError } from '@/api/client/http';
 import { formatCedis } from '@/lib/currency';
 import type { FinanceSummaryDto } from '@/api/types';
 import { typeLabel, type FinanceTab } from '@/lib/finance-display';
+import { InfoHeading, InfoTooltip, joinInfo } from '@/components/ui/info-tooltip';
 import { MoneyCard, StatusBadge } from './shared';
 
 export function FinanceOverview({
@@ -67,17 +68,19 @@ export function FinanceOverview({
     );
   }
 
-  const collectedParts = [
+  const collectedHint = joinInfo(
+    'Successful Paystack charges in this period. Failed or reversed payments are excluded.',
     summary.collected.providerDepositCount
-      ? `${formatCedis(summary.collected.providerDepositsGhs)} in provider deposits`
+      ? `${formatCedis(summary.collected.providerDepositsGhs)} in provider deposits.`
       : null,
     summary.collected.customerPaymentCount
-      ? `${formatCedis(summary.collected.customerPaymentsGhs)} in in-app customer payments`
+      ? `${formatCedis(summary.collected.customerPaymentsGhs)} in in-app customer payments.`
       : null,
-    `Confirmed in the bank: ${formatCedis(summary.collected.confirmedBankReceiptsGhs)}`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+    `Confirmed in the bank: ${formatCedis(summary.collected.confirmedBankReceiptsGhs)}.`,
+    summary.collected.directJobCount > 0
+      ? `Customers also paid providers ${formatCedis(summary.collected.directCustomerPaymentsGhs)} directly on ${summary.collected.directJobCount} jobs. That money never entered the company bank account.`
+      : null,
+  );
 
   return (
     <div className="space-y-6">
@@ -85,28 +88,32 @@ export function FinanceOverview({
         <MoneyCard
           title="Total collected"
           amount={summary.collected.totalGhs}
-          subtitle={collectedParts}
-          hint="Successful Paystack charges in this period. Failed or reversed payments are excluded. Confirmed bank receipts are money that has already arrived in the company account."
+          hint={collectedHint}
           badge={<Badge variant="subtle">{summary.collected.count} payments</Badge>}
         />
         <MoneyCard
           title="Provider earnings"
           amount={summary.providerEarnings.totalGhs}
-          subtitle={`Available ${formatCedis(summary.providerEarnings.availableGhs)} · Set aside ${formatCedis(summary.providerEarnings.setAsideGhs)} · Awaiting bank ${formatCedis(summary.providerEarnings.awaitingBankConfirmationGhs)}`}
-          hint="Current outstanding provider balances. This is not filtered by date. Paid-out amounts are excluded."
+          hint={joinInfo(
+            'Current outstanding provider balances. This is not filtered by date. Paid-out amounts are excluded.',
+            `Available ${formatCedis(summary.providerEarnings.availableGhs)}.`,
+            `Set aside ${formatCedis(summary.providerEarnings.setAsideGhs)}.`,
+            `Awaiting bank ${formatCedis(summary.providerEarnings.awaitingBankConfirmationGhs)}.`,
+          )}
           badge={<Badge variant="subtle">Current</Badge>}
         />
         <MoneyCard
           title="Road Rescue earnings"
           amount={summary.roadRescueEarnings.totalGhs}
-          subtitle={`${summary.commissionPercent}% commission on ${summary.roadRescueEarnings.jobCount} jobs. Provider funds are not included.`}
-          hint="Platform commission using the configured rate. Reversals in this period are already subtracted."
+          hint={`${summary.commissionPercent}% platform commission on ${summary.roadRescueEarnings.jobCount} jobs. Provider funds are not included. Reversals in this period are already subtracted.`}
         />
         <MoneyCard
           title="Awaiting settlement"
           amount={summary.awaitingSettlement.totalGhs}
-          subtitle={`${summary.awaitingSettlement.transactionCount} Paystack charges still waiting for bank confirmation${summary.awaitingSettlement.openBatchCount ? ` · ${summary.awaitingSettlement.openBatchCount} batches open` : ''}.`}
-          hint="Money Paystack has charged but that has not yet been matched to a bank credit."
+          hint={joinInfo(
+            'Money Paystack has charged but that has not yet been matched to a bank credit.',
+            `${summary.awaitingSettlement.transactionCount} charges waiting${summary.awaitingSettlement.openBatchCount ? ` · ${summary.awaitingSettlement.openBatchCount} batches open` : ''}.`,
+          )}
           badge={
             summary.awaitingSettlement.discrepancyCount > 0 ? (
               <Badge variant="critical">{summary.awaitingSettlement.discrepancyCount} mismatch</Badge>
@@ -120,31 +127,23 @@ export function FinanceOverview({
         <MoneyCard
           title="Provider payments completed"
           amount={summary.providerPayments.totalGhs}
-          subtitle={
+          hint={joinInfo(
+            'Only payouts confirmed as sent. Approved or processing requests are not counted here.',
             summary.providerPayments.inProgressCount
-              ? `${summary.providerPayments.count} paid · ${summary.providerPayments.inProgressCount} still being sent`
-              : `${summary.providerPayments.count} completed payouts`
-          }
-          hint="Only payouts confirmed as sent. Approved or processing requests are not counted here."
+              ? `${summary.providerPayments.count} paid · ${summary.providerPayments.inProgressCount} still being sent.`
+              : `${summary.providerPayments.count} completed payouts.`,
+          )}
         />
       </div>
 
-      {summary.collected.directJobCount > 0 && (
-        <p className="text-sm text-muted-foreground">
-          Customers also paid providers {formatCedis(summary.collected.directCustomerPaymentsGhs)}{' '}
-          directly on {summary.collected.directJobCount} jobs. That money never entered the company
-          bank account.
-        </p>
-      )}
-
       <Card>
         <div className="space-y-4 p-5">
-          <div>
-            <h2 className="font-display font-bold">Needs attention</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Only items that still need an administrator to act.
-            </p>
-          </div>
+          <InfoHeading
+            className="font-display font-bold"
+            info="Only items that still need an administrator to act."
+          >
+            Needs attention
+          </InfoHeading>
           {summary.needsAttention.length === 0 ? (
             <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-4 py-3 text-sm">
               <CheckCircle2 className="h-4 w-4 text-success-500" />
@@ -163,8 +162,8 @@ export function FinanceOverview({
                       <Badge variant={item.severity === 'critical' ? 'critical' : 'warning'}>
                         {item.count} {item.count === 1 ? 'item' : 'items'}
                       </Badge>
+                      <InfoTooltip text={item.description} />
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
                     <p className="mt-1 text-sm font-medium">{formatCedis(item.amountGhs)}</p>
                   </div>
                   <Button

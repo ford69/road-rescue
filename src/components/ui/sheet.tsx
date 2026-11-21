@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 interface SheetContextValue {
   open: boolean;
@@ -92,11 +93,13 @@ export function SheetContent({
 export function SheetHeader({
   title,
   description,
+  info,
   onClose,
   className,
 }: {
   title: string;
   description?: string;
+  info?: string;
   onClose?: () => void;
   className?: string;
 }) {
@@ -105,9 +108,12 @@ export function SheetHeader({
     <div className={cn('px-5 pb-3 shrink-0', className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="font-display text-xl font-bold tracking-tight">
-            {title}
-          </h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="font-display text-xl font-bold tracking-tight">
+              {title}
+            </h2>
+            {info ? <InfoTooltip text={info} label={`About ${title}`} /> : null}
+          </div>
           {description && (
             <p className="text-sm text-muted-foreground">{description}</p>
           )}
